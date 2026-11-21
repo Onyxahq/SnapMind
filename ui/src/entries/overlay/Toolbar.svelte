@@ -131,6 +131,7 @@
           onchange={(v) => onopts(tool!, { sub: Number(v) })}
         />
       {/if}
+      {#if TOOL_INFO[tool].colors}
       <div class="colors">
         {#each COLORS as c, i (c.value)}
           <button
@@ -144,8 +145,9 @@
           ></button>
         {/each}
       </div>
+      {/if}
       <div class="sizes">
-        <span class="lbl">粗细</span>
+        <span class="lbl">{tool === 'text' ? '字号' : tool === 'mosaic' ? '强度' : '粗细'}</span>
         {#each SIZES as s, i (s)}
           <button
             type="button"

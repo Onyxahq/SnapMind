@@ -1,7 +1,7 @@
 <script lang="ts">
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
-  // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注。
+  // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -48,8 +48,11 @@
   } from '$lib/selection';
   import Selection from './Selection.svelte';
   import AnnotationLayer from './AnnotationLayer.svelte';
+  import TextEditor from './TextEditor.svelte';
   import {
     COLORS,
+    FONT_SIZES,
+    MOSAIC_SIZES,
     SIZES,
     TOOL_INFO,
     addPoint,
@@ -58,11 +61,14 @@
     defaultOpts,
     emptyDoc,
     hitShape,
+    measureText,
     nextNumber,
+    textAt,
     toolForKey,
     undo as undoDoc,
     type Doc,
     type Shape,
+    type TextShape,
     type Tool,
     type ToolOpts,
   } from '$lib/annotate';
@@ -86,7 +92,8 @@
     | { kind: 'move'; start: Rect; p0: Point }
     | { kind: 'resize'; handle: Handle; start: Rect; p0: Point }
     | { kind: 'draw' }
-    | { kind: 'erase'; removed: Shape[] };
+    | { kind: 'erase'; removed: Shape[] }
+    | { kind: 'moveText'; orig: TextShape; cur: TextShape; p0: Point; moved: boolean };
   // raw：拖动过程中只整体替换，不需要深层响应
   let drag = $state.raw<Drag | null>(null);
   let hover = $state<Hit>(null);
@@ -109,10 +116,18 @@
   let draft = $state.raw<Shape | null>(null);
   let propsOpen = $state(false);
   let shapeSeq = 0;
-  /** 橡皮擦一笔划过时先藏起来、松手后一次删除（一步撤销）。 */
+  /** 正在编辑的文字；original 是被重新编辑的已有文字（新建时为 null）。 */
+  let editing = $state.raw<{ shape: TextShape; original: TextShape | null } | null>(null);
+  /** 画布上显示的形状：橡皮擦划过的先藏起来（松手后一次删除），拖动中的文字显示新位置，
+   *  正在编辑的文字由编辑框显示。 */
   const visibleShapes = $derived.by(() => {
     const d = drag;
-    return d?.kind === 'erase' ? doc.shapes.filter((s) => !d.removed.includes(s)) : doc.shapes;
+    let list = doc.shapes;
+    if (d?.kind === 'erase') list = list.filter((s) => !d.removed.includes(s));
+    if (d?.kind === 'moveText') list = list.map((s) => (s.id === d.orig.id ? d.cur : s));
+    const ed = editing;
+    if (ed?.original) list = list.filter((s) => s.id !== ed.original!.id);
+    return list;
   });
 
   /** 吸附链（本屏像素，从内到外）和当前高亮的层级。只在还没有选区时生效。 */
@@ -170,7 +185,7 @@
       !saveOpen &&
       sel.width > 0 &&
       sel.height > 0 &&
-      (!drag || drag.kind === 'draw' || drag.kind === 'erase'),
+      (!drag || drag.kind === 'draw' || drag.kind === 'erase' || drag.kind === 'moveText'),
   );
   const selOnlyCss = $derived(sel ? cssRect(sel) : null);
 
@@ -228,6 +243,7 @@
     propsOpen = false;
     doc = emptyDoc();
     draft = null;
+    editing = null;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
     frameReady = false;
     src = url ?? `${convertFileSrc(String(s.index), 'snapframe')}?s=${s.seq}`;
@@ -256,6 +272,7 @@
     propsOpen = false;
     doc = emptyDoc();
     draft = null;
+    editing = null;
     frameReady = false;
     src = '';
   }
@@ -345,7 +362,14 @@
   function onDown(e: PointerEvent) {
     if (!session || e.button !== 0) return;
     const p = toPx(e.clientX, e.clientY);
+    if (editing) {
+      // 点别处：提交正在编辑的文字（编辑框失焦也会提交，提交是幂等的）
+      commitText();
+      return;
+    }
     if (tool && sel) {
+      // 阻止默认的焦点切换：否则刚建好的文字编辑框会立刻失焦、被当成空文字丢掉
+      e.preventDefault();
       propsOpen = false;
       startDraw(clampToSel(p), e.shiftKey);
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
@@ -392,6 +416,13 @@
       case 'erase':
         continueDraw(clampToSel(p), e.shiftKey);
         break;
+      case 'moveText': {
+        const dx = p.x - drag.p0.x, dy = p.y - drag.p0.y;
+        if (!drag.moved && Math.hypot(dx, dy) < CLICK_SLOP * mon.scale) return;
+        const at = { x: drag.orig.at.x + dx, y: drag.orig.at.y + dy };
+        drag = { ...drag, moved: true, cur: { ...drag.orig, at } };
+        break;
+      }
     }
   }
 
@@ -399,6 +430,14 @@
     if (!drag) return;
     if (drag.kind === 'draw' || drag.kind === 'erase') {
       endDraw();
+      return;
+    }
+    if (drag.kind === 'moveText') {
+      const d = drag;
+      drag = null;
+      // 拖动了就是移动；没动就是点一下，进入编辑
+      if (d.moved) doc = apply(doc, { type: 'replace', before: d.orig, after: d.cur });
+      else editing = { shape: d.orig, original: d.orig };
       return;
     }
     if (drag.kind === 'create' && !drag.moved) {
@@ -441,6 +480,7 @@
   /** 进入标注模式（还没有选区时先选中悬停的元素或整屏）。 */
   function setTool(t: Tool) {
     if (!session) return;
+    if (t !== 'text') commitText();
     if (!sel) sel = region();
     tool = t;
     lastTool = t;
@@ -448,12 +488,41 @@
   }
 
   function exitAnnotate() {
+    commitText();
     tool = null;
     propsOpen = false;
   }
 
   function setOpts(t: Tool, o: Partial<ToolOpts>) {
     opts = { ...opts, [t]: { ...opts[t], ...o } };
+    // 编辑文字时改颜色 / 字号，立即作用到正在编辑的文字
+    if (t === 'text' && editing) {
+      editing = {
+        ...editing,
+        shape: { ...editing.shape, color: COLORS[opts.text.color].value, width: FONT_SIZES[opts.text.size] * mon.scale },
+      };
+    }
+  }
+
+  /** 提交正在编辑的文字：空文字丢弃（重新编辑的已有文字被清空则删除），内容或样式有变化才记一步。 */
+  function commitText() {
+    const ed = editing;
+    if (!ed) return;
+    editing = null;
+    const text = ed.shape.text.replace(/\s+$/, '');
+    if (!text) {
+      if (ed.original) doc = apply(doc, { type: 'remove', shapes: [ed.original] });
+      return;
+    }
+    const after: TextShape = { ...ed.shape, text, box: measureText(text, ed.shape.width) };
+    if (!ed.original) {
+      doc = apply(doc, { type: 'add', shapes: [after] });
+      return;
+    }
+    const o = ed.original;
+    if (o.text !== text || o.color !== after.color || o.width !== after.width) {
+      doc = apply(doc, { type: 'replace', before: o, after });
+    }
   }
 
   function undo() {
@@ -485,6 +554,34 @@
         draft = { id, kind: 'pen', highlighter: opts.pen.sub === 1, points: [p], ...style('pen') };
         drag = { kind: 'draw' };
         break;
+      case 'mosaic':
+        draft = {
+          id,
+          kind: 'mosaic',
+          blur: opts.mosaic.sub === 1,
+          a: p,
+          b: p,
+          color: '',
+          width: MOSAIC_SIZES[opts.mosaic.size] * mon.scale,
+        };
+        drag = { kind: 'draw' };
+        break;
+      case 'text': {
+        const hit = textAt(doc.shapes, p, 4 * mon.scale);
+        if (hit) {
+          // 按在已有文字上：拖动则移动，单击则编辑
+          drag = { kind: 'moveText', orig: hit, cur: hit, p0: p, moved: false };
+          break;
+        }
+        const width = FONT_SIZES[opts.text.size] * mon.scale;
+        // 让第一行文字的竖直中心落在点击处
+        const at = { x: p.x, y: p.y - (width * 1.3) / 2 };
+        editing = {
+          shape: { id, kind: 'text', text: '', at, color: COLORS[opts.text.color].value, width, box: { w: 0, h: 0 } },
+          original: null,
+        };
+        break;
+      }
       case 'number': {
         // 序号单击即放下，不需要拖动
         const shape: Shape = { id, kind: 'number', n: nextNumber(doc.shapes), at: p, ...style('number') };
@@ -512,6 +609,9 @@
       case 'arrow':
         draft = { ...draft, b: shift ? constrain(draft.kind, drawStart, p) : p };
         break;
+      case 'mosaic':
+        draft = { ...draft, b: shift ? constrain('rect', drawStart, p) : p };
+        break;
       case 'pen':
         draft = { ...draft, points: addPoint(draft.points, p, mon.scale) };
         break;
@@ -525,7 +625,7 @@
     } else if (draft) {
       // 太小的形状（误触）不保留
       const tiny =
-        (draft.kind === 'rect' || draft.kind === 'arrow') &&
+        (draft.kind === 'rect' || draft.kind === 'arrow' || draft.kind === 'mosaic') &&
         Math.hypot(draft.b.x - draft.a.x, draft.b.y - draft.a.y) < 3 * mon.scale;
       if (!tiny) doc = apply(doc, { type: 'add', shapes: [draft] });
     }
@@ -538,6 +638,7 @@
   function onKey(e: KeyboardEvent) {
     if (!session) return;
     // Esc 逐级退出：弹层 → 保存窗口 → 标注 → 截图（长截图 / 录屏、结果卡片随后续任务插入）
+    if (editing) return; // 打字时快捷键交给编辑框
     if (e.key === 'Escape') {
       e.preventDefault();
       if (propsOpen) propsOpen = false;
@@ -655,7 +756,15 @@
   <img bind:this={img} {src} alt="" draggable="false" crossorigin="anonymous" />
   <div class="scrim" class:snapping={!sel && !drag} style:clip-path={scrimClip}></div>
   {#if sel}
-    <AnnotationLayer shapes={visibleShapes} {draft} clip={sel} {mon} />
+    <AnnotationLayer shapes={visibleShapes} {draft} clip={sel} {mon} src={img} />
+  {/if}
+  {#if editing}
+    <TextEditor
+      shape={editing.shape}
+      scale={mon.scale}
+      oninput={(text) => editing && (editing = { ...editing, shape: { ...editing.shape, text } })}
+      oncommit={commitText}
+    />
   {/if}
   {#if selCss}
     <Selection

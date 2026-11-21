@@ -3,20 +3,21 @@
 
 import type { Point } from './geometry';
 
-/** 工具，顺序即快捷键 1–7。text、mosaic 在 M2.2 实现。 */
+/** 工具，顺序即快捷键 1–7。 */
 export type Tool = 'rect' | 'pen' | 'arrow' | 'text' | 'number' | 'mosaic' | 'eraser';
 export const TOOLS: Tool[] = ['rect', 'pen', 'arrow', 'text', 'number', 'mosaic', 'eraser'];
 /** 当前已实现、出现在工具条上的工具。 */
-export const READY_TOOLS: Tool[] = ['rect', 'pen', 'arrow', 'number', 'eraser'];
+export const READY_TOOLS: Tool[] = ['rect', 'pen', 'arrow', 'text', 'number', 'mosaic', 'eraser'];
 
-export const TOOL_INFO: Record<Tool, { label: string; subs: string[] | null; props: boolean }> = {
-  rect: { label: '矩形', subs: ['矩形', '椭圆'], props: true },
-  pen: { label: '画笔', subs: ['画笔', '荧光笔'], props: true },
-  arrow: { label: '箭头', subs: ['箭头', '直线'], props: true },
-  text: { label: '文字', subs: null, props: true },
-  number: { label: '序号', subs: null, props: true },
-  mosaic: { label: '马赛克', subs: ['马赛克', '模糊'], props: true },
-  eraser: { label: '橡皮擦', subs: null, props: false },
+/** props：有没有样式弹层；colors：弹层里有没有颜色（马赛克 / 模糊没有颜色）。 */
+export const TOOL_INFO: Record<Tool, { label: string; subs: string[] | null; props: boolean; colors: boolean }> = {
+  rect: { label: '矩形', subs: ['矩形', '椭圆'], props: true, colors: true },
+  pen: { label: '画笔', subs: ['画笔', '荧光笔'], props: true, colors: true },
+  arrow: { label: '箭头', subs: ['箭头', '直线'], props: true, colors: true },
+  text: { label: '文字', subs: null, props: true, colors: true },
+  number: { label: '序号', subs: null, props: true, colors: true },
+  mosaic: { label: '马赛克', subs: ['马赛克', '模糊'], props: true, colors: false },
+  eraser: { label: '橡皮擦', subs: null, props: false, colors: false },
 };
 
 export const COLORS: { value: string; label: string }[] = [
@@ -29,6 +30,13 @@ export const COLORS: { value: string; label: string }[] = [
 ];
 /** 三档粗细（CSS 像素，存储时乘以显示器缩放）。 */
 export const SIZES = [2, 4, 6];
+/** 文字的三档字号（CSS 像素）。 */
+export const FONT_SIZES = [16, 22, 30];
+/** 马赛克方块边长 / 模糊半径的三档（CSS 像素）。 */
+export const MOSAIC_SIZES = [6, 10, 16];
+export const TEXT_FONT = "500 {px}px Inter, 'Segoe UI', 'Microsoft YaHei UI', sans-serif";
+export const TEXT_LINE_HEIGHT = 1.3;
+export const textFont = (px: number) => TEXT_FONT.replace('{px}', String(px));
 
 /** 每个工具记住自己的子类型、颜色和粗细。 */
 export interface ToolOpts {
@@ -59,7 +67,13 @@ export type Shape =
   | (Base & { kind: 'rect'; ellipse: boolean; a: Point; b: Point })
   | (Base & { kind: 'pen'; highlighter: boolean; points: Point[] })
   | (Base & { kind: 'arrow'; line: boolean; a: Point; b: Point })
-  | (Base & { kind: 'number'; n: number; at: Point });
+  | (Base & { kind: 'number'; n: number; at: Point })
+  /** 文字：at 为左上角；width 字段存字号；box 是提交时量出的尺寸（命中测试用） */
+  | (Base & { kind: 'text'; text: string; at: Point; box: { w: number; h: number } })
+  /** 马赛克 / 模糊：width 字段存方块边长或模糊半径；基于截图真实像素绘制 */
+  | (Base & { kind: 'mosaic'; blur: boolean; a: Point; b: Point });
+
+export type TextShape = Extract<Shape, { kind: 'text' }>;
 
 /** 按住 Shift：矩形变正方形 / 圆，直线吸附到 45° 的倍数。 */
 export function constrain(kind: 'rect' | 'arrow', a: Point, b: Point): Point {
@@ -135,13 +149,36 @@ export function hitShape(s: Shape, p: Point, tol: number): boolean {
       return distToSegment(p, s.a, s.b) <= t;
     case 'number':
       return Math.hypot(p.x - s.at.x, p.y - s.at.y) <= numberRadius(s.width) + tol;
+    case 'text':
+      return (
+        p.x >= s.at.x - tol && p.x <= s.at.x + s.box.w + tol && p.y >= s.at.y - tol && p.y <= s.at.y + s.box.h + tol
+      );
+    case 'mosaic': {
+      // 马赛克是实心的，整块区域都算
+      const x1 = Math.min(s.a.x, s.b.x), x2 = Math.max(s.a.x, s.b.x);
+      const y1 = Math.min(s.a.y, s.b.y), y2 = Math.max(s.a.y, s.b.y);
+      return p.x >= x1 - tol && p.x <= x2 + tol && p.y >= y1 - tol && p.y <= y2 + tol;
+    }
   }
+}
+
+/** 在若干形状里找最上面（最后画的）一个被点中的文字。 */
+export function textAt(shapes: Shape[], p: Point, tol: number): TextShape | null {
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    const s = shapes[i];
+    if (s.kind === 'text' && hitShape(s, p, tol)) return s;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- 历史
 
-/** 一步操作：添加若干形状或删除若干形状。撤销就是反向执行最后一步。 */
-export type Op = { type: 'add'; shapes: Shape[] } | { type: 'remove'; shapes: Shape[] };
+/** 一步操作：添加 / 删除若干形状，或把一个形状换成修改后的版本（改文字、拖动文字）。
+ * 撤销就是反向执行最后一步。 */
+export type Op =
+  | { type: 'add'; shapes: Shape[] }
+  | { type: 'remove'; shapes: Shape[] }
+  | { type: 'replace'; before: Shape; after: Shape };
 
 export interface Doc {
   shapes: Shape[];
@@ -151,6 +188,10 @@ export interface Doc {
 export const emptyDoc = (): Doc => ({ shapes: [], history: [] });
 
 export function apply(doc: Doc, op: Op): Doc {
+  if (op.type === 'replace') {
+    if (op.before === op.after) return doc;
+    return { shapes: doc.shapes.map((s) => (s.id === op.before.id ? op.after : s)), history: [...doc.history, op] };
+  }
   if (op.shapes.length === 0) return doc;
   const ids = new Set(op.shapes.map((s) => s.id));
   const shapes = op.type === 'add' ? [...doc.shapes, ...op.shapes] : doc.shapes.filter((s) => !ids.has(s.id));
@@ -160,6 +201,9 @@ export function apply(doc: Doc, op: Op): Doc {
 export function undo(doc: Doc): Doc {
   const op = doc.history[doc.history.length - 1];
   if (!op) return doc;
+  if (op.type === 'replace') {
+    return { shapes: doc.shapes.map((s) => (s.id === op.after.id ? op.before : s)), history: doc.history.slice(0, -1) };
+  }
   const ids = new Set(op.shapes.map((s) => s.id));
   // 删除的形状按原来的先后顺序放回去（按 id 排序即创建顺序）
   const shapes =
@@ -171,8 +215,51 @@ export function undo(doc: Doc): Doc {
 
 // ---------------------------------------------------------------- 绘制
 
-/** 把形状画到画布上。k = 画布像素 / 截图物理像素。 */
-export function drawShape(g: CanvasRenderingContext2D, s: Shape, k: number): void {
+/** 马赛克用的小画布（复用，避免每帧新建）。 */
+let scratch: HTMLCanvasElement | OffscreenCanvas | null = null;
+function scratchCanvas(w: number, h: number) {
+  if (!scratch) scratch = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : document.createElement('canvas');
+  if (scratch.width < w) scratch.width = w;
+  if (scratch.height < h) scratch.height = h;
+  return scratch;
+}
+
+/** 马赛克 / 模糊：从截图（src，像素坐标与形状一致）取真实像素处理后画到区域里。 */
+function drawMosaic(g: CanvasRenderingContext2D, s: Extract<Shape, { kind: 'mosaic' }>, src: CanvasImageSource, k: number) {
+  const x = Math.round(Math.min(s.a.x, s.b.x)), y = Math.round(Math.min(s.a.y, s.b.y));
+  const w = Math.round(Math.abs(s.b.x - s.a.x)), h = Math.round(Math.abs(s.b.y - s.a.y));
+  if (w < 1 || h < 1) return;
+  g.save();
+  g.beginPath();
+  g.rect(x * k, y * k, w * k, h * k);
+  g.clip();
+  if (s.blur) {
+    // 模糊：多取一圈像素再模糊，避免边缘发虚透明
+    const r = s.width;
+    g.filter = `blur(${r * k}px)`;
+    g.drawImage(src, x - r, y - r, w + 2 * r, h + 2 * r, (x - r) * k, (y - r) * k, (w + 2 * r) * k, (h + 2 * r) * k);
+  } else {
+    // 马赛克：先缩小（每个方块取平均色），再不平滑地放大
+    const block = Math.max(2, Math.round(s.width));
+    const sw = Math.ceil(w / block), sh = Math.ceil(h / block);
+    const c = scratchCanvas(sw, sh);
+    const cg = c.getContext('2d') as CanvasRenderingContext2D;
+    cg.imageSmoothingEnabled = true;
+    cg.imageSmoothingQuality = 'medium';
+    cg.clearRect(0, 0, sw, sh);
+    cg.drawImage(src, x, y, sw * block, sh * block, 0, 0, sw, sh);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(c as CanvasImageSource, 0, 0, sw, sh, x * k, y * k, sw * block * k, sh * block * k);
+  }
+  g.restore();
+}
+
+/** 把形状画到画布上。k = 画布像素 / 截图物理像素；src 是冻结帧（马赛克 / 模糊要用真实像素）。 */
+export function drawShape(g: CanvasRenderingContext2D, s: Shape, k: number, src?: CanvasImageSource): void {
+  if (s.kind === 'mosaic') {
+    if (src) drawMosaic(g, s, src, k);
+    return;
+  }
   g.save();
   g.scale(k, k);
   g.strokeStyle = s.color;
@@ -243,6 +330,25 @@ export function drawShape(g: CanvasRenderingContext2D, s: Shape, k: number): voi
       g.fillText(String(s.n), s.at.x, s.at.y + r * 0.06);
       break;
     }
+    case 'text': {
+      g.font = textFont(s.width);
+      g.textBaseline = 'top';
+      const lh = s.width * TEXT_LINE_HEIGHT;
+      // 行高多出来的部分上下各分一半，和编辑框里的排版一致
+      const pad = (lh - s.width) / 2;
+      s.text.split('\n').forEach((line, i) => g.fillText(line, s.at.x, s.at.y + pad + i * lh));
+      break;
+    }
   }
   g.restore();
+}
+
+/** 量文字的框（物理像素），用于命中测试。 */
+export function measureText(text: string, fontPx: number): { w: number; h: number } {
+  const c = scratchCanvas(1, 1);
+  const g = c.getContext('2d') as CanvasRenderingContext2D;
+  g.font = textFont(fontPx);
+  const lines = text.split('\n');
+  const w = Math.max(...lines.map((l) => g.measureText(l).width), fontPx * 0.5);
+  return { w: Math.ceil(w), h: Math.ceil(lines.length * fontPx * TEXT_LINE_HEIGHT) };
 }

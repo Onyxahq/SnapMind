@@ -8,9 +8,12 @@
     draft,
     clip,
     mon,
+    src,
   }: {
     shapes: Shape[];
     draft: Shape | null;
+    /** 冻结帧，马赛克 / 模糊取真实像素用 */
+    src: HTMLImageElement;
     /** 选区（本屏物理像素），标注只显示在选区内 */
     clip: Rect;
     mon: MonitorGeom;
@@ -35,8 +38,9 @@
     g.beginPath();
     g.rect(clip.x * k, clip.y * k, clip.width * k, clip.height * k);
     g.clip();
-    for (const s of shapes) drawShape(g, s, k);
-    if (draft) drawShape(g, draft, k);
+    const img = src.naturalWidth ? src : undefined;
+    for (const s of shapes) drawShape(g, s, k, img);
+    if (draft) drawShape(g, draft, k, img);
     g.restore();
   }
 
