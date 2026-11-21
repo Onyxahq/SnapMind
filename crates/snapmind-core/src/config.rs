@@ -75,11 +75,13 @@ pub struct CaptureConfig {
     pub color_format: ColorFormat,
     /// 是否显示操作提示。截图时按 H 切换，会记住；设置里也有同一个开关。
     pub show_hints: bool,
+    /// 有未保存的标注时退出前是否确认（确认框里可勾选「不再询问」）。
+    pub confirm_discard: bool,
 }
 
 impl Default for CaptureConfig {
     fn default() -> Self {
-        Self { color_format: ColorFormat::default(), show_hints: true }
+        Self { color_format: ColorFormat::default(), show_hints: true, confirm_discard: true }
     }
 }
 
@@ -311,7 +313,7 @@ mod tests {
             json!({
                 "version": 1,
                 "appearance": { "theme": "system", "accent": "blue" },
-                "capture": { "colorFormat": "hex", "showHints": true },
+                "capture": { "colorFormat": "hex", "showHints": true, "confirmDiscard": true },
                 "save": {
                     "dir": "",
                     "format": "png",

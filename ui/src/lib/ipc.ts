@@ -15,7 +15,7 @@ export interface AppInfo {
 export interface Config {
   version: number;
   appearance: { theme: ThemeMode; accent: Accent };
-  capture: { colorFormat: ColorFormat; showHints: boolean };
+  capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean };
   save: SaveConfig;
 }
 
@@ -36,7 +36,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartia
 export const DEFAULT_CONFIG: Config = {
   version: 1,
   appearance: { theme: 'system', accent: 'blue' },
-  capture: { colorFormat: 'hex', showHints: true },
+  capture: { colorFormat: 'hex', showHints: true, confirmDiscard: true },
   save: {
     dir: '',
     format: 'png',
@@ -242,4 +242,22 @@ export async function pickFolder(dir: string): Promise<string | null> {
 export async function openFolder(path: string): Promise<void> {
   if (!inTauri()) return;
   return invoke('open_folder', { path });
+}
+
+/** 上传标注层（相对选区的偏移 + RGBA 像素；传 null 清除）。用二进制请求体，不经过 JSON。 */
+export async function captureSetAnnotations(
+  index: number,
+  layer: { x: number; y: number; width: number; height: number; rgba: Uint8Array } | null,
+): Promise<void> {
+  if (!inTauri()) return;
+  const h = (v: number | undefined) => String(v ?? 0);
+  return invoke('capture_set_annotations', layer?.rgba ?? new Uint8Array(0), {
+    headers: {
+      'x-index': String(index),
+      'x-x': h(layer?.x),
+      'x-y': h(layer?.y),
+      'x-width': h(layer?.width),
+      'x-height': h(layer?.height),
+    },
+  });
 }

@@ -352,3 +352,52 @@ export function measureText(text: string, fontPx: number): { w: number; h: numbe
   const w = Math.max(...lines.map((l) => g.measureText(l).width), fontPx * 0.5);
   return { w: Math.ceil(w), h: Math.ceil(lines.length * fontPx * TEXT_LINE_HEIGHT) };
 }
+
+/** 标注层：相对选区左上角的偏移 + RGBA 像素（非预乘 alpha）。 */
+export interface Layer {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rgba: Uint8Array;
+}
+
+/** 找出 RGBA 里不透明像素的外框；全透明返回 null。 */
+export function alphaBounds(rgba: Uint8ClampedArray | Uint8Array, width: number, height: number) {
+  let x1 = width, y1 = height, x2 = -1, y2 = -1;
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      if (rgba[row + x * 4 + 3] !== 0) {
+        if (x < x1) x1 = x;
+        if (x > x2) x2 = x;
+        if (y < y1) y1 = y;
+        y2 = y;
+      }
+    }
+  }
+  return x2 < 0 ? null : { x: x1, y: y1, width: x2 - x1 + 1, height: y2 - y1 + 1 };
+}
+
+/**
+ * 按原始分辨率渲染标注层（导出用）：1 个画布像素 = 1 个截图物理像素，与屏幕上用的是同一套
+ * 绘制代码，所见即所得。只返回有内容的那一块（裁到不透明像素的外框），上传量与标注面积成正比；
+ * 不编码 PNG，Rust 端也不用解码。没有可见内容时返回 null。
+ */
+export function renderLayer(
+  shapes: Shape[],
+  sel: { x: number; y: number; width: number; height: number },
+  src: CanvasImageSource,
+): Layer | null {
+  const width = Math.max(1, sel.width);
+  const height = Math.max(1, sel.height);
+  const c = new OffscreenCanvas(width, height);
+  const g = c.getContext('2d', { willReadFrequently: true }) as unknown as CanvasRenderingContext2D;
+  g.translate(-sel.x, -sel.y);
+  for (const s of shapes) drawShape(g, s, 1, src);
+  const full = g.getImageData(0, 0, width, height).data;
+  const b = alphaBounds(full, width, height);
+  if (!b) return null;
+  const part = g.getImageData(b.x, b.y, b.width, b.height).data;
+  return { ...b, rgba: new Uint8Array(part.buffer, part.byteOffset, part.byteLength) };
+}

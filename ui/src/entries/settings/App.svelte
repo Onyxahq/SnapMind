@@ -70,6 +70,13 @@
         onchange={(showHints) => save({ capture: { showHints } })}
       />
     </Row>
+    <Row title="退出时确认未保存的标注" desc="标注还没复制或保存就按 Esc 退出时，先问一下">
+      <Switch
+        label="退出时确认未保存的标注"
+        checked={config.value.capture.confirmDiscard}
+        onchange={(confirmDiscard) => save({ capture: { confirmDiscard } })}
+      />
+    </Row>
     <Row title="Ctrl+S 的行为" desc="保存窗口可以改名、换格式和尺寸；直接保存会存到默认目录">
       <Select
         aria-label="Ctrl+S 的行为"

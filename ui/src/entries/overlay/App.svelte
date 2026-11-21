@@ -1,11 +1,13 @@
 <script lang="ts">
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
-  // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊。
+  // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
+  // M2.3 按原始分辨率导出标注、未保存标注的退出确认。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
     captureCopy,
+    captureSetAnnotations,
     captureSave,
     pickSaveFile,
     saveInfo,
@@ -49,6 +51,7 @@
   import Selection from './Selection.svelte';
   import AnnotationLayer from './AnnotationLayer.svelte';
   import TextEditor from './TextEditor.svelte';
+  import ConfirmDiscard from './ConfirmDiscard.svelte';
   import {
     COLORS,
     FONT_SIZES,
@@ -63,6 +66,7 @@
     hitShape,
     measureText,
     nextNumber,
+    renderLayer,
     textAt,
     toolForKey,
     undo as undoDoc,
@@ -104,6 +108,8 @@
   let pickRgb = $state<RGB | null>(null);
   /** 保存窗口是否打开（逐级退出的一级）。 */
   let saveOpen = $state(false);
+  /** 放弃标注的确认框（逐级退出的一级）。 */
+  let confirmOpen = $state(false);
 
   // ---- 标注 ----
   /** 当前标注工具；null 表示不在标注模式。 */
@@ -239,6 +245,7 @@
     snapList = [];
     snapLevel = 0;
     saveOpen = false;
+    confirmOpen = false;
     tool = null;
     propsOpen = false;
     doc = emptyDoc();
@@ -268,6 +275,7 @@
     sel = null;
     drag = null;
     saveOpen = false;
+    confirmOpen = false;
     tool = null;
     propsOpen = false;
     doc = emptyDoc();
@@ -275,6 +283,19 @@
     editing = null;
     frameReady = false;
     src = '';
+  }
+
+  /** 退出截图；有未保存的标注时先确认（设置里可以关掉确认）。 */
+  function requestClose() {
+    commitText();
+    if (doc.shapes.length && config.value.capture.confirmDiscard) confirmOpen = true;
+    else close();
+  }
+
+  function confirmDiscard(dontAsk: boolean) {
+    confirmOpen = false;
+    if (dontAsk) updateConfig({ capture: { confirmDiscard: false } });
+    close();
   }
 
   /** 先清空画面并等它真的画出来，再让 Rust 把窗口停回屏幕外，下次出现时不会闪出上一张图。 */
@@ -292,12 +313,27 @@
     return sel ?? snapList[snapLevel] ?? { x: 0, y: 0, width: W, height: H };
   }
 
+  /** 把标注层按原始分辨率渲染好上传给 Rust（没有标注时清除），导出前调用。 */
+  async function syncAnnotations(index: number, r: Region) {
+    commitText();
+    const shapes = doc.shapes;
+    if (!shapes.length) return captureSetAnnotations(index, null);
+    const t0 = performance.now();
+    const layer = renderLayer(shapes, r, img);
+    const t1 = performance.now();
+    await captureSetAnnotations(index, layer);
+    const t2 = performance.now();
+    const size = layer ? `${layer.width}×${layer.height}` : '空';
+    log('info', `标注层（选区 ${r.width}×${r.height}，内容 ${size}）：渲染 ${(t1 - t0).toFixed(0)} ms，上传 ${(t2 - t1).toFixed(0)} ms`);
+  }
+
   /** 交出结果的动作都会结束截图：Rust 裁好图后就把遮罩移走，这里同步清空画面。 */
   async function finish(job: (index: number, r: Region) => Promise<string>) {
     if (!session) return;
     const index = session.index;
     const r = region();
     try {
+      await syncAnnotations(index, r);
       const p = job(index, r);
       resetView();
       await p;
@@ -319,6 +355,8 @@
     switch (config.value.save.ctrlS) {
       case 'window':
         if (!sel) sel = region();
+        // 保存窗口里的预计大小也要算上标注
+        await syncAnnotations(session.index, sel);
         saveOpen = true;
         break;
       case 'direct':
@@ -347,7 +385,7 @@
     switch (a) {
       case 'copy': return copy();
       case 'save': return save();
-      case 'exit': return close();
+      case 'exit': return requestClose();
       case 'pin': return pin();
     }
   }
@@ -464,7 +502,7 @@
     if (sel) {
       sel = null;
       querySnap(toPx(e.clientX, e.clientY)); // 回到悬停吸附
-    } else close();
+    } else requestClose();
   }
 
   // ---------------------------------------------------------------- 标注
@@ -638,13 +676,13 @@
   function onKey(e: KeyboardEvent) {
     if (!session) return;
     // Esc 逐级退出：弹层 → 保存窗口 → 标注 → 截图（长截图 / 录屏、结果卡片随后续任务插入）
-    if (editing) return; // 打字时快捷键交给编辑框
+    if (editing || confirmOpen) return; // 打字时、确认框打开时，按键交给它们
     if (e.key === 'Escape') {
       e.preventDefault();
       if (propsOpen) propsOpen = false;
       else if (saveOpen) saveOpen = false;
       else if (tool) exitAnnotate();
-      else close();
+      else requestClose();
       return;
     }
     if (saveOpen) return; // 保存窗口打开时，其他快捷键交给它
@@ -797,7 +835,10 @@
       oncancel={() => (saveOpen = false)}
     />
   {/if}
-  {#if session && config.value.capture.showHints && !saveOpen}
+  {#if confirmOpen}
+    <ConfirmDiscard count={doc.shapes.length} onconfirm={confirmDiscard} oncancel={() => (confirmOpen = false)} />
+  {/if}
+  {#if session && config.value.capture.showHints && !saveOpen && !confirmOpen}
     <Hints hints={hintList} avoid={selOnlyCss} cursor={cursorCss} />
   {/if}
   {#if showMag && cursorPx && cursorCss}

@@ -81,6 +81,7 @@ pub fn run() {
             commands::cursor_nudge,
             commands::clipboard_write_text,
             export::capture_copy,
+            export::capture_set_annotations,
             export::capture_save,
             export::capture_estimate,
             export::save_info,

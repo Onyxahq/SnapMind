@@ -17,6 +17,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
+use snapmind_core::export::RgbaImage;
 use snapmind_platform::bmp::Frame;
 use snapmind_platform::snap::{self, ElementProbe, TopWindow};
 use snapmind_platform::{capture, Rect};
@@ -106,6 +107,8 @@ struct Session {
     frames: Vec<Option<Arc<Frame>>>,
     /// 截图那一刻的顶层窗口快照（Z 序从上到下），吸附用
     windows: Vec<TopWindow>,
+    /// 标注层：(显示器序号, 相对选区的偏移, RGBA)。导出前由前端上传，裁剪后叠到截图上。
+    annotations: Option<(usize, (u32, u32), Arc<RgbaImage>)>,
     /// 已回报「遮罩出现」「冻结帧画好」的窗口数
     masks: usize,
     painted: usize,
@@ -227,7 +230,7 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>) {
     let seq = state.seq.fetch_add(1, Ordering::SeqCst) + 1;
     {
         let mut s = state.inner.lock().expect("截图状态锁");
-        *s = Session { active: true, started: Some(t0_epoch), frames, windows, masks: 0, painted: 0 };
+        *s = Session { active: true, started: Some(t0_epoch), frames, windows, annotations: None, masks: 0, painted: 0 };
     }
 
     let cursor = app.cursor_position().ok();
@@ -288,6 +291,22 @@ pub fn ready<R: Runtime>(app: &AppHandle<R>, seq: u64, stage: &str, at: f64) -> 
         eprintln!("[capture #{seq}] 按键 → {what} {ms:.1} ms");
     }
     Some(ms)
+}
+
+/// 设置（None 为清除）当前会话的标注层。
+pub fn set_annotations<R: Runtime>(app: &AppHandle<R>, index: usize, layer: Option<((u32, u32), RgbaImage)>) {
+    let state = app.state::<CaptureState>();
+    let mut s = state.inner.lock().expect("截图状态锁");
+    if s.active {
+        s.annotations = layer.map(|(at, l)| (index, at, Arc::new(l)));
+    }
+}
+
+/// 某块屏的标注层及其相对选区的偏移（没有标注时返回 None）。
+pub fn annotations<R: Runtime>(app: &AppHandle<R>, index: usize) -> Option<((u32, u32), Arc<RgbaImage>)> {
+    let state = app.state::<CaptureState>();
+    let s = state.inner.lock().expect("截图状态锁");
+    s.annotations.as_ref().filter(|(i, _, _)| *i == index).map(|(_, at, l)| (*at, l.clone()))
 }
 
 /// 当前会话里某块屏的冻结帧（截图已结束时返回 None）。

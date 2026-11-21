@@ -37,10 +37,40 @@ fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
-/// 从会话里的冻结帧裁出选区。
+/// 从会话里的冻结帧裁出选区，有标注时按原始分辨率叠上标注层。
 fn crop<R: Runtime>(app: &AppHandle<R>, index: usize, r: Region) -> Result<RgbaImage, String> {
     let frame = overlay::frame(app, index).ok_or("截图已结束")?;
-    export::crop_bgra(frame.pixels(), frame.width, frame.height, r.x, r.y, r.width, r.height).map_err(err)
+    let mut img =
+        export::crop_bgra(frame.pixels(), frame.width, frame.height, r.x, r.y, r.width, r.height).map_err(err)?;
+    if let Some(((dx, dy), layer)) = overlay::annotations(app, index) {
+        // 超出选区说明上传的标注层已过时（选区又变了），不能错位叠加
+        export::composite_over(&mut img, &layer, dx, dy).map_err(|_| "标注层超出选区".to_string())?;
+    }
+    Ok(img)
+}
+
+/// 上传标注层：请求体是 RGBA 像素（为空表示清除）；请求头 `x-index` 是显示器序号，
+/// `x-x` / `x-y` 是相对选区左上角的偏移，`x-width` / `x-height` 是尺寸。二进制传输，不经过 JSON。
+#[tauri::command]
+pub fn capture_set_annotations(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("标注层需要以二进制上传".into());
+    };
+    let header = |name: &str| {
+        request.headers().get(name).and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u32>().ok())
+    };
+    let index = header("x-index").ok_or("缺少 x-index")? as usize;
+    if bytes.is_empty() {
+        overlay::set_annotations(&app, index, None);
+        return Ok(());
+    }
+    let (width, height) = (header("x-width").unwrap_or(0), header("x-height").unwrap_or(0));
+    if width as usize * height as usize * 4 != bytes.len() {
+        return Err("标注层尺寸与数据长度不符".into());
+    }
+    let at = (header("x-x").unwrap_or(0), header("x-y").unwrap_or(0));
+    overlay::set_annotations(&app, index, Some((at, RgbaImage { width, height, data: bytes.clone() })));
+    Ok(())
 }
 
 fn render(img: RgbaImage, out: Output, fast: bool) -> Result<Vec<u8>, ExportError> {

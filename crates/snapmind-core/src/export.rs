@@ -78,6 +78,37 @@ pub fn crop_bgra(
     Ok(RgbaImage { width, height, data })
 }
 
+/// 把标注层（RGBA，非预乘 alpha）按 source-over 叠到截图的 (dx, dy) 处。标注层必须完全落在截图内。
+pub fn composite_over(base: &mut RgbaImage, top: &RgbaImage, dx: u32, dy: u32) -> Result<(), ExportError> {
+    if dx + top.width > base.width || dy + top.height > base.height {
+        return Err(ExportError::OutOfBounds);
+    }
+    let bw = base.width as usize;
+    let tw = top.width as usize;
+    for row in 0..top.height as usize {
+        let b0 = ((dy as usize + row) * bw + dx as usize) * 4;
+        let t0 = row * tw * 4;
+        let brow = &mut base.data[b0..b0 + tw * 4];
+        let trow = &top.data[t0..t0 + tw * 4];
+        for (b, t) in brow.chunks_exact_mut(4).zip(trow.chunks_exact(4)) {
+            let a = t[3] as u32;
+            if a == 0 {
+                continue;
+            }
+            if a == 255 {
+                b.copy_from_slice(t);
+                continue;
+            }
+            // 底图不透明，结果也不透明：out = top·a + base·(1−a)
+            for i in 0..3 {
+                b[i] = ((t[i] as u32 * a + b[i] as u32 * (255 - a) + 127) / 255) as u8;
+            }
+            b[3] = 255;
+        }
+    }
+    Ok(())
+}
+
 /// 缩放到指定尺寸（尺寸相同时原样返回）。缩小用 Lanczos3 保证文字清晰。
 pub fn resize(img: RgbaImage, width: u32, height: u32) -> Result<RgbaImage, ExportError> {
     if width == 0 || height == 0 {
@@ -247,6 +278,29 @@ mod tests {
         let hi = encode(&img, ImageFormat::Jpg, 95, false).unwrap().len();
         let lo = encode(&img, ImageFormat::Jpg, 30, false).unwrap().len();
         assert!(lo < hi, "q30={lo} 应小于 q95={hi}");
+    }
+
+    #[test]
+    fn composite_blends_with_alpha() {
+        let mut base = RgbaImage { width: 3, height: 1, data: vec![0, 0, 0, 255, 0, 0, 0, 255, 100, 100, 100, 255] };
+        // 透明 / 不透明红 / 半透明白
+        let top = RgbaImage { width: 3, height: 1, data: vec![9, 9, 9, 0, 255, 0, 0, 255, 255, 255, 255, 128] };
+        composite_over(&mut base, &top, 0, 0).unwrap();
+        assert_eq!(&base.data[0..4], &[0, 0, 0, 255], "完全透明不改变底图");
+        assert_eq!(&base.data[4..8], &[255, 0, 0, 255], "不透明直接覆盖");
+        assert_eq!(&base.data[8..12], &[178, 178, 178, 255], "半透明按比例混合");
+    }
+
+    #[test]
+    fn composite_at_offset_and_bounds() {
+        // 3×2 黑底，在 (1,1) 叠一个 2×1 的红
+        let mut base = RgbaImage { width: 3, height: 2, data: [0, 0, 0, 255].repeat(6) };
+        let top = RgbaImage { width: 2, height: 1, data: [255, 0, 0, 255].repeat(2) };
+        composite_over(&mut base, &top, 1, 1).unwrap();
+        assert_eq!(&base.data[0..12], &[0, 0, 0, 255].repeat(3)[..], "第一行不变");
+        assert_eq!(&base.data[12..16], &[0, 0, 0, 255]);
+        assert_eq!(&base.data[16..24], &[255, 0, 0, 255].repeat(2)[..]);
+        assert!(composite_over(&mut base, &top, 2, 1).is_err(), "超出右边界");
     }
 
     #[test]

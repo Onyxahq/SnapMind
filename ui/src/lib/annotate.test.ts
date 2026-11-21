@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addPoint,
+  alphaBounds,
   apply,
   arrowHead,
   constrain,
@@ -76,6 +77,17 @@ describe('橡皮擦命中', () => {
     const p: Shape = { id: 2, kind: 'pen', highlighter: false, color: '#000', width: 4, points: [{ x: 0, y: 0 }, { x: 0, y: 100 }] };
     expect(hitShape(p, { x: 2, y: 60 }, 4)).toBe(true);
     expect(hitShape(num(3, 1), { x: 60, y: 55 }, 4)).toBe(true);
+  });
+});
+
+describe('标注层裁边', () => {
+  it('找出不透明像素的外框', () => {
+    const w = 4, h = 3;
+    const px = new Uint8Array(w * h * 4);
+    px[(1 * w + 1) * 4 + 3] = 255; // (1,1)
+    px[(2 * w + 2) * 4 + 3] = 10; // (2,2)
+    expect(alphaBounds(px, w, h)).toEqual({ x: 1, y: 1, width: 2, height: 2 });
+    expect(alphaBounds(new Uint8Array(w * h * 4), w, h)).toBe(null);
   });
 });
 
