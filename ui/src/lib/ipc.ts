@@ -1,7 +1,7 @@
 // 前端调用 Rust 命令的唯一入口。命令名、事件名和数据类型集中在这里。
 // 在普通浏览器里打开开发页面时（没有 Tauri），用内存里的假实现代替，方便调界面。
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import type { Accent, ThemeMode } from './theme';
 
 export interface AppInfo {
@@ -99,4 +99,15 @@ export async function overlayReady(seq: number, stage: 'mask' | 'frame'): Promis
 export async function overlayEnd(): Promise<void> {
   if (!inTauri()) return;
   return invoke('overlay_end');
+}
+
+/** 某个显示器上开始新建选区：通知其他遮罩窗口清掉自己的选区（同一时间只有一个选区）。 */
+export async function claimSelection(index: number): Promise<void> {
+  if (!inTauri()) return;
+  return emit('overlay:claim', index);
+}
+
+export async function onSelectionClaimed(cb: (index: number) => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  return listen<number>('overlay:claim', (e) => cb(e.payload));
 }

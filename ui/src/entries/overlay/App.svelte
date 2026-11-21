@@ -1,10 +1,36 @@
 <script lang="ts">
-  // 截图遮罩（编辑态的底座）。每个显示器一个窗口，窗口启动后常驻隐藏。
-  // M1.1：冻结帧 + 遮罩淡入 + Esc 退出；选区、放大镜、工具条在 M1.2 起逐步加入。
+  // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
+  // M1.1 冻结帧与遮罩；M1.2 选区。放大镜、提示、工具条在 M1.3 起逐步加入。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
-  import { onCaptureStart, overlayEnd, overlayReady, type CaptureStart } from '$lib/ipc';
+  import {
+    claimSelection,
+    inTauri,
+    onCaptureStart,
+    onSelectionClaimed,
+    overlayEnd,
+    overlayReady,
+    type CaptureStart,
+  } from '$lib/ipc';
   import { log } from '$lib/log';
+  import type { Point, Rect } from '$lib/geometry';
+  import {
+    cursorFor,
+    fromCorners,
+    hitTest,
+    move,
+    nudgeDelta,
+    resize,
+    type Handle,
+    type Hit,
+  } from '$lib/selection';
+  import Selection from './Selection.svelte';
+  import { devCapture } from './devFrame';
+
+  /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
+  const CLICK_SLOP = 3;
+  /** 控制点和边的命中容差（CSS 像素）。 */
+  const HIT_TOL = 7;
 
   let session = $state<CaptureStart | null>(null);
   let src = $state('');
@@ -12,10 +38,51 @@
   let frameReady = $state(false);
   let img: HTMLImageElement;
 
-  async function start(s: CaptureStart) {
+  /** 选区，单位为本显示器截图的物理像素。 */
+  let sel = $state<Rect | null>(null);
+  type Drag =
+    | { kind: 'create'; anchor: Point; downCss: Point; moved: boolean }
+    | { kind: 'move'; start: Rect; p0: Point }
+    | { kind: 'resize'; handle: Handle; start: Rect; p0: Point };
+  // raw：拖动过程中只整体替换，不需要深层响应
+  let drag = $state.raw<Drag | null>(null);
+  let hover = $state<Hit>(null);
+
+  const mon = $derived(session?.monitor ?? { x: 0, y: 0, width: 1, height: 1, scale: 1 });
+  const W = $derived(mon.width);
+  const H = $derived(mon.height);
+
+  /** CSS 像素 → 本屏物理像素（选区用整数像素）。 */
+  const toPx = (cx: number, cy: number): Point => ({
+    x: Math.min(Math.max(Math.round(cx * mon.scale), 0), W),
+    y: Math.min(Math.max(Math.round(cy * mon.scale), 0), H),
+  });
+  const cssRect = (r: Rect): Rect => ({
+    x: r.x / mon.scale,
+    y: r.y / mon.scale,
+    width: r.width / mon.scale,
+    height: r.height / mon.scale,
+  });
+
+  const selCss = $derived(sel ? cssRect(sel) : null);
+  const sizeLabel = $derived(
+    sel ? `${mon.x + sel.x},${mon.y + sel.y}   ${sel.width} × ${sel.height} px` : '',
+  );
+  /** 遮罩上挖出选区：外框和内框用 evenodd 规则组成一个多边形。 */
+  const scrimClip = $derived.by(() => {
+    if (!selCss || selCss.width === 0 || selCss.height === 0) return 'none';
+    const { x, y, width: w, height: h } = selCss;
+    return `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${x}px ${y}px, ${x + w}px ${y}px, ${x + w}px ${y + h}px, ${x}px ${y + h}px, ${x}px ${y}px)`;
+  });
+  const cursor = $derived(drag?.kind === 'move' ? 'move' : cursorFor(hover));
+
+  async function start(s: CaptureStart, url?: string) {
     session = s;
+    sel = null;
+    drag = null;
+    hover = null;
     frameReady = false;
-    src = `${convertFileSrc(String(s.index), 'snapframe')}?s=${s.seq}`;
+    src = url ?? `${convertFileSrc(String(s.index), 'snapframe')}?s=${s.seq}`;
     // 窗口是透明的：帧到之前遮罩下面透出的就是真实桌面，和冻结帧一模一样。
     // 等两帧再回报：事件比窗口移到屏幕上略早到，第二帧时遮罩一定已经在屏幕上了。
     requestAnimationFrame(() => requestAnimationFrame(() => overlayReady(s.seq, 'mask')));
@@ -35,30 +102,125 @@
   async function close() {
     if (!session) return;
     session = null;
+    sel = null;
+    drag = null;
     frameReady = false;
     src = '';
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     await overlayEnd();
   }
 
+  // ---------------------------------------------------------------- 鼠标
+
+  function onDown(e: PointerEvent) {
+    if (!session || e.button !== 0) return;
+    const p = toPx(e.clientX, e.clientY);
+    const hit = sel ? hitTest(sel, p, HIT_TOL * mon.scale) : null;
+    if (sel && hit === 'move') {
+      drag = { kind: 'move', start: sel, p0: p };
+    } else if (sel && hit !== null && hit !== 'move') {
+      drag = { kind: 'resize', handle: hit, start: sel, p0: p };
+    } else {
+      drag = { kind: 'create', anchor: p, downCss: { x: e.clientX, y: e.clientY }, moved: false };
+      claimSelection(session.index); // 其他显示器上的选区作废
+    }
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  }
+
+  function onMoveEvt(e: PointerEvent) {
+    if (!session) return;
+    const p = toPx(e.clientX, e.clientY);
+    if (!drag) {
+      hover = sel ? hitTest(sel, p, HIT_TOL * mon.scale) : null;
+      return;
+    }
+    switch (drag.kind) {
+      case 'create':
+        if (!drag.moved) {
+          const d = Math.hypot(e.clientX - drag.downCss.x, e.clientY - drag.downCss.y);
+          if (d < CLICK_SLOP) return;
+          drag = { ...drag, moved: true };
+        }
+        sel = fromCorners(drag.anchor, p, W, H);
+        break;
+      case 'move':
+        sel = move(drag.start, p.x - drag.p0.x, p.y - drag.p0.y, W, H);
+        break;
+      case 'resize':
+        sel = resize(drag.start, drag.handle, p.x - drag.p0.x, p.y - drag.p0.y, W, H);
+        hover = drag.handle;
+        break;
+    }
+  }
+
+  function onUp(e: PointerEvent) {
+    if (!drag) return;
+    if (drag.kind === 'create' && !drag.moved) {
+      // 单击：选中整个显示器（M1.3 起改为选中鼠标下吸附到的窗口或控件）
+      sel = { x: 0, y: 0, width: W, height: H };
+    } else if (sel && (sel.width === 0 || sel.height === 0)) {
+      sel = null;
+    }
+    drag = null;
+    hover = sel ? hitTest(sel, toPx(e.clientX, e.clientY), HIT_TOL * mon.scale) : null;
+  }
+
+  /** 右键：有选区时取消选区，没有时退出截图。 */
+  function onContext(e: MouseEvent) {
+    e.preventDefault();
+    if (!session || drag) return;
+    if (sel) sel = null;
+    else close();
+  }
+
+  // ---------------------------------------------------------------- 键盘
+
   function onKey(e: KeyboardEvent) {
+    if (!session) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       close();
+      return;
+    }
+    const d = nudgeDelta(e.key, e.shiftKey);
+    if (d && sel && !drag) {
+      e.preventDefault();
+      sel = move(sel, d.x, d.y, W, H);
     }
   }
 
   onMount(() => {
-    const off = onCaptureStart(start);
-    return () => off.then((f) => f());
+    const offStart = onCaptureStart((s) => start(s));
+    const offClaim = onSelectionClaimed((index) => {
+      if (session && index !== session.index) sel = null;
+    });
+    if (!inTauri()) devCapture().then(({ start: s, url }) => start(s, url));
+    return () => {
+      offStart.then((f) => f());
+      offClaim.then((f) => f());
+    };
   });
 </script>
 
-<svelte:window onkeydown={onKey} oncontextmenu={(e) => e.preventDefault()} />
+<svelte:window onkeydown={onKey} />
 
-<div class="stage" class:active={session !== null} class:frame-ready={frameReady}>
+<div
+  class="stage"
+  class:active={session !== null}
+  class:frame-ready={frameReady}
+  style:cursor
+  role="application"
+  aria-label="截图区域"
+  onpointerdown={onDown}
+  onpointermove={onMoveEvt}
+  onpointerup={onUp}
+  oncontextmenu={onContext}
+>
   <img bind:this={img} {src} alt="" draggable="false" crossorigin="anonymous" />
-  <div class="scrim"></div>
+  <div class="scrim" style:clip-path={scrimClip}></div>
+  {#if selCss}
+    <Selection rect={selCss} label={sizeLabel} handles={!drag || drag.kind !== 'create'} />
+  {/if}
 </div>
 
 <style>
@@ -71,8 +233,8 @@
   .stage {
     position: fixed;
     inset: 0;
-    cursor: crosshair;
     visibility: hidden;
+    touch-action: none;
   }
   .stage.active { visibility: visible; }
   img {
