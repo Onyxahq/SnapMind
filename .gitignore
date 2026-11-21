@@ -19,3 +19,6 @@ config.local.json
 Thumbs.db
 .vscode/
 .idea/
+
+# Tauri 生成的权限描述（构建时自动生成）
+src-tauri/gen/

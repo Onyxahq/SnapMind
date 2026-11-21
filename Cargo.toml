@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = [
+  "src-tauri",
+  "crates/snapmind-core",
+  "crates/snapmind-providers",
+  "crates/snapmind-ocr",
+  "crates/snapmind-platform",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "UNLICENSED"
+authors = ["SnapMind"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+snapmind-core = { path = "crates/snapmind-core" }
+snapmind-providers = { path = "crates/snapmind-providers" }
+snapmind-ocr = { path = "crates/snapmind-ocr" }
+snapmind-platform = { path = "crates/snapmind-platform" }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
