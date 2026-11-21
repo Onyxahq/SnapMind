@@ -221,3 +221,31 @@ pub fn pin_set_image(app: AppHandle, window: tauri::WebviewWindow, request: taur
     crate::pin::set_image(&app, id, snapmind_core::export::RgbaImage { width: w, height: h, data: bytes.clone() });
     Ok(())
 }
+
+/// 贴图进入 / 退出标注模式（工具条换成标注工具并保持显示）。
+#[tauri::command]
+pub fn pin_keep(app: AppHandle, window: tauri::WebviewWindow, on: bool) {
+    if let Some(id) = crate::pin::id_of(window.label()) {
+        crate::pintools::keep(&app, id, on);
+    }
+}
+
+/// 上传贴图的标注层：RGBA（为空表示清除），请求头 x-x / x-y / x-width / x-height。
+#[tauri::command]
+pub fn pin_set_annotations(app: AppHandle, window: tauri::WebviewWindow, request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let id = crate::pin::id_of(window.label()).ok_or("不是贴图窗口")?;
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("需要二进制数据".into()) };
+    if bytes.is_empty() {
+        crate::pin::set_annotations(&app, id, None);
+        return Ok(());
+    }
+    let header = |n: &str| request.headers().get(n).and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u32>().ok());
+    let (w, h) = (header("x-width").unwrap_or(0), header("x-height").unwrap_or(0));
+    if (w as usize) * (h as usize) * 4 != bytes.len() {
+        return Err("标注层尺寸与数据长度不符".into());
+    }
+    let at = (header("x-x").unwrap_or(0), header("x-y").unwrap_or(0));
+    let layer = snapmind_core::export::RgbaImage { width: w, height: h, data: bytes.clone() };
+    crate::pin::set_annotations(&app, id, Some((at, layer)));
+    Ok(())
+}

@@ -35,6 +35,8 @@ pub struct Pin {
     pub through: bool,
     /// 文字卡片的原文（贴剪贴板里的文字时）；复制时复制文字
     pub text: Option<String>,
+    /// 贴图上的标注层（相对图片左上角的偏移 + RGBA），复制 / 保存时叠到图片上
+    pub annotations: Option<((u32, u32), Arc<RgbaImage>)>,
 }
 
 #[derive(Default)]
@@ -110,7 +112,11 @@ fn create_with<R: Runtime>(
     let id = state.next.fetch_add(1, Ordering::SeqCst) + 1;
     let (w, h) = (image.width, image.height);
     let frame = Arc::new(Frame::from_bgra(w, h, &rgba_to_bgra(&image)));
-    state.pins.lock().expect("贴图锁").insert(id, Pin { frame, image: Arc::new(image), through: false, text });
+    state
+        .pins
+        .lock()
+        .expect("贴图锁")
+        .insert(id, Pin { frame, image: Arc::new(image), through: false, text, annotations: None });
 
     let margin = (MARGIN_CSS * scale).round() as i32;
     let win = WebviewWindowBuilder::new(app, label(id), WebviewUrl::App("pin/index.html".into()))
@@ -164,25 +170,44 @@ pub fn set_image<R: Runtime>(app: &AppHandle<R>, id: u32, image: RgbaImage) {
     }
 }
 
-/// 复制贴图：文字卡片复制文字，图片复制图片（位图 + PNG + 文件）。
-pub fn copy<R: Runtime>(app: &AppHandle<R>, id: u32, template: &str) -> Result<(), String> {
-    let (image, text) = {
-        let state = app.state::<PinState>();
-        let pins = state.pins.lock().expect("贴图锁");
-        let p = pins.get(&id).ok_or("贴图已关闭")?;
-        (p.image.clone(), p.text.clone())
-    };
-    match text {
-        Some(t) => snapmind_platform::clipboard::set_text(&t).map_err(|e| e.to_string()),
-        None => crate::export::copy_image(&image, template).map(|_| ()),
+/// 设置（None 为清除）贴图的标注层。
+pub fn set_annotations<R: Runtime>(app: &AppHandle<R>, id: u32, layer: Option<((u32, u32), RgbaImage)>) {
+    if let Some(p) = app.state::<PinState>().pins.lock().expect("贴图锁").get_mut(&id) {
+        p.annotations = layer.map(|(at, l)| (at, Arc::new(l)));
     }
 }
 
-/// 贴图的原始像素（保存用）。
+/// 复制贴图：没有标注的文字卡片复制原文；其他情况复制图片（位图 + PNG + 文件，带标注）。
+pub fn copy<R: Runtime>(app: &AppHandle<R>, id: u32, template: &str) -> Result<(), String> {
+    let (text, has_annotations) = {
+        let state = app.state::<PinState>();
+        let pins = state.pins.lock().expect("贴图锁");
+        let p = pins.get(&id).ok_or("贴图已关闭")?;
+        (p.text.clone(), p.annotations.is_some())
+    };
+    match text {
+        Some(t) if !has_annotations => snapmind_platform::clipboard::set_text(&t).map_err(|e| e.to_string()),
+        _ => {
+            let img = image(app, id).ok_or("贴图已关闭")?;
+            crate::export::copy_image(&img, template).map(|_| ())
+        }
+    }
+}
+
+/// 贴图的图片，有标注时按原始分辨率叠上标注（复制、保存、历史用）。
 pub fn image<R: Runtime>(app: &AppHandle<R>, id: u32) -> Option<Arc<RgbaImage>> {
-    let state = app.state::<PinState>();
-    let pins = state.pins.lock().expect("贴图锁");
-    pins.get(&id).map(|p| p.image.clone())
+    let (base, ann) = {
+        let state = app.state::<PinState>();
+        let pins = state.pins.lock().expect("贴图锁");
+        let p = pins.get(&id)?;
+        (p.image.clone(), p.annotations.clone())
+    };
+    let Some(((dx, dy), layer)) = ann else { return Some(base) };
+    let mut img = (*base).clone();
+    match snapmind_core::export::composite_over(&mut img, &layer, dx, dy) {
+        Ok(()) => Some(Arc::new(img)),
+        Err(_) => Some(base), // 标注层与图片尺寸不符（不应发生），退回原图
+    }
 }
 
 pub fn frame<R: Runtime>(app: &AppHandle<R>, id: u32) -> Option<Arc<Frame>> {

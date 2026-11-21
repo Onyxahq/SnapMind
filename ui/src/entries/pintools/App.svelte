@@ -1,31 +1,46 @@
 <script lang="ts">
   // 贴图工具条（需求第 6 节）：所有贴图共用的一个窗口，由 Rust 摆到当前悬停的贴图下方（放不下时在上方）。
-  // 顶部（或底部）留 8px 透明连接区，鼠标从贴图移过来不会丢；悬停 / 菜单打开期间一直显示。
-  // 按钮只放已经能用的：复制、保存、更多、关闭；翻译、识别文字、Markdown、标注随对应任务加入。
+  // 顶部（或底部）留 8px 透明连接区，鼠标从贴图移过来不会丢；悬停 / 菜单打开 / 标注期间一直显示。
+  // 普通模式：标注、保存、复制、更多、关闭（翻译、识别文字、Markdown 随对应任务加入）。
+  // 标注模式（M3.3）：与截图相同的标注工具（共用组件）+ 撤销 | 复制、完成；样式面板排在工具条旁边。
   import { onMount } from 'svelte';
   import {
+    onAnnotState,
     onToolsTarget,
     sendPinAction,
     toolsHover,
     toolsLayout,
     toolsMenu,
-    type PinAction,
+    type PinActionMsg,
+    type PinAnnotState,
     type ToolsTarget,
   } from '$lib/ipc';
   import { TOOLS_BRIDGE } from '$lib/pin';
+  import { TOOL_INFO } from '$lib/annotate';
   import IconButton from '$lib/ui/IconButton.svelte';
+  import ToolButtons from '$lib/annot/ToolButtons.svelte';
+  import ToolProps from '$lib/annot/ToolProps.svelte';
   import { popIn, popOut } from '$lib/motion';
 
   let target = $state<ToolsTarget | null>(null);
+  /** 各贴图的标注状态（贴图主动推送） */
+  let annots = $state<Record<number, PinAnnotState>>({});
   let menuOpen = $state(false);
+  let propsOpen = $state(false);
   let opacity = $state(100);
   let box: HTMLDivElement;
 
   const up = $derived(target?.placement === 'above');
+  const annot = $derived(target ? annots[target.id] : undefined);
+  const annotating = $derived(annot?.active ?? false);
 
-  function act(action: PinAction, value?: number) {
+  function send(msg: PinActionMsg) {
     if (!target) return;
-    sendPinAction(target.id, action, value);
+    sendPinAction(target.id, msg);
+  }
+
+  function act(action: PinActionMsg['action'], value?: number) {
+    send({ action, value });
     if (action !== 'opacity') setMenu(false);
   }
 
@@ -35,16 +50,24 @@
   }
 
   onMount(() => {
-    const off = onToolsTarget((t) => {
-      if (target?.id !== t.id) menuOpen = false;
+    const offTarget = onToolsTarget((t) => {
+      if (target?.id !== t.id) {
+        menuOpen = false;
+        propsOpen = false;
+      }
       target = t;
       opacity = Math.round(t.opacity * 100);
     });
-    // 内容尺寸变化（菜单展开 / 收起）时告诉 Rust 调整窗口大小
+    const offAnnot = onAnnotState((s) => {
+      annots = { ...annots, [s.id]: s };
+      if (!s.active && target?.id === s.id) propsOpen = false;
+    });
+    // 内容尺寸变化（菜单 / 样式面板展开收起、切换标注模式）时告诉 Rust 调整窗口大小
     const ro = new ResizeObserver(() => toolsLayout(box.offsetWidth, box.offsetHeight));
     ro.observe(box);
     return () => {
-      off.then((f) => f());
+      offTarget.then((f) => f());
+      offAnnot.then((f) => f());
       ro.disconnect();
     };
   });
@@ -62,35 +85,60 @@
   onpointerleave={() => toolsHover(false)}
 >
   <div class="col" bind:this={box}>
-    <div class="bar">
-      <IconButton icon="copy" label="复制  Ctrl+C" onclick={() => act('copy')} />
-      <IconButton icon="download" label="保存…  Ctrl+S" onclick={() => act('save')} />
-      <IconButton icon="more" label="更多" on={menuOpen} onclick={() => setMenu(!menuOpen)} />
-      <span class="sep" aria-hidden="true"></span>
-      <IconButton icon="close" label="关闭  Esc" onclick={() => act('close')} />
-    </div>
-    {#if menuOpen}
-      <div class="menu" role="menu" in:popIn out:popOut>
-        <label class="row slider">
-          <span>不透明度</span>
-          <input
-            type="range"
-            min="10"
-            max="100"
-            step="10"
-            bind:value={opacity}
-            oninput={() => act('opacity', opacity / 100)}
-            aria-label="不透明度"
-          />
-          <span class="num">{opacity}%</span>
-        </label>
-        <button type="button" class="row" role="menuitem" onclick={() => act('through')}>
-          鼠标穿透<kbd>Ctrl+Shift+X</kbd>
-        </button>
-        <button type="button" class="row" role="menuitem" onclick={() => act('zoom100')}>
-          缩放到 100%<kbd>Ctrl+0</kbd>
-        </button>
+    {#if annotating && annot}
+      <div class="bar">
+        <ToolButtons
+          tool={annot.tool}
+          canUndo={annot.canUndo}
+          bind:propsOpen
+          ontool={(t) => send({ action: 'tool', tool: t })}
+          onundo={() => send({ action: 'undo' })}
+        />
+        <span class="sep" aria-hidden="true"></span>
+        <IconButton icon="copy" label="复制  Ctrl+C" onclick={() => act('copy')} />
+        <button type="button" class="done" title="完成  空格" onclick={() => act('done')}>完成</button>
       </div>
+      {#if propsOpen && annot.tool && TOOL_INFO[annot.tool].props}
+        <div class="panel" in:popIn out:popOut>
+          <ToolProps
+            tool={annot.tool}
+            opts={annot.opts[annot.tool]}
+            onopts={(t, o) => send({ action: 'opts', tool: t, opts: o })}
+          />
+        </div>
+      {/if}
+    {:else}
+      <div class="bar">
+        <IconButton icon="pen" label="标注  空格" onclick={() => act('annotate')} />
+        <IconButton icon="download" label="保存…  Ctrl+S" onclick={() => act('save')} />
+        <IconButton icon="copy" label="复制  Ctrl+C" onclick={() => act('copy')} />
+        <IconButton icon="more" label="更多" on={menuOpen} onclick={() => setMenu(!menuOpen)} />
+        <span class="sep" aria-hidden="true"></span>
+        <IconButton icon="close" label="关闭  Esc" onclick={() => act('close')} />
+      </div>
+      {#if menuOpen}
+        <div class="menu" role="menu" in:popIn out:popOut>
+          <label class="row slider">
+            <span>不透明度</span>
+            <input
+              type="range"
+              min="10"
+              max="100"
+              step="10"
+              bind:value={opacity}
+              oninput={() => act('opacity', opacity / 100)}
+              aria-label="不透明度"
+            />
+            <span class="num">{opacity}%</span>
+          </label>
+          <button type="button" class="row" role="menuitem" onclick={() => act('through')}>
+            鼠标穿透<kbd>Ctrl+Shift+X</kbd>
+          </button>
+          <button type="button" class="row" role="menuitem" onclick={() => act('zoom100')}>
+            缩放到 100%<kbd>Ctrl+0</kbd>
+          </button>
+        </div>
+      {/if}
     {/if}
   </div>
 </div>
@@ -129,6 +177,27 @@
     from { opacity: 0; transform: translateY(-4px) scale(.96); }
   }
   .sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line2); }
+  .done {
+    height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--r-ctl);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter var(--d-hover) var(--ease-hover), transform var(--d-press) var(--ease-press);
+  }
+  .done:hover { filter: brightness(1.08); }
+  .done:active { transform: scale(.95); }
+  .panel {
+    padding: 12px;
+    border-radius: var(--r-panel);
+    background: var(--glass2);
+    box-shadow: var(--elev);
+    min-width: 200px;
+  }
   .menu {
     min-width: 230px;
     padding: 6px;

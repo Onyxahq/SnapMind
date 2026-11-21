@@ -116,6 +116,8 @@ pub fn run() {
             commands::pin_copy,
             commands::pin_save,
             commands::pin_set_image,
+            commands::pin_keep,
+            commands::pin_set_annotations,
             commands::tools_hover,
             commands::tools_menu,
             commands::tools_layout,

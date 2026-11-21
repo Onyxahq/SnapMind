@@ -3,6 +3,8 @@
   // Ctrl+Shift+X 鼠标穿透（全局快捷键，在 Rust 里处理）、双击或 Esc 关闭。
   // 窗口比图片大一圈透明边距，用来画阴影；缩放由 Rust 改窗口尺寸。
   // M3.2：悬停时显示共用的贴图工具条（复制、保存、更多、关闭）；Ctrl+C / Ctrl+S；文字卡片。
+  // M3.3：标注模式（空格或工具条「标注」）——复用截图的标注控制器，标注画在图片上，
+  // 期间拖动是绘制、双击不关闭；完成 / 空格 / Esc 退出，标注保留，复制和保存时一起导出。
   import { onMount } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -20,8 +22,15 @@
     pinSetImage,
     pinThrough,
     pinZoom,
-    type PinAction,
+    pinKeep,
+    pinSetAnnotations,
+    sendAnnotState,
+    type PinActionMsg,
   } from '$lib/ipc';
+  import { Annotator } from '$lib/annotator.svelte';
+  import { renderLayer, toolForKey } from '$lib/annotate';
+  import PinLayer from './PinLayer.svelte';
+  import TextEditor from '../overlay/TextEditor.svelte';
   import { log } from '$lib/log';
   import { PIN_MARGIN, opacityStep, wrapText, zoomFactor } from '$lib/pin';
   import ToastHost from '$lib/ui/ToastHost.svelte';
@@ -40,6 +49,45 @@
   /** 文字卡片的原文（贴剪贴板里的文字时） */
   let cardText: string | null = null;
 
+  /** 1 个 CSS 像素对应多少图片像素（标注线宽、字号按它换算，缩放后画出的粗细和屏幕上看到的一致） */
+  const unit = () => natural.width / Math.max(1, winWidth - 2 * PIN_MARGIN);
+  const ann = new Annotator({
+    unit,
+    clamp: (p) => ({
+      x: Math.min(Math.max(p.x, 0), natural.width),
+      y: Math.min(Math.max(p.y, 0), natural.height),
+    }),
+  });
+  /** 窗口内 CSS 坐标 → 图片像素 */
+  const toImg = (e: { clientX: number; clientY: number }) => ({
+    x: (e.clientX - PIN_MARGIN) * unit(),
+    y: (e.clientY - PIN_MARGIN) * unit(),
+  });
+
+  // 把标注状态同步给工具条（工具条在标注模式下显示标注工具）
+  $effect(() => {
+    sendAnnotState({ id: pinId, active: ann.tool !== null, tool: ann.tool, opts: ann.opts, canUndo: ann.canUndo });
+  });
+
+  function enterAnnotate() {
+    if (ann.tool) return;
+    ann.setTool(ann.lastTool);
+    pinKeep(true);
+  }
+
+  function exitAnnotate() {
+    if (!ann.tool) return;
+    ann.exit();
+    pinKeep(false);
+  }
+
+  /** 导出前把标注按图片原始分辨率渲染好交给 Rust（没有标注时清除）。 */
+  async function syncAnnotations() {
+    ann.commitText();
+    if (!ann.hasShapes || !img) return pinSetAnnotations(null);
+    await pinSetAnnotations(renderLayer(ann.doc.shapes, { x: 0, y: 0, ...natural }, img));
+  }
+
   /** 当前缩放：图片显示宽度（物理像素）/ 图片原始宽度 */
   const zoom = $derived(((winWidth - 2 * PIN_MARGIN) * devicePixelRatio) / natural.width);
   const label = $derived(`${Math.round(zoom * 100)}% · 不透明度 ${Math.round(opacity * 100)}%`);
@@ -55,10 +103,24 @@
 
   function onDown(e: PointerEvent) {
     if (e.button !== 0) return;
+    if (ann.editing) {
+      ann.commitText();
+      return;
+    }
+    if (ann.tool) {
+      // 标注模式：拖动是绘制；阻止默认的焦点切换，新建的文字框才不会立刻失焦
+      e.preventDefault();
+      if (ann.down(toImg(e), e.shiftKey)) (e.currentTarget as Element).setPointerCapture(e.pointerId);
+      return;
+    }
     press = { x: e.screenX, y: e.screenY };
   }
 
   function onMove(e: PointerEvent) {
+    if (ann.gesture) {
+      ann.move(toImg(e), e.shiftKey);
+      return;
+    }
     if (!press || !(e.buttons & 1)) return;
     if (Math.hypot(e.screenX - press.x, e.screenY - press.y) < 3) return;
     press = null;
@@ -72,8 +134,9 @@
 
   async function copy() {
     try {
+      await syncAnnotations();
       await pinCopy(pinId);
-      toast(cardText ? '已复制文字' : '已复制图片');
+      toast(cardText && !ann.hasShapes ? '已复制文字' : '已复制图片');
     } catch (e) {
       toast(`复制失败：${e}`, { kind: 'error' });
     }
@@ -81,6 +144,7 @@
 
   async function save() {
     try {
+      await syncAnnotations();
       const path = await pinSave(pinId);
       if (path) toast('已保存');
     } catch (e) {
@@ -89,8 +153,13 @@
   }
 
   /** 工具条发来的动作。 */
-  function onAction(a: { action: PinAction; value?: number }) {
+  function onAction(a: PinActionMsg) {
     switch (a.action) {
+      case 'annotate': return enterAnnotate();
+      case 'done': return exitAnnotate();
+      case 'tool': return a.tool && ann.setTool(a.tool);
+      case 'opts': return a.tool && a.opts && ann.setOpts(a.tool, a.opts);
+      case 'undo': return ann.undo();
       case 'copy': return copy();
       case 'save': return save();
       case 'close': return pinClose();
@@ -116,6 +185,26 @@
 
   function onKey(e: KeyboardEvent) {
     const ctrl = e.ctrlKey || e.metaKey;
+    if (ann.editing) return; // 打字时快捷键交给编辑框
+    if (ann.tool) {
+      // 标注模式：空格 / Esc 退出标注，1–7 切工具，Ctrl+Z 撤销；Ctrl+C / Ctrl+S 照常
+      if (e.key === 'Escape' || e.key === ' ') {
+        e.preventDefault();
+        return exitAnnotate();
+      }
+      if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        return ann.undo();
+      }
+      const t = !ctrl && !e.altKey && !e.shiftKey ? toolForKey(e.key) : null;
+      if (t) {
+        e.preventDefault();
+        return ann.setTool(t);
+      }
+    } else if (e.key === ' ') {
+      e.preventDefault();
+      return enterAnnotate();
+    }
     if (e.key === 'Escape') {
       e.preventDefault();
       pinClose();
@@ -201,7 +290,9 @@
 <div
   class="frame"
   class:through
+  class:annot={ann.tool !== null}
   class:pixel={zoom >= 2}
+  style:cursor={ann.tool ? ann.cursor() : null}
   style:inset="{PIN_MARGIN}px"
   style:opacity
   role="img"
@@ -210,12 +301,24 @@
   onpointermove={onMove}
   onpointerenter={() => pinHover(true, opacity)}
   onpointerleave={() => pinHover(false, opacity)}
-  onpointerup={() => (press = null)}
-  ondblclick={() => pinClose()}
+  onpointerup={() => {
+    press = null;
+    if (ann.gesture) ann.up();
+  }}
+  ondblclick={() => !ann.tool && pinClose()}
   onwheel={onWheel}
 >
   {#if src}
     <img bind:this={img} {src} alt="" draggable="false" />
+  {/if}
+  <PinLayer shapes={ann.visible} draft={ann.draft} {natural} src={img} />
+  {#if ann.editing}
+    <TextEditor
+      shape={ann.editing.shape}
+      scale={unit()}
+      oninput={(t) => ann.setEditingText(t)}
+      oncommit={() => ann.commitText()}
+    />
   {/if}
   <span class="chip" class:show={flash}>{label}</span>
 </div>
@@ -240,7 +343,7 @@
     transition: box-shadow var(--d-hover) var(--ease-hover), opacity var(--d-hover) var(--ease-hover);
     animation: pin-in 220ms var(--ease-in) both;
   }
-  .frame:hover { box-shadow: 0 0 0 2px var(--accent), 0 3px 9px rgba(0, 0, 0, .28); }
+  .frame:hover, .frame.annot { box-shadow: 0 0 0 2px var(--accent), 0 3px 9px rgba(0, 0, 0, .28); }
   .frame.through { cursor: default; }
   @keyframes pin-in {
     from { opacity: 0; transform: scale(.94); }

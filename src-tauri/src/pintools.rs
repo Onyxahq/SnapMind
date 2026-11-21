@@ -32,6 +32,8 @@ struct Inner {
     pin_hover: bool,
     tools_hover: bool,
     menu: bool,
+    /// 贴图在标注模式：工具条一直显示（换成标注工具）
+    keep: bool,
     /// 每次状态变化加一；延迟隐藏的线程醒来时对比，过期就不隐藏
     gen: u64,
     /// 工具条内容尺寸（CSS 像素，不含连接区），由页面报告
@@ -100,6 +102,21 @@ pub fn tools_hover<R: Runtime>(app: &AppHandle<R>, on: bool) {
     update(app);
 }
 
+/// 贴图进入 / 退出标注模式：期间工具条跟随这张贴图且一直显示。
+pub fn keep<R: Runtime>(app: &AppHandle<R>, id: u32, on: bool) {
+    {
+        let state = app.state::<ToolsState>();
+        let mut s = state.inner.lock().expect("工具条锁");
+        if on {
+            s.pin = Some(id);
+            s.keep = true;
+        } else if s.pin == Some(id) {
+            s.keep = false;
+        }
+    }
+    update(app);
+}
+
 /// 「更多」菜单打开 / 关闭；菜单打开时工具条不隐藏。
 pub fn menu<R: Runtime>(app: &AppHandle<R>, open: bool) {
     app.state::<ToolsState>().inner.lock().expect("工具条锁").menu = open;
@@ -149,7 +166,7 @@ fn update<R: Runtime>(app: &AppHandle<R>) {
         let state = app.state::<ToolsState>();
         let mut s = state.inner.lock().expect("工具条锁");
         s.gen += 1;
-        (s.pin.is_some() && (s.pin_hover || s.tools_hover || s.menu), s.gen)
+        (s.pin.is_some() && (s.pin_hover || s.tools_hover || s.menu || s.keep), s.gen)
     };
     let Some(w) = app.get_webview_window(LABEL) else { return };
     if active {

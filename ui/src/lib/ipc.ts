@@ -305,7 +305,35 @@ export async function pinThrough(): Promise<void> {
 
 // ---- 贴图工具条 ----
 
-export type PinAction = 'copy' | 'save' | 'close' | 'through' | 'zoom100' | 'opacity';
+export type PinAction =
+  | 'copy'
+  | 'save'
+  | 'close'
+  | 'through'
+  | 'zoom100'
+  | 'opacity'
+  | 'annotate'
+  | 'done'
+  | 'tool'
+  | 'opts'
+  | 'undo';
+
+/** 工具条发给贴图的动作。 */
+export interface PinActionMsg {
+  action: PinAction;
+  value?: number;
+  tool?: import('./annotate').Tool;
+  opts?: Partial<import('./annotate').ToolOpts>;
+}
+
+/** 贴图告诉工具条自己的标注状态。 */
+export interface PinAnnotState {
+  id: number;
+  active: boolean;
+  tool: import('./annotate').Tool | null;
+  opts: Record<import('./annotate').Tool, import('./annotate').ToolOpts>;
+  canUndo: boolean;
+}
 
 export async function pinHover(on: boolean, opacity: number): Promise<void> {
   if (!inTauri()) return;
@@ -361,13 +389,42 @@ export async function onToolsTarget(cb: (t: ToolsTarget) => void): Promise<() =>
 }
 
 /** 工具条把动作发给对应的贴图窗口。 */
-export async function sendPinAction(id: number, action: PinAction, value?: number): Promise<void> {
+export async function sendPinAction(id: number, msg: PinActionMsg): Promise<void> {
   if (!inTauri()) return;
   const { emitTo } = await import('@tauri-apps/api/event');
-  return emitTo(`pin-${id}`, 'pin:action', { action, value });
+  return emitTo(`pin-${id}`, 'pin:action', msg);
 }
 
-export async function onPinAction(cb: (a: { action: PinAction; value?: number }) => void): Promise<() => void> {
+export async function onPinAction(cb: (a: PinActionMsg) => void): Promise<() => void> {
   if (!inTauri()) return () => {};
-  return listen<{ action: PinAction; value?: number }>('pin:action', (e) => cb(e.payload));
+  return listen<PinActionMsg>('pin:action', (e) => cb(e.payload));
+}
+
+/** 贴图把标注状态发给工具条。 */
+export async function sendAnnotState(state: PinAnnotState): Promise<void> {
+  if (!inTauri()) return;
+  const { emitTo } = await import('@tauri-apps/api/event');
+  return emitTo('pintools', 'pin:annot', state);
+}
+
+export async function onAnnotState(cb: (s: PinAnnotState) => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  return listen<PinAnnotState>('pin:annot', (e) => cb(e.payload));
+}
+
+/** 贴图进入 / 退出标注模式（工具条保持显示）。 */
+export async function pinKeep(on: boolean): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('pin_keep', { on });
+}
+
+/** 上传贴图的标注层（相对图片的偏移 + RGBA；null 清除）。 */
+export async function pinSetAnnotations(
+  layer: { x: number; y: number; width: number; height: number; rgba: Uint8Array } | null,
+): Promise<void> {
+  if (!inTauri()) return;
+  const h = (v: number | undefined) => String(v ?? 0);
+  return invoke('pin_set_annotations', layer?.rgba ?? new Uint8Array(0), {
+    headers: { 'x-x': h(layer?.x), 'x-y': h(layer?.y), 'x-width': h(layer?.width), 'x-height': h(layer?.height) },
+  });
 }
