@@ -3412,7 +3412,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind"
-version = "0.1.0"
+version = "0.1.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -3426,7 +3426,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-core"
-version = "0.1.0"
+version = "0.1.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -3436,15 +3436,15 @@ dependencies = [
 
 [[package]]
 name = "snapmind-ocr"
-version = "0.1.0"
+version = "0.1.5"
 
 [[package]]
 name = "snapmind-platform"
-version = "0.1.0"
+version = "0.1.5"
 
 [[package]]
 name = "snapmind-providers"
-version = "0.1.0"
+version = "0.1.5"
 
 [[package]]
 name = "socket2"

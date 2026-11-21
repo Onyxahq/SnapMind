@@ -8,7 +8,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   root: r('./src/entries'),
   publicDir: false,
-  plugins: [svelte()],
+  plugins: [svelte({ configFile: false })],
   resolve: {
     alias: { $lib: r('./src/lib') },
   },
@@ -29,8 +29,8 @@ export default defineConfig({
     },
   },
   test: {
-    root: r('.'),
-    include: ['src/**/*.test.ts'],
+    root: r('..'),
+    include: ['ui/src/**/*.test.ts', 'scripts/**/*.test.ts'],
     environment: 'node',
   },
 });

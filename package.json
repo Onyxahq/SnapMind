@@ -1,14 +1,15 @@
 {
   "name": "snapmind",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.5",
   "type": "module",
   "scripts": {
     "dev": "vite --config ui/vite.config.ts",
     "build": "vite build --config ui/vite.config.ts",
     "check": "svelte-check --tsconfig ./ui/tsconfig.json",
     "test": "vitest run --config ui/vite.config.ts",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.5"
