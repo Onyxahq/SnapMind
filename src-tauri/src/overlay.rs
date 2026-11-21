@@ -65,6 +65,14 @@ struct StartPayload {
     monitor: MonitorGeom,
     /// 鼠标是否在这个显示器上（M1.2 起用于决定初始焦点和放大镜）。
     has_cursor: bool,
+    /// 截图时的鼠标位置（物理像素），仅在这块屏上时提供
+    cursor: Option<CursorPos>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+struct CursorPos {
+    x: i32,
+    y: i32,
 }
 
 #[derive(Default)]
@@ -231,7 +239,8 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>) {
                 && c.x < m.x as f64 + m.width as f64
                 && c.y < m.y as f64 + m.height as f64
         });
-        let payload = StartPayload { seq, index: i, monitor: *m, has_cursor };
+        let cursor_here = cursor.filter(|_| has_cursor).map(|c| CursorPos { x: c.x as i32, y: c.y as i32 });
+        let payload = StartPayload { seq, index: i, monitor: *m, has_cursor, cursor: cursor_here };
         let _ = app.emit_to(w.label(), EVENT_START, payload);
         place(w, m);
         if has_cursor {

@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+arboard = { version = "3.7.0", default-features = false }
 thiserror = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]

@@ -14,6 +14,7 @@ describe('ipc（浏览器假实现）', () => {
     const off = await onConfigChanged((c) => seen.push(c.appearance.theme));
     const next = await configUpdate({ appearance: { theme: 'dark' } });
     expect(next.appearance).toEqual({ theme: 'dark', accent: 'blue' });
+    expect(next.capture.colorFormat).toBe('hex');
     expect((await configGet()).appearance.theme).toBe('dark');
     expect(seen).toEqual(['dark']);
     off();

@@ -1,10 +1,12 @@
 <script lang="ts">
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
-  // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件。放大镜、提示、工具条在 M1.4 起加入。
+  // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色。提示、工具条在 M1.5 起加入。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
     claimSelection,
+    clipboardWriteText,
+    cursorNudge,
     inTauri,
     onCaptureStart,
     onSelectionClaimed,
@@ -15,7 +17,12 @@
   } from '$lib/ipc';
   import { containsPoint, keepLevel, toLocalChain, wheelLevel } from '$lib/snap';
   import { log } from '$lib/log';
-  import type { Point, Rect } from '$lib/geometry';
+  import { physicalToCss, type Point, type Rect } from '$lib/geometry';
+  import { formatColor, nextFormat, wasdDelta, type RGB } from '$lib/color';
+  import { config, updateConfig } from '$lib/config.svelte';
+  import ToastHost from '$lib/ui/ToastHost.svelte';
+  import { toast } from '$lib/ui/toast.svelte';
+  import Magnifier from './Magnifier.svelte';
   import {
     cursorFor,
     fromCorners,
@@ -38,7 +45,7 @@
   let src = $state('');
   /** 冻结帧已解码并显示。遮罩本身在收到事件的第一帧就出现，不等截图传过来。 */
   let frameReady = $state(false);
-  let img: HTMLImageElement;
+  let img = $state<HTMLImageElement>()!;
 
   /** 选区，单位为本显示器截图的物理像素。 */
   let sel = $state<Rect | null>(null);
@@ -49,6 +56,11 @@
   // raw：拖动过程中只整体替换，不需要深层响应
   let drag = $state.raw<Drag | null>(null);
   let hover = $state<Hit>(null);
+
+  /** 光标的 CSS 坐标；鼠标离开这块屏时为 null。 */
+  let cursorCss = $state<Point | null>(null);
+  /** 放大镜当前像素的颜色（由放大镜组件回填）。 */
+  let pickRgb = $state<RGB | null>(null);
 
   /** 吸附链（本屏像素，从内到外）和当前高亮的层级。只在还没有选区时生效。 */
   let snapList = $state.raw<Rect[]>([]);
@@ -84,6 +96,19 @@
     return `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${x}px ${y}px, ${x + w}px ${y}px, ${x + w}px ${y + h}px, ${x}px ${y + h}px, ${x}px ${y}px)`;
   });
   const cursor = $derived(drag?.kind === 'move' ? 'move' : cursorFor(hover));
+  /** 光标所在的截图像素（向下取整：光标落在哪个像素里就是哪个） */
+  const cursorPx = $derived(
+    cursorCss
+      ? {
+          x: Math.min(Math.max(Math.floor(cursorCss.x * mon.scale), 0), W - 1),
+          y: Math.min(Math.max(Math.floor(cursorCss.y * mon.scale), 0), H - 1),
+        }
+      : null,
+  );
+  /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
+  const showMag = $derived(
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move',
+  );
 
   // ---------------------------------------------------------------- 吸附
 
@@ -129,6 +154,7 @@
     hover = null;
     snapList = [];
     snapLevel = 0;
+    cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
     frameReady = false;
     src = url ?? `${convertFileSrc(String(s.index), 'snapframe')}?s=${s.seq}`;
     // 窗口是透明的：帧到之前遮罩下面透出的就是真实桌面，和冻结帧一模一样。
@@ -177,6 +203,7 @@
 
   function onMoveEvt(e: PointerEvent) {
     if (!session) return;
+    cursorCss = { x: e.clientX, y: e.clientY };
     const p = toPx(e.clientX, e.clientY);
     if (!drag) {
       if (sel) hover = hitTest(sel, p, HIT_TOL * mon.scale);
@@ -239,6 +266,37 @@
     if (d && sel && !drag) {
       e.preventDefault();
       sel = move(sel, d.x, d.y, W, H);
+      return;
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return; // 带修饰键的留给其他快捷键
+    const w = wasdDelta(e.key);
+    if (w) {
+      e.preventDefault();
+      if (inTauri()) cursorNudge(w.x, w.y); // 系统会发出鼠标移动，放大镜和拖动都跟着走
+      else if (cursorCss) cursorCss = { x: cursorCss.x + w.x / mon.scale, y: cursorCss.y + w.y / mon.scale };
+      return;
+    }
+    switch (e.key.toLowerCase()) {
+      case 'p':
+        e.preventDefault();
+        updateConfig({ capture: { colorFormat: nextFormat(config.value.capture.colorFormat) } });
+        break;
+      case 'c':
+        e.preventDefault();
+        copyColor();
+        break;
+    }
+  }
+
+  async function copyColor() {
+    if (!showMag || !pickRgb) return;
+    const text = formatColor(pickRgb, config.value.capture.colorFormat);
+    try {
+      await clipboardWriteText(text);
+      toast(`已复制 ${text}`);
+    } catch (err) {
+      toast('复制颜色失败', { kind: 'error' });
+      log('warn', `复制颜色失败：${err}`);
     }
   }
 
@@ -267,6 +325,7 @@
   onpointerdown={onDown}
   onpointermove={onMoveEvt}
   onpointerup={onUp}
+  onpointerleave={() => (cursorCss = null)}
   onwheel={onWheel}
   oncontextmenu={onContext}
 >
@@ -280,7 +339,19 @@
       animate={!sel && !drag}
     />
   {/if}
+  {#if showMag && cursorPx && cursorCss}
+    <Magnifier
+      {img}
+      {mon}
+      px={cursorPx}
+      {cursorCss}
+      format={config.value.capture.colorFormat}
+      bind:rgb={pickRgb}
+    />
+  {/if}
 </div>
+
+<ToastHost />
 
 <style>
   :global(html), :global(body) {

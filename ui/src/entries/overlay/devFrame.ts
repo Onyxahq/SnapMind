@@ -48,7 +48,7 @@ export async function devCapture(): Promise<{ start: CaptureStart; url: string }
   }
   const blob = await new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'));
   return {
-    start: { seq: 1, index: 0, monitor: { x: 0, y: 0, width, height, scale }, hasCursor: true },
+    start: { seq: 1, index: 0, monitor: { x: 0, y: 0, width, height, scale }, hasCursor: true, cursor: null },
     url: URL.createObjectURL(blob),
   };
 }

@@ -75,6 +75,8 @@ pub fn run() {
             commands::overlay_ready,
             commands::overlay_end,
             commands::snap_chain,
+            commands::cursor_nudge,
+            commands::clipboard_write_text,
             commands::ui_log,
         ])
         .run(tauri::generate_context!())

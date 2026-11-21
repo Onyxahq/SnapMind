@@ -24,6 +24,7 @@ pub const FILE_NAME: &str = "config.json";
 pub struct Config {
     pub version: u32,
     pub appearance: Appearance,
+    pub capture: CaptureConfig,
 }
 
 impl Default for Config {
@@ -31,6 +32,7 @@ impl Default for Config {
         Self {
             version: CURRENT_VERSION,
             appearance: Appearance::default(),
+            capture: CaptureConfig::default(),
         }
     }
 }
@@ -59,6 +61,23 @@ pub enum Accent {
     Sky,
     Violet,
     Green,
+}
+
+/// 截图编辑态的设置。
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CaptureConfig {
+    /// 放大镜里颜色值的格式，按 P 切换后记住。
+    pub color_format: ColorFormat,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ColorFormat {
+    #[default]
+    Hex,
+    Rgb,
+    Hsl,
 }
 
 // ---------------------------------------------------------------- 错误
@@ -232,7 +251,14 @@ mod tests {
     #[test]
     fn serializes_as_camel_case_lowercase_enums() {
         let v = serde_json::to_value(Config::default()).unwrap();
-        assert_eq!(v, json!({ "version": 1, "appearance": { "theme": "system", "accent": "blue" } }));
+        assert_eq!(
+            v,
+            json!({
+                "version": 1,
+                "appearance": { "theme": "system", "accent": "blue" },
+                "capture": { "colorFormat": "hex" }
+            })
+        );
     }
 
     #[test]

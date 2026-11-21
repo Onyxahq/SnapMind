@@ -58,6 +58,18 @@ pub async fn snap_chain(app: AppHandle, x: i32, y: i32) -> Vec<crate::overlay::S
         .unwrap_or_default()
 }
 
+/// 把系统鼠标移动若干物理像素（截图时 W A S D 逐像素移动光标）。
+#[tauri::command]
+pub fn cursor_nudge(dx: i32, dy: i32) {
+    snapmind_platform::cursor::nudge(dx, dy);
+}
+
+/// 把文字写入剪贴板（取色值等）。
+#[tauri::command]
+pub fn clipboard_write_text(text: String) -> Result<(), String> {
+    snapmind_platform::clipboard::set_text(&text).map_err(|e| e.to_string())
+}
+
 /// 结束截图：隐藏全部遮罩并释放截图。
 #[tauri::command]
 pub fn overlay_end(app: AppHandle) {

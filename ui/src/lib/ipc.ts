@@ -3,6 +3,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
 import type { Accent, ThemeMode } from './theme';
+import type { ColorFormat } from './color';
 
 export interface AppInfo {
   name: string;
@@ -14,6 +15,7 @@ export interface AppInfo {
 export interface Config {
   version: number;
   appearance: { theme: ThemeMode; accent: Accent };
+  capture: { colorFormat: ColorFormat };
 }
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
@@ -21,6 +23,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartia
 export const DEFAULT_CONFIG: Config = {
   version: 1,
   appearance: { theme: 'system', accent: 'blue' },
+  capture: { colorFormat: 'hex' },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -82,6 +85,8 @@ export interface CaptureStart {
   index: number;
   monitor: import('./geometry').MonitorGeom;
   hasCursor: boolean;
+  /** 截图时的鼠标位置（虚拟桌面物理坐标），放大镜一出现就能定位 */
+  cursor: import('./geometry').Point | null;
 }
 
 /** 订阅「开始截图」（只有遮罩窗口会收到）。 */
@@ -116,4 +121,16 @@ export async function onSelectionClaimed(cb: (index: number) => void): Promise<(
 export async function snapChain(x: number, y: number): Promise<import('./geometry').Rect[]> {
   if (!inTauri()) return [];
   return invoke('snap_chain', { x: Math.round(x), y: Math.round(y) });
+}
+
+/** 把系统鼠标移动若干物理像素（W A S D 逐像素移动）。 */
+export async function cursorNudge(dx: number, dy: number): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('cursor_nudge', { dx, dy });
+}
+
+/** 写入剪贴板文字。走 Rust（系统剪贴板），不依赖 WebView 的剪贴板权限。 */
+export async function clipboardWriteText(text: string): Promise<void> {
+  if (!inTauri()) return navigator.clipboard.writeText(text);
+  return invoke('clipboard_write_text', { text });
 }
