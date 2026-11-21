@@ -1,5 +1,16 @@
 // 在普通浏览器里打开遮罩页时用的假截图，方便不启动 Tauri 也能调交互。
 import type { CaptureStart } from '$lib/ipc';
+import type { Point, Rect } from '$lib/geometry';
+
+/** 假截图里「窗口」及其「控件」（标题栏、正文行）的矩形，物理像素。 */
+let devRects: Rect[] = [];
+
+/** 假吸附链：包含该点的矩形按面积从小到大（相当于从内到外）。 */
+export function devChain(p: Point): Rect[] {
+  return devRects
+    .filter((r) => p.x >= r.x && p.y >= r.y && p.x < r.x + r.width && p.y < r.y + r.height)
+    .sort((a, b) => a.width * a.height - b.width * b.height);
+}
 
 export async function devCapture(): Promise<{ start: CaptureStart; url: string }> {
   const scale = devicePixelRatio || 1;
@@ -20,9 +31,15 @@ export async function devCapture(): Promise<{ start: CaptureStart; url: string }
     [0.52, 0.18, 0.38, 0.5, '#1c222c'],
     [0.2, 0.62, 0.5, 0.3, '#f8fafc'],
   ] as const;
+  devRects = [];
   for (const [x, y, w, h, color] of wins) {
     g.fillStyle = color;
     g.fillRect(x * width, y * height, w * width, h * height);
+    const win = { x: Math.round(x * width), y: Math.round(y * height), width: Math.round(w * width), height: Math.round(h * height) };
+    devRects.push(win, { ...win, height: Math.round(36 * scale) });
+    for (let i = 0; i < 6; i++) {
+      devRects.push({ x: win.x + Math.round(0.02 * width), y: Math.round((y + 0.06) * height + i * 26 * scale - 18 * scale), width: Math.round(420 * scale), height: Math.round(24 * scale) });
+    }
     g.fillStyle = color === '#1c222c' ? '#e8ecf2' : '#0f172a';
     g.font = `${16 * scale}px sans-serif`;
     for (let i = 0; i < 6; i++) {

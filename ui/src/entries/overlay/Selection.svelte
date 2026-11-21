@@ -8,11 +8,13 @@
     rect,
     label,
     handles = true,
-  }: { rect: Rect; label: string; handles?: boolean } = $props();
+    animate = false,
+  }: { rect: Rect; label: string; handles?: boolean; animate?: boolean } = $props();
 </script>
 
 <div
   class="sel"
+  class:animate
   style:left="{rect.x}px"
   style:top="{rect.y}px"
   style:width="{rect.width}px"
@@ -25,7 +27,7 @@
     {/each}
   {/if}
 </div>
-<span class="size" style:left="{rect.x}px" style:top="{labelTop(rect.y)}px">{label}</span>
+<span class="size" class:animate style:left="{rect.x}px" style:top="{labelTop(rect.y)}px">{label}</span>
 
 <style>
   .sel {
@@ -33,6 +35,14 @@
     /* 描边画在选区外侧，不遮住被截的内容 */
     box-shadow: 0 0 0 1.5px var(--accent);
     pointer-events: none;
+  }
+  /* 悬停吸附：高亮框滑到新元素上（120ms）；选区本身逐帧跟手，不加过渡 */
+  .animate {
+    transition:
+      left var(--d-snap) var(--ease-hover),
+      top var(--d-snap) var(--ease-hover),
+      width var(--d-snap) var(--ease-hover),
+      height var(--d-snap) var(--ease-hover);
   }
   .hd {
     position: absolute;

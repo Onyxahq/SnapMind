@@ -74,6 +74,7 @@ pub fn run() {
             commands::config_update,
             commands::overlay_ready,
             commands::overlay_end,
+            commands::snap_chain,
             commands::ui_log,
         ])
         .run(tauri::generate_context!())

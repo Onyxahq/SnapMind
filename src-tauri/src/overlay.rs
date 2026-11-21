@@ -18,6 +18,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use snapmind_platform::bmp::Frame;
+use snapmind_platform::snap::{self, ElementProbe, TopWindow};
 use snapmind_platform::{capture, Rect};
 use tauri::http::{Request, Response, StatusCode};
 use tauri::{
@@ -70,6 +71,22 @@ struct StartPayload {
 pub struct CaptureState {
     seq: AtomicU64,
     inner: Mutex<Session>,
+    probe: ElementProbe,
+}
+
+/// 吸附链里的一个矩形（物理像素、虚拟桌面坐标）。
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct SnapRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl From<Rect> for SnapRect {
+    fn from(r: Rect) -> Self {
+        Self { x: r.x, y: r.y, width: r.width, height: r.height }
+    }
 }
 
 #[derive(Default)]
@@ -79,6 +96,8 @@ struct Session {
     /// 不受 Rust 主线程当时是否繁忙（例如正在传输截图）影响。
     started: Option<f64>,
     frames: Vec<Option<Arc<Frame>>>,
+    /// 截图那一刻的顶层窗口快照（Z 序从上到下），吸附用
+    windows: Vec<TopWindow>,
     /// 已回报「遮罩出现」「冻结帧画好」的窗口数
     masks: usize,
     painted: usize,
@@ -186,6 +205,8 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>) {
 
     let mons = monitors(app);
     let rects: Vec<Rect> = mons.iter().map(MonitorGeom::rect).collect();
+    // 遮罩停在屏幕外且属于本进程，快照里自然不会有它们
+    let windows = snap::top_level_windows(std::process::id());
     let frames: Vec<Option<Arc<Frame>>> = capture::capture_all(&rects)
         .into_iter()
         .map(|r| r.map_err(|e| eprintln!("截屏失败：{e}")).ok().map(Arc::new))
@@ -198,7 +219,7 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>) {
     let seq = state.seq.fetch_add(1, Ordering::SeqCst) + 1;
     {
         let mut s = state.inner.lock().expect("截图状态锁");
-        *s = Session { active: true, started: Some(t0_epoch), frames, masks: 0, painted: 0 };
+        *s = Session { active: true, started: Some(t0_epoch), frames, windows, masks: 0, painted: 0 };
     }
 
     let cursor = app.cursor_position().ok();
@@ -258,6 +279,26 @@ pub fn ready<R: Runtime>(app: &AppHandle<R>, seq: u64, stage: &str, at: f64) -> 
         eprintln!("[capture #{seq}] 按键 → {what} {ms:.1} ms");
     }
     Some(ms)
+}
+
+/// 吸附链：鼠标（物理坐标）下从最内层控件到顶层窗口的一串矩形；桌面空白处返回空。
+/// UI Automation 查询是阻塞的，调用方要放到后台线程。
+pub fn snap_chain<R: Runtime>(app: &AppHandle<R>, x: i32, y: i32) -> Vec<SnapRect> {
+    let state = app.state::<CaptureState>();
+    let window = {
+        let s = state.inner.lock().expect("截图状态锁");
+        if !s.active {
+            return Vec::new();
+        }
+        snap::window_at(&s.windows, x, y).copied()
+    };
+    let Some(window) = window else { return Vec::new() };
+    state
+        .probe
+        .chain(window, x, y, std::time::Duration::from_millis(150))
+        .into_iter()
+        .map(SnapRect::from)
+        .collect()
 }
 
 /// `snapframe` 协议：`/<显示器序号>` 返回该显示器当前截图的 BMP。

@@ -111,3 +111,9 @@ export async function onSelectionClaimed(cb: (index: number) => void): Promise<(
   if (!inTauri()) return () => {};
   return listen<number>('overlay:claim', (e) => cb(e.payload));
 }
+
+/** 吸附链：物理坐标处从最内层控件到顶层窗口的矩形（虚拟桌面物理坐标），桌面空白处为空。 */
+export async function snapChain(x: number, y: number): Promise<import('./geometry').Rect[]> {
+  if (!inTauri()) return [];
+  return invoke('snap_chain', { x: Math.round(x), y: Math.round(y) });
+}

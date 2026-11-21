@@ -1,6 +1,6 @@
 <script lang="ts">
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
-  // M1.1 冻结帧与遮罩；M1.2 选区。放大镜、提示、工具条在 M1.3 起逐步加入。
+  // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件。放大镜、提示、工具条在 M1.4 起加入。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -10,8 +10,10 @@
     onSelectionClaimed,
     overlayEnd,
     overlayReady,
+    snapChain,
     type CaptureStart,
   } from '$lib/ipc';
+  import { containsPoint, keepLevel, toLocalChain, wheelLevel } from '$lib/snap';
   import { log } from '$lib/log';
   import type { Point, Rect } from '$lib/geometry';
   import {
@@ -25,7 +27,7 @@
     type Hit,
   } from '$lib/selection';
   import Selection from './Selection.svelte';
-  import { devCapture } from './devFrame';
+  import { devCapture, devChain } from './devFrame';
 
   /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
   const CLICK_SLOP = 3;
@@ -48,6 +50,11 @@
   let drag = $state.raw<Drag | null>(null);
   let hover = $state<Hit>(null);
 
+  /** 吸附链（本屏像素，从内到外）和当前高亮的层级。只在还没有选区时生效。 */
+  let snapList = $state.raw<Rect[]>([]);
+  let snapLevel = $state(0);
+  const snapRect = $derived(sel || drag ? null : (snapList[snapLevel] ?? null));
+
   const mon = $derived(session?.monitor ?? { x: 0, y: 0, width: 1, height: 1, scale: 1 });
   const W = $derived(mon.width);
   const H = $derived(mon.height);
@@ -64,9 +71,11 @@
     height: r.height / mon.scale,
   });
 
-  const selCss = $derived(sel ? cssRect(sel) : null);
+  /** 显示出来的框：已有选区，或者悬停吸附的高亮。 */
+  const shown = $derived(sel ?? snapRect);
+  const selCss = $derived(shown ? cssRect(shown) : null);
   const sizeLabel = $derived(
-    sel ? `${mon.x + sel.x},${mon.y + sel.y}   ${sel.width} × ${sel.height} px` : '',
+    shown ? `${mon.x + shown.x},${mon.y + shown.y}   ${shown.width} × ${shown.height} px` : '',
   );
   /** 遮罩上挖出选区：外框和内框用 evenodd 规则组成一个多边形。 */
   const scrimClip = $derived.by(() => {
@@ -76,11 +85,50 @@
   });
   const cursor = $derived(drag?.kind === 'move' ? 'move' : cursorFor(hover));
 
+  // ---------------------------------------------------------------- 吸附
+
+  /** 同一时间只有一个查询在路上；返回时鼠标已经移走，就再查一次最新位置。 */
+  let snapBusy = false;
+  let snapPending: Point | null = null;
+
+  async function querySnap(p: Point) {
+    if (!session) return;
+    if (snapBusy) {
+      snapPending = p;
+      return;
+    }
+    snapBusy = true;
+    const seq = session.seq;
+    const gx = mon.x + p.x;
+    const gy = mon.y + p.y;
+    try {
+      const chain = inTauri() ? await snapChain(gx, gy) : devChain({ x: gx, y: gy });
+      if (session?.seq === seq && !sel) {
+        const local = toLocalChain(chain, mon);
+        snapLevel = keepLevel(local, snapList[snapLevel] ?? null);
+        snapList = local;
+      }
+    } finally {
+      snapBusy = false;
+      const next = snapPending;
+      snapPending = null;
+      if (next) querySnap(next);
+    }
+  }
+
+  function onWheel(e: WheelEvent) {
+    if (!session || sel || drag || !snapList.length) return;
+    e.preventDefault();
+    snapLevel = wheelLevel(snapLevel, e.deltaY, snapList.length);
+  }
+
   async function start(s: CaptureStart, url?: string) {
     session = s;
     sel = null;
     drag = null;
     hover = null;
+    snapList = [];
+    snapLevel = 0;
     frameReady = false;
     src = url ?? `${convertFileSrc(String(s.index), 'snapframe')}?s=${s.seq}`;
     // 窗口是透明的：帧到之前遮罩下面透出的就是真实桌面，和冻结帧一模一样。
@@ -131,7 +179,8 @@
     if (!session) return;
     const p = toPx(e.clientX, e.clientY);
     if (!drag) {
-      hover = sel ? hitTest(sel, p, HIT_TOL * mon.scale) : null;
+      if (sel) hover = hitTest(sel, p, HIT_TOL * mon.scale);
+      else querySnap(p);
       return;
     }
     switch (drag.kind) {
@@ -156,8 +205,10 @@
   function onUp(e: PointerEvent) {
     if (!drag) return;
     if (drag.kind === 'create' && !drag.moved) {
-      // 单击：选中整个显示器（M1.3 起改为选中鼠标下吸附到的窗口或控件）
-      sel = { x: 0, y: 0, width: W, height: H };
+      // 单击：选中吸附到的窗口或控件；桌面空白处选中整个显示器
+      const p = toPx(e.clientX, e.clientY);
+      const snapped = snapList[snapLevel];
+      sel = snapped && containsPoint(snapped, p) ? snapped : { x: 0, y: 0, width: W, height: H };
     } else if (sel && (sel.width === 0 || sel.height === 0)) {
       sel = null;
     }
@@ -169,8 +220,10 @@
   function onContext(e: MouseEvent) {
     e.preventDefault();
     if (!session || drag) return;
-    if (sel) sel = null;
-    else close();
+    if (sel) {
+      sel = null;
+      querySnap(toPx(e.clientX, e.clientY)); // 回到悬停吸附
+    } else close();
   }
 
   // ---------------------------------------------------------------- 键盘
@@ -214,12 +267,18 @@
   onpointerdown={onDown}
   onpointermove={onMoveEvt}
   onpointerup={onUp}
+  onwheel={onWheel}
   oncontextmenu={onContext}
 >
   <img bind:this={img} {src} alt="" draggable="false" crossorigin="anonymous" />
-  <div class="scrim" style:clip-path={scrimClip}></div>
+  <div class="scrim" class:snapping={!sel && !drag} style:clip-path={scrimClip}></div>
   {#if selCss}
-    <Selection rect={selCss} label={sizeLabel} handles={!drag || drag.kind !== 'create'} />
+    <Selection
+      rect={selCss}
+      label={sizeLabel}
+      handles={sel !== null && (!drag || drag.kind !== 'create')}
+      animate={!sel && !drag}
+    />
   {/if}
 </div>
 
@@ -257,5 +316,11 @@
   .active .scrim {
     opacity: 1;
     transition: opacity var(--d-scrim) var(--ease-scrim);
+  }
+  /* 悬停吸附时，挖洞随高亮框一起平滑过去（120ms）；拖动选区时逐帧跟手，不加过渡 */
+  .active .scrim.snapping {
+    transition:
+      opacity var(--d-scrim) var(--ease-scrim),
+      clip-path var(--d-snap) var(--ease-hover);
   }
 </style>

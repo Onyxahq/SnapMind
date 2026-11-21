@@ -5,6 +5,7 @@
 
 pub mod bmp;
 pub mod capture;
+pub mod snap;
 pub mod window;
 
 /// 当前编译目标平台的名字。

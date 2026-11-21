@@ -3451,7 +3451,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -3466,7 +3466,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -3476,11 +3476,11 @@ dependencies = [
 
 [[package]]
 name = "snapmind-ocr"
-version = "0.2.2"
+version = "0.2.3"
 
 [[package]]
 name = "snapmind-platform"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "thiserror 2.0.21",
  "windows",
@@ -3488,7 +3488,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-providers"
-version = "0.2.2"
+version = "0.2.3"
 
 [[package]]
 name = "socket2"

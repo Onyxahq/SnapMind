@@ -50,6 +50,14 @@ pub fn overlay_ready(app: AppHandle, seq: u64, stage: String, at: f64) -> Option
     crate::overlay::ready(&app, seq, &stage, at)
 }
 
+/// 吸附链（悬停高亮用）：物理坐标处从最内层控件到顶层窗口的矩形，桌面空白处为空。
+#[tauri::command]
+pub async fn snap_chain(app: AppHandle, x: i32, y: i32) -> Vec<crate::overlay::SnapRect> {
+    tauri::async_runtime::spawn_blocking(move || crate::overlay::snap_chain(&app, x, y))
+        .await
+        .unwrap_or_default()
+}
+
 /// 结束截图：隐藏全部遮罩并释放截图。
 #[tauri::command]
 pub fn overlay_end(app: AppHandle) {
