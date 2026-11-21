@@ -19,7 +19,8 @@
         "minWidth": 720,
         "minHeight": 480,
         "center": true,
-        "visible": false
+        "visible": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion,UseEcoQoSForBackgroundProcess --disable-backgrounding-occluded-windows --disable-renderer-backgrounding"
       }
     ],
     "security": {

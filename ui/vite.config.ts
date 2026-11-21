@@ -4,7 +4,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
-// 每种窗口一个入口：settings（设置），后续加入 overlay / pin / card。
+// 每种窗口一个入口：settings（设置）、overlay（截图遮罩），后续加入 pin / card。
 export default defineConfig({
   root: r('./src/entries'),
   publicDir: false,
@@ -25,6 +25,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         settings: r('./src/entries/settings/index.html'),
+        overlay: r('./src/entries/overlay/index.html'),
       },
     },
   },

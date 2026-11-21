@@ -42,3 +42,22 @@ pub fn config_update(app: AppHandle, state: State<'_, AppState>, patch: Value) -
         None => Ok(state.config.get()),
     }
 }
+
+/// 遮罩窗口回报进度（stage = "mask" 遮罩已出现 / "frame" 冻结帧已画好；at = 画出时的
+/// Unix 毫秒），返回距按键的毫秒数（已过期的序号返回 None）。
+#[tauri::command]
+pub fn overlay_ready(app: AppHandle, seq: u64, stage: String, at: f64) -> Option<f64> {
+    crate::overlay::ready(&app, seq, &stage, at)
+}
+
+/// 结束截图：隐藏全部遮罩并释放截图。
+#[tauri::command]
+pub fn overlay_end(app: AppHandle) {
+    crate::overlay::end(&app);
+}
+
+/// 前端日志（隐藏窗口里的错误也能看到）。M11.2 起改写到滚动日志文件。
+#[tauri::command]
+pub fn ui_log(level: String, msg: String) {
+    eprintln!("[ui:{level}] {msg}");
+}

@@ -73,3 +73,30 @@ export async function onConfigChanged(cb: (c: Config) => void): Promise<() => vo
   }
   return listen<Config>(CONFIG_CHANGED, (e) => cb(e.payload));
 }
+
+// ---- 截图遮罩 ----
+
+export interface CaptureStart {
+  seq: number;
+  /** 显示器序号，也是 snapframe 协议里的帧路径 */
+  index: number;
+  monitor: import('./geometry').MonitorGeom;
+  hasCursor: boolean;
+}
+
+/** 订阅「开始截图」（只有遮罩窗口会收到）。 */
+export async function onCaptureStart(cb: (s: CaptureStart) => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  return listen<CaptureStart>('capture:start', (e) => cb(e.payload));
+}
+
+/** 回报遮罩进度：mask = 遮罩已出现，frame = 冻结帧已画好。返回距按键的毫秒数。 */
+export async function overlayReady(seq: number, stage: 'mask' | 'frame'): Promise<number | null> {
+  if (!inTauri()) return null;
+  return invoke<number | null>('overlay_ready', { seq, stage, at: Date.now() });
+}
+
+export async function overlayEnd(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('overlay_end');
+}

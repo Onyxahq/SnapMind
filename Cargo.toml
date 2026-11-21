@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.5"
+version = "0.2.1"
 edition = "2021"
 license = "UNLICENSED"
 
@@ -20,6 +20,10 @@ thiserror = "2"
 tempfile = "3"
 snapmind-core = { path = "crates/snapmind-core" }
 snapmind-platform = { path = "crates/snapmind-platform" }
+
+# 截屏、图像处理在调试版里也要够快，否则测不出真实耗时
+[profile.dev.package.snapmind-platform]
+opt-level = 3
 
 [profile.release]
 codegen-units = 1
