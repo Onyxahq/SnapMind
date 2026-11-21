@@ -81,3 +81,47 @@ pub fn overlay_end(app: AppHandle) {
 pub fn ui_log(level: String, msg: String) {
     eprintln!("[ui:{level}] {msg}");
 }
+
+/// 贴图页面启动时取图片尺寸。
+#[tauri::command]
+pub fn pin_info(app: AppHandle, window: tauri::WebviewWindow) -> Option<crate::pin::PinInfo> {
+    crate::pin::id_of(window.label()).and_then(|id| crate::pin::info(&app, id))
+}
+
+/// 贴图页面画好后调用，显示窗口。
+#[tauri::command]
+pub fn pin_ready(app: AppHandle, window: tauri::WebviewWindow) {
+    if let Some(id) = crate::pin::id_of(window.label()) {
+        crate::pin::ready(&app, id);
+    }
+}
+
+/// 缩放贴图：factor 为相对倍数（滚轮），absolute 为目标比例（Ctrl+0）；锚点为窗口内 CSS 坐标。
+#[tauri::command]
+pub fn pin_zoom(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    factor: Option<f64>,
+    absolute: Option<f64>,
+    x: f64,
+    y: f64,
+) -> Option<f64> {
+    let id = crate::pin::id_of(window.label())?;
+    crate::pin::zoom(&app, id, factor, absolute, (x, y))
+}
+
+/// 关闭贴图（双击、Esc）。
+#[tauri::command]
+pub fn pin_close(app: AppHandle, window: tauri::WebviewWindow) {
+    if let Some(id) = crate::pin::id_of(window.label()) {
+        crate::pin::close(&app, id);
+    }
+}
+
+/// 让当前贴图鼠标穿透（全局快捷键注册失败时由贴图页面的按键触发）。
+#[tauri::command]
+pub fn pin_through(app: AppHandle, window: tauri::WebviewWindow) {
+    if let Some(id) = crate::pin::id_of(window.label()) {
+        crate::pin::set_through(&app, id, true);
+    }
+}

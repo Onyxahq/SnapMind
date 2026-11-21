@@ -261,3 +261,44 @@ export async function captureSetAnnotations(
     },
   });
 }
+
+// ---- 贴图 ----
+
+/** 把截图钉在原位置（带标注），并结束截图。返回贴图 id。 */
+export async function capturePin(index: number, region: Region): Promise<number> {
+  if (!inTauri()) return 0;
+  return invoke('capture_pin', { index, region: intRegion(region) });
+}
+
+export async function pinInfo(): Promise<{ width: number; height: number } | null> {
+  if (!inTauri()) return { width: 400, height: 300 };
+  return invoke('pin_info');
+}
+
+export async function pinReady(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('pin_ready');
+}
+
+/** 缩放贴图：factor 相对倍数，absolute 目标比例；x、y 为窗口内的锚点（CSS 像素）。 */
+export async function pinZoom(a: { factor?: number; absolute?: number; x: number; y: number }): Promise<number | null> {
+  if (!inTauri()) return null;
+  return invoke('pin_zoom', { factor: a.factor ?? null, absolute: a.absolute ?? null, x: a.x, y: a.y });
+}
+
+export async function pinClose(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('pin_close');
+}
+
+/** 鼠标穿透状态变化（Ctrl+Shift+X 由 Rust 全局处理）。 */
+export async function onPinThrough(cb: (on: boolean) => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  return listen<boolean>('pin:through', (e) => cb(e.payload));
+}
+
+/** 让当前贴图鼠标穿透（之后用全局 Ctrl+Shift+X 或托盘菜单取消）。 */
+export async function pinThrough(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('pin_through');
+}

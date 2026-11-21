@@ -9,14 +9,17 @@
 //
 // steps.json：[{ "op": "drag", "x1", "y1", "x2", "y2" } | { "op": "click", "x", "y" }
 //   | { "op": "key", "key", "mods"(1 Alt / 2 Ctrl / 4 Meta / 8 Shift) } | { "op": "type", "text" }
-//   | { "op": "wait", "ms" } | { "op": "eval", "expr" }]，坐标是遮罩窗口内的 CSS 像素。
+//   | { "op": "wheel", "x", "y", "dy", "mods" }
+//   | { "op": "wait", "ms" } | { "op": "eval", "expr" }]，坐标是窗口内的 CSS 像素。
+// 第三个参数选择页面（URL 片段），默认 /overlay/，贴图窗口用 /pin/。
 import { readFileSync } from 'node:fs';
 
-const [port, scriptPath] = process.argv.slice(2);
+const [port, scriptPath, pageFilter = '/overlay/'] = process.argv.slice(2);
 const steps = JSON.parse(readFileSync(scriptPath, 'utf8'));
 const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-const page = targets.find((t) => t.url.includes('/overlay/'));
-if (!page) throw new Error('overlay page not found');
+// 第三个参数选页面（URL 片段），默认截图遮罩；贴图用 /pin/
+const page = targets.filter((t) => t.url.includes(pageFilter)).at(-1);
+if (!page) throw new Error(`page not found: ${pageFilter}`);
 
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
@@ -51,6 +54,9 @@ for (const s of steps) {
       await mouse('mouseReleased', s.x2, s.y2); break;
     }
     case 'key': await key(s.key, s.mods ?? 0); break;
+    case 'wheel':
+      await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: s.x, y: s.y, deltaX: 0, deltaY: s.dy, modifiers: s.mods ?? 0 });
+      break;
     case 'type': await send('Input.insertText', { text: s.text }); break;
     case 'eval': {
       const r = await send('Runtime.evaluate', { expression: s.expr, awaitPromise: true, returnByValue: true });

@@ -130,6 +130,16 @@ pub async fn capture_copy(app: AppHandle, state: State<'_, AppState>, index: usi
     .map_err(err)?
 }
 
+/// 贴图：裁剪（带标注）后结束截图，在原位置钉一张贴图。返回贴图 id。
+#[tauri::command]
+pub async fn capture_pin(app: AppHandle, index: usize, region: Region) -> Result<u32, String> {
+    let img = crop(&app, index, region)?;
+    let mon = overlay::monitor(&app, index).ok_or("截图已结束")?;
+    overlay::end(&app);
+    let at = (mon.x + region.x as i32, mon.y + region.y as i32);
+    crate::pin::create(&app, img, at, mon.scale).map_err(err)
+}
+
 /// 保存到哪里：
 /// - `path`：系统另存为对话框选的完整路径（对话框已确认过覆盖）；
 /// - `dir` + `name`：SnapMind 保存窗口里填的目录和文件名，重名时自动加 (2)，不覆盖；

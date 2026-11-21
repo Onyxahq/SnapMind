@@ -107,6 +107,8 @@ struct Session {
     frames: Vec<Option<Arc<Frame>>>,
     /// 截图那一刻的顶层窗口快照（Z 序从上到下），吸附用
     windows: Vec<TopWindow>,
+    /// 各显示器几何（贴图要知道原来的屏幕位置和缩放）
+    monitors: Vec<MonitorGeom>,
     /// 标注层：(显示器序号, 相对选区的偏移, RGBA)。导出前由前端上传，裁剪后叠到截图上。
     annotations: Option<(usize, (u32, u32), Arc<RgbaImage>)>,
     /// 已回报「遮罩出现」「冻结帧画好」的窗口数
@@ -230,7 +232,16 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>) {
     let seq = state.seq.fetch_add(1, Ordering::SeqCst) + 1;
     {
         let mut s = state.inner.lock().expect("截图状态锁");
-        *s = Session { active: true, started: Some(t0_epoch), frames, windows, annotations: None, masks: 0, painted: 0 };
+        *s = Session {
+            active: true,
+            started: Some(t0_epoch),
+            frames,
+            windows,
+            monitors: mons.clone(),
+            annotations: None,
+            masks: 0,
+            painted: 0,
+        };
     }
 
     let cursor = app.cursor_position().ok();
@@ -309,6 +320,13 @@ pub fn annotations<R: Runtime>(app: &AppHandle<R>, index: usize) -> Option<((u32
     s.annotations.as_ref().filter(|(i, _, _)| *i == index).map(|(_, at, l)| (*at, l.clone()))
 }
 
+/// 当前会话里某块屏的几何信息。
+pub fn monitor<R: Runtime>(app: &AppHandle<R>, index: usize) -> Option<MonitorGeom> {
+    let state = app.state::<CaptureState>();
+    let s = state.inner.lock().expect("截图状态锁");
+    s.monitors.get(index).copied()
+}
+
 /// 当前会话里某块屏的冻结帧（截图已结束时返回 None）。
 pub fn frame<R: Runtime>(app: &AppHandle<R>, index: usize) -> Option<Arc<Frame>> {
     let state = app.state::<CaptureState>();
@@ -339,14 +357,20 @@ pub fn snap_chain<R: Runtime>(app: &AppHandle<R>, x: i32, y: i32) -> Vec<SnapRec
         .collect()
 }
 
-/// `snapframe` 协议：`/<显示器序号>` 返回该显示器当前截图的 BMP。
+/// `snapframe` 协议：`/<显示器序号>` 返回该显示器当前截图的 BMP，`/pin/<id>` 返回贴图的 BMP。
 pub fn serve<R: Runtime>(app: &AppHandle<R>, req: &Request<Vec<u8>>) -> Response<Cow<'static, [u8]>> {
-    let index = req.uri().path().trim_start_matches('/').parse::<usize>().ok();
-    let frame = index.and_then(|i| {
-        let state = app.state::<CaptureState>();
-        let s = state.inner.lock().expect("截图状态锁");
-        s.frames.get(i).cloned().flatten()
-    });
+    let path = req.uri().path().trim_start_matches('/');
+    // convertFileSrc 会把 / 编码成 %2F
+    let path = path.replace("%2F", "/").replace("%2f", "/");
+    let frame = if let Some(id) = path.strip_prefix("pin/") {
+        id.parse::<u32>().ok().and_then(|id| crate::pin::frame(app, id))
+    } else {
+        path.parse::<usize>().ok().and_then(|i| {
+            let state = app.state::<CaptureState>();
+            let s = state.inner.lock().expect("截图状态锁");
+            s.frames.get(i).cloned().flatten()
+        })
+    };
     let builder = Response::builder()
         .header("Access-Control-Allow-Origin", "*") // 前端画布要读像素（取色、放大镜）
         .header("Cache-Control", "no-store");

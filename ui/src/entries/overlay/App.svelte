@@ -7,6 +7,7 @@
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
     captureCopy,
+    capturePin,
     captureSetAnnotations,
     captureSave,
     pickSaveFile,
@@ -390,9 +391,10 @@
     }
   }
 
-  /** 贴图在 M3 实现，这里先占位。 */
+  /** 贴图：在原位置钉一张贴图（带标注），结束截图。 */
   function pin() {
-    toast('贴图功能还在开发中', { kind: 'info' });
+    if (drag) return;
+    finish((i, r) => capturePin(i, r).then(String));
   }
 
   // ---------------------------------------------------------------- 鼠标

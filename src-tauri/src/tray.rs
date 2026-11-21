@@ -2,7 +2,7 @@
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::{actions, wm};
@@ -14,6 +14,21 @@ mod id {
     pub const SETTINGS: &str = "settings";
     pub const AUTOSTART: &str = "autostart";
     pub const QUIT: &str = "quit";
+    pub const UNTHROUGH: &str = "unthrough";
+}
+
+/// 托盘里需要随状态变化的菜单项。
+pub struct TrayItems<R: Runtime> {
+    /// 「取消贴图的鼠标穿透」：有贴图处于穿透状态时才可用。全局快捷键被别的程序占用时，
+    /// 这是关掉穿透的唯一入口（穿透的窗口收不到鼠标和键盘）。
+    pub unthrough: MenuItem<R>,
+}
+
+/// 有没有贴图处于鼠标穿透状态，更新托盘菜单。
+pub fn sync_through<R: Runtime>(app: &AppHandle<R>, any: bool) {
+    if let Some(items) = app.try_state::<TrayItems<R>>() {
+        let _ = items.unthrough.set_enabled(any);
+    }
 }
 
 pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
@@ -21,6 +36,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
     let capture = MenuItem::with_id(app, id::CAPTURE, "截图\tShift+F1", true, None::<&str>)?;
     let pin = MenuItem::with_id(app, id::PIN, "贴图\tShift+F3", true, None::<&str>)?;
+    let unthrough = MenuItem::with_id(app, id::UNTHROUGH, "取消贴图的鼠标穿透", false, None::<&str>)?;
     let settings = MenuItem::with_id(app, id::SETTINGS, "设置…", true, None::<&str>)?;
     let autostart =
         CheckMenuItem::with_id(app, id::AUTOSTART, "开机自启", true, autostart_on, None::<&str>)?;
@@ -29,8 +45,9 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
     let menu = Menu::with_items(
         app,
-        &[&capture, &pin, &sep()?, &settings, &autostart, &sep()?, &quit],
+        &[&capture, &pin, &unthrough, &sep()?, &settings, &autostart, &sep()?, &quit],
     )?;
+    app.manage(TrayItems { unthrough });
 
     let autostart_item = autostart.clone();
     let mut builder = TrayIconBuilder::with_id("main")
@@ -41,6 +58,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             id::CAPTURE => actions::capture(app),
             id::PIN => actions::pin_clipboard(app),
             id::SETTINGS => wm::show_settings(app),
+            id::UNTHROUGH => crate::pin::clear_through(app),
             id::AUTOSTART => toggle_autostart(app, &autostart_item),
             id::QUIT => app.exit(0),
             _ => {}

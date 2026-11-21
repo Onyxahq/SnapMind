@@ -5,13 +5,14 @@ mod commands;
 mod export;
 mod launch;
 mod overlay;
+mod pin;
 mod state;
 mod tray;
 mod wm;
 
 use snapmind_core::config::{ConfigStore, LoadOutcome};
 use tauri::{Manager, WindowEvent};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 pub fn run() {
     tauri::Builder::default()
@@ -26,9 +27,14 @@ pub fn run() {
         )
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
-                    // 目前只注册了截图键；M10.1 支持多个可配置快捷键后按 shortcut 分派。
-                    if event.state == ShortcutState::Pressed {
+                .with_handler(|app, shortcut, event| {
+                    if event.state != ShortcutState::Pressed {
+                        return;
+                    }
+                    let through: Option<Shortcut> = pin::THROUGH_SHORTCUT.parse().ok();
+                    if through.is_some_and(|t| t.id() == shortcut.id()) {
+                        pin::toggle_through(app);
+                    } else {
                         actions::capture(app);
                     }
                 })
@@ -36,6 +42,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_dialog::init())
         .manage(overlay::CaptureState::default())
+        .manage(pin::PinState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
@@ -61,7 +68,11 @@ pub fn run() {
         .on_window_event(|window, event| {
             // 常驻托盘：关闭窗口只是隐藏，退出走托盘菜单。
             if let WindowEvent::CloseRequested { api, .. } = event {
-                if overlay::is_overlay(window.label()) {
+                if let Some(id) = pin::id_of(window.label()) {
+                    // 关闭贴图窗口（Alt+F4 等）：释放图片
+                    api.prevent_close();
+                    pin::close(window.app_handle(), id);
+                } else if overlay::is_overlay(window.label()) {
                     // Alt+F4 等关闭遮罩 = 结束截图；窗口保留以便下次秒开。
                     api.prevent_close();
                     overlay::end(window.app_handle());
@@ -81,6 +92,12 @@ pub fn run() {
             commands::cursor_nudge,
             commands::clipboard_write_text,
             export::capture_copy,
+            export::capture_pin,
+            commands::pin_info,
+            commands::pin_ready,
+            commands::pin_zoom,
+            commands::pin_close,
+            commands::pin_through,
             export::capture_set_annotations,
             export::capture_save,
             export::capture_estimate,
