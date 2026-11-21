@@ -2,6 +2,8 @@
 //!
 //! 这个 crate 不依赖 Tauri 和任何平台 API，全部逻辑都可以单元测试。
 
+pub mod config;
+
 /// 应用名，用于配置目录、窗口标题等。
 pub const APP_NAME: &str = "SnapMind";
 

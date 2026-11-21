@@ -3,10 +3,12 @@
 mod actions;
 mod commands;
 mod launch;
+mod state;
 mod tray;
 mod wm;
 
-use tauri::WindowEvent;
+use snapmind_core::config::{ConfigStore, LoadOutcome};
+use tauri::{Manager, WindowEvent};
 
 pub fn run() {
     tauri::Builder::default()
@@ -20,9 +22,17 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            tray::create(app.handle())?;
+            let handle = app.handle();
+            let (config, outcome) = ConfigStore::open(&state::config_dir(handle)?)?;
+            if let LoadOutcome::Recovered { backup } = &outcome {
+                eprintln!("配置文件损坏，已备份到 {} 并恢复默认", backup.display());
+            }
+            state::apply_native_theme(handle, &config.get());
+            app.manage(state::AppState { config });
+
+            tray::create(handle)?;
             if launch::mode(std::env::args()) == launch::LaunchMode::Interactive {
-                wm::show_settings(app.handle());
+                wm::show_settings(handle);
             }
             Ok(())
         })
@@ -35,7 +45,11 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![commands::app_info])
+        .invoke_handler(tauri::generate_handler![
+            commands::app_info,
+            commands::config_get,
+            commands::config_update,
+        ])
         .run(tauri::generate_context!())
         .expect("SnapMind 启动失败");
 }

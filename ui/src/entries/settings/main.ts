@@ -1,8 +1,8 @@
 import '../../tokens.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
-import { applyTheme } from '$lib/theme';
+import { startConfig } from '$lib/config.svelte';
 
-// M0.4 起从配置读取；这里先用默认值（跟随系统、蓝色）。
-applyTheme('system', 'blue');
+// 先读到配置并上好主题再挂载，避免先闪一下默认主题。
+await startConfig();
 mount(App, { target: document.getElementById('app')! });

@@ -11,7 +11,8 @@
   import Row from '$lib/ui/Row.svelte';
   import ToastHost from '$lib/ui/ToastHost.svelte';
   import { toast } from '$lib/ui/toast.svelte';
-  import { ACCENTS, type Accent } from '$lib/theme';
+  import AccentPicker from '$lib/ui/AccentPicker.svelte';
+  import type { Accent } from '$lib/theme';
 
   let accent = $state<Accent>('blue');
   let view = $state<'card' | 'overlay'>('card');
@@ -30,19 +31,7 @@
       <span class="t-label">MICA · COMPONENTS</span>
       <h1 class="t-title">组件演示</h1>
     </div>
-    <div class="accents">
-      {#each ACCENTS as a (a.id)}
-        <button
-          type="button"
-          class="dot"
-          class:on={accent === a.id}
-          style:background={a.light}
-          aria-label={a.label}
-          title={a.label}
-          onclick={() => (accent = a.id)}
-        ></button>
-      {/each}
-    </div>
+    <AccentPicker bind:value={accent} />
   </header>
 
   <div class="modes">
@@ -133,18 +122,6 @@
     align-items: flex-end;
   }
   h1 { margin: 4px 0 0; }
-  .accents { display: flex; gap: 10px; }
-  .dot {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    transition: transform var(--d-hover) var(--ease-switch), box-shadow var(--d-hover);
-  }
-  .dot:hover { transform: scale(1.1); }
-  .dot.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text); }
   .modes {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
