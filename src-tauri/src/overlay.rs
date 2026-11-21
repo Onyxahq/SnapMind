@@ -290,6 +290,16 @@ pub fn ready<R: Runtime>(app: &AppHandle<R>, seq: u64, stage: &str, at: f64) -> 
     Some(ms)
 }
 
+/// 当前会话里某块屏的冻结帧（截图已结束时返回 None）。
+pub fn frame<R: Runtime>(app: &AppHandle<R>, index: usize) -> Option<Arc<Frame>> {
+    let state = app.state::<CaptureState>();
+    let s = state.inner.lock().expect("截图状态锁");
+    if !s.active {
+        return None;
+    }
+    s.frames.get(index).cloned().flatten()
+}
+
 /// 吸附链：鼠标（物理坐标）下从最内层控件到顶层窗口的一串矩形；桌面空白处返回空。
 /// UI Automation 查询是阻塞的，调用方要放到后台线程。
 pub fn snap_chain<R: Runtime>(app: &AppHandle<R>, x: i32, y: i32) -> Vec<SnapRect> {

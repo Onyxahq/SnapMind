@@ -10,6 +10,12 @@
     close: 'M6 6l12 12M18 6L6 18',
     info: 'M12 8h.01M11 12h1v5h1M12 21a9 9 0 100-18 9 9 0 000 18z',
     alert: 'M12 9v4M12 17h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z',
+    pin: 'M9 4h6l-1 5 3 3v2H7v-2l3-3-1-5zM12 14v6',
+    download: 'M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14',
+    folder: 'M3.5 7a2 2 0 012-2h4l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2h-13a2 2 0 01-2-2z',
+    lock: 'M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z',
+    unlock: 'M7 11V8a5 5 0 019.5-2M6 11h12v9H6z',
+    plus: 'M12 5v14M5 12h14',
   } as const;
   export type IconName = keyof typeof ICONS;
 </script>

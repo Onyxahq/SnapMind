@@ -21,3 +21,4 @@ snapmind-platform = { workspace = true }
 tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-autostart = "2.7.0"
 tauri-plugin-global-shortcut = "2.4.1"
+tauri-plugin-dialog = { version = "2.8.4", default-features = false }

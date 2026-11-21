@@ -9,6 +9,9 @@
   import Seg from '$lib/ui/Seg.svelte';
   import AccentPicker from '$lib/ui/AccentPicker.svelte';
   import Switch from '$lib/ui/Switch.svelte';
+  import Select from '$lib/ui/Select.svelte';
+  import Field from '$lib/ui/Field.svelte';
+  import type { SaveConfig } from '$lib/ipc';
   import ToastHost from '$lib/ui/ToastHost.svelte';
   import { toast } from '$lib/ui/toast.svelte';
 
@@ -21,6 +24,12 @@
     { value: 'system', label: '跟随系统' },
     { value: 'light', label: '浅色' },
     { value: 'dark', label: '深夜' },
+  ];
+
+  const CTRL_S: { value: SaveConfig['ctrlS']; label: string }[] = [
+    { value: 'window', label: 'SnapMind 保存窗口' },
+    { value: 'system', label: '系统另存为' },
+    { value: 'direct', label: '直接保存' },
   ];
 
   async function save(patch: Parameters<typeof updateConfig>[0]) {
@@ -59,6 +68,24 @@
         label="截图时显示操作提示"
         checked={config.value.capture.showHints}
         onchange={(showHints) => save({ capture: { showHints } })}
+      />
+    </Row>
+    <Row title="Ctrl+S 的行为" desc="保存窗口可以改名、换格式和尺寸；直接保存会存到默认目录">
+      <Select
+        aria-label="Ctrl+S 的行为"
+        width="160px"
+        options={CTRL_S}
+        value={config.value.save.ctrlS}
+        onchange={(e) => save({ save: { ctrlS: e.currentTarget.value as SaveConfig['ctrlS'] } })}
+      />
+    </Row>
+    <Row title="文件名模板" desc="花括号里写时间格式：yyyy MM dd HH mm ss SSS">
+      <Field
+        mono
+        width="240px"
+        aria-label="文件名模板"
+        value={config.value.save.filenameTemplate}
+        onchange={(e) => save({ save: { filenameTemplate: e.currentTarget.value.trim() || 'SnapMind_{yyyyMMdd_HHmmss}' } })}
       />
     </Row>
   </Card>

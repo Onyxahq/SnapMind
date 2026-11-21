@@ -1,9 +1,14 @@
 <script lang="ts">
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
-  // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示。工具条在 M1.6 加入。
+  // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
+  // M1.6 工具条、复制 / 保存与逐级退出。标注在 M2 加入。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
+    captureCopy,
+    captureSave,
+    pickSaveFile,
+    saveInfo,
     claimSelection,
     clipboardWriteText,
     cursorNudge,
@@ -14,6 +19,9 @@
     overlayReady,
     snapChain,
     type CaptureStart,
+    type Output,
+    type Region,
+    type Target,
   } from '$lib/ipc';
   import { containsPoint, keepLevel, toLocalChain, wheelLevel } from '$lib/snap';
   import { log } from '$lib/log';
@@ -24,6 +32,9 @@
   import { toast } from '$lib/ui/toast.svelte';
   import Magnifier from './Magnifier.svelte';
   import Hints from './Hints.svelte';
+  import Toolbar from './Toolbar.svelte';
+  import SaveDialog from './SaveDialog.svelte';
+  import type { ToolbarAction } from '$lib/toolbar';
   import { hintsFor } from '$lib/hints';
   import {
     cursorFor,
@@ -63,6 +74,8 @@
   let cursorCss = $state<Point | null>(null);
   /** 放大镜当前像素的颜色（由放大镜组件回填）。 */
   let pickRgb = $state<RGB | null>(null);
+  /** 保存窗口是否打开（逐级退出的一级）。 */
+  let saveOpen = $state(false);
 
   /** 吸附链（本屏像素，从内到外）和当前高亮的层级。只在还没有选区时生效。 */
   let snapList = $state.raw<Rect[]>([]);
@@ -109,11 +122,12 @@
   );
   /** 操作提示：内容随状态变化，避开已有选区（悬停高亮不算）。 */
   const hintList = $derived(hintsFor(sel ? 'selected' : 'idle'));
+  const showToolbar = $derived(sel !== null && !drag && !saveOpen && sel.width > 0 && sel.height > 0);
   const selOnlyCss = $derived(sel ? cssRect(sel) : null);
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move',
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -160,6 +174,7 @@
     hover = null;
     snapList = [];
     snapLevel = 0;
+    saveOpen = false;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
     frameReady = false;
     src = url ?? `${convertFileSrc(String(s.index), 'snapframe')}?s=${s.seq}`;
@@ -178,16 +193,94 @@
     requestAnimationFrame(() => overlayReady(s.seq, 'frame'));
   }
 
-  /** 先清空画面并等它真的画出来，再让 Rust 把窗口停回屏幕外，下次出现时不会闪出上一张图。 */
-  async function close() {
-    if (!session) return;
+  /** 清空本窗口的画面和状态。 */
+  function resetView() {
     session = null;
     sel = null;
     drag = null;
+    saveOpen = false;
     frameReady = false;
     src = '';
+  }
+
+  /** 先清空画面并等它真的画出来，再让 Rust 把窗口停回屏幕外，下次出现时不会闪出上一张图。 */
+  async function close() {
+    if (!session) return;
+    resetView();
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     await overlayEnd();
+  }
+
+  // ---------------------------------------------------------------- 交出结果
+
+  /** 要交出去的区域：选区；还没有选区时用悬停高亮的元素，都没有就整屏。 */
+  function region(): Region {
+    return sel ?? snapList[snapLevel] ?? { x: 0, y: 0, width: W, height: H };
+  }
+
+  /** 交出结果的动作都会结束截图：Rust 裁好图后就把遮罩移走，这里同步清空画面。 */
+  async function finish(job: (index: number, r: Region) => Promise<string>) {
+    if (!session) return;
+    const index = session.index;
+    const r = region();
+    try {
+      const p = job(index, r);
+      resetView();
+      await p;
+    } catch (e) {
+      log('error', `交出截图失败：${e}`);
+    }
+  }
+
+  const copy = () => finish((i, r) => captureCopy(i, r));
+
+  function outputFor(r: Region): Output {
+    const s = config.value.save;
+    return { format: s.format, quality: s.quality, width: r.width, height: r.height };
+  }
+
+  /** Ctrl+S / 保存按钮：按设置打开保存窗口、系统另存为，或直接存到默认目录。 */
+  async function save() {
+    if (!session) return;
+    switch (config.value.save.ctrlS) {
+      case 'window':
+        if (!sel) sel = region();
+        saveOpen = true;
+        break;
+      case 'direct':
+        finish((i, r) => captureSave(i, r, outputFor(r), {}));
+        break;
+      case 'system': {
+        const r = region();
+        const info = await saveInfo();
+        systemSave(outputFor(r), info.dir, info.name, r);
+        break;
+      }
+    }
+  }
+
+  async function systemSave(output: Output, dir: string, name: string, r = region()) {
+    const path = await pickSaveFile(dir, name, output.format);
+    if (!path) return; // 取消：留在截图里
+    finish((i) => captureSave(i, r, output, { path }));
+  }
+
+  function saveFromDialog(output: Output, target: Target) {
+    finish((i, r) => captureSave(i, r, output, target));
+  }
+
+  function onAction(a: ToolbarAction) {
+    switch (a) {
+      case 'copy': return copy();
+      case 'save': return save();
+      case 'exit': return close();
+      case 'pin': return pin();
+    }
+  }
+
+  /** 贴图在 M3 实现，这里先占位。 */
+  function pin() {
+    toast('贴图功能还在开发中', { kind: 'info' });
   }
 
   // ---------------------------------------------------------------- 鼠标
@@ -263,9 +356,28 @@
 
   function onKey(e: KeyboardEvent) {
     if (!session) return;
+    // Esc 逐级退出：保存窗口 → 截图（弹层、长截图、结果卡片、标注随后续任务加入）
     if (e.key === 'Escape') {
       e.preventDefault();
-      close();
+      if (saveOpen) saveOpen = false;
+      else close();
+      return;
+    }
+    if (saveOpen) return; // 保存窗口打开时，其他快捷键交给它
+    const ctrl = e.ctrlKey || e.metaKey;
+    if ((ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') || (e.key === 'Enter' && !ctrl)) {
+      e.preventDefault();
+      if (!drag) copy();
+      return;
+    }
+    if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      if (!drag) save();
+      return;
+    }
+    if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 't') {
+      e.preventDefault();
+      pin();
       return;
     }
     const d = nudgeDelta(e.key, e.shiftKey);
@@ -349,7 +461,20 @@
       animate={!sel && !drag}
     />
   {/if}
-  {#if session && config.value.capture.showHints}
+  {#if showToolbar && selOnlyCss}
+    <Toolbar sel={selOnlyCss} onaction={onAction} />
+  {/if}
+  {#if saveOpen && sel && session}
+    <SaveDialog
+      {img}
+      index={session.index}
+      {sel}
+      onsave={saveFromDialog}
+      onsystem={(o, d, n) => systemSave(o, d, n)}
+      oncancel={() => (saveOpen = false)}
+    />
+  {/if}
+  {#if session && config.value.capture.showHints && !saveOpen}
     <Hints hints={hintList} avoid={selOnlyCss} cursor={cursorCss} />
   {/if}
   {#if showMag && cursorPx && cursorCss}

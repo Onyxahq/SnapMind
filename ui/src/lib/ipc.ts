@@ -16,6 +16,19 @@ export interface Config {
   version: number;
   appearance: { theme: ThemeMode; accent: Accent };
   capture: { colorFormat: ColorFormat; showHints: boolean };
+  save: SaveConfig;
+}
+
+export type ImageFormat = 'png' | 'jpg' | 'webp';
+
+export interface SaveConfig {
+  /** 空字符串表示「图片\SnapMind」 */
+  dir: string;
+  format: ImageFormat;
+  quality: number;
+  filenameTemplate: string;
+  ctrlS: 'window' | 'system' | 'direct';
+  extraDirs: string[];
 }
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
@@ -24,6 +37,14 @@ export const DEFAULT_CONFIG: Config = {
   version: 1,
   appearance: { theme: 'system', accent: 'blue' },
   capture: { colorFormat: 'hex', showHints: true },
+  save: {
+    dir: '',
+    format: 'png',
+    quality: 90,
+    filenameTemplate: 'SnapMind_{yyyyMMdd_HHmmss}',
+    ctrlS: 'window',
+    extraDirs: [],
+  },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -133,4 +154,92 @@ export async function cursorNudge(dx: number, dy: number): Promise<void> {
 export async function clipboardWriteText(text: string): Promise<void> {
   if (!inTauri()) return navigator.clipboard.writeText(text);
   return invoke('clipboard_write_text', { text });
+}
+
+// ---- 交出截图：复制、保存 ----
+
+/** 选区，本屏物理像素 */
+export interface Region {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface Output {
+  format: ImageFormat;
+  quality: number;
+  width: number;
+  height: number;
+}
+
+/** 保存目标：path = 系统对话框选的完整路径；dir + name = 保存窗口填的（重名自动加序号）；都空 = 默认目录 + 模板。 */
+export interface Target {
+  path?: string;
+  dir?: string;
+  name?: string;
+}
+
+export interface SaveInfo {
+  dir: string;
+  name: string;
+  quick: { label: string; path: string }[];
+}
+
+const intRegion = (r: Region): Region => ({
+  x: Math.round(r.x),
+  y: Math.round(r.y),
+  width: Math.round(r.width),
+  height: Math.round(r.height),
+});
+
+/** 复制截图（位图 + PNG + 文件）并结束截图。返回临时文件名。 */
+export async function captureCopy(index: number, region: Region): Promise<string> {
+  if (!inTauri()) return `SnapMind_dev.png（${region.width}×${region.height}）`;
+  return invoke('capture_copy', { index, region: intRegion(region) });
+}
+
+/** 保存截图并结束截图。返回保存的完整路径。 */
+export async function captureSave(index: number, region: Region, output: Output, target: Target): Promise<string> {
+  if (!inTauri()) return target.path ?? `${target.dir ?? 'C:\\Pictures\\SnapMind'}\\${target.name ?? 'SnapMind'}.${output.format}`;
+  return invoke('capture_save', { index, region: intRegion(region), output, target });
+}
+
+/** 估算保存后的文件大小（真实编码一次）。 */
+export async function captureEstimate(index: number, region: Region, output: Output): Promise<number> {
+  if (!inTauri()) {
+    const bpp = output.format === 'png' ? 1.6 : (0.05 + (output.quality / 100) * 0.9) * (output.format === 'webp' ? 0.7 : 1);
+    return Math.round(output.width * output.height * bpp);
+  }
+  return invoke('capture_estimate', { index, region: intRegion(region), output });
+}
+
+export async function saveInfo(): Promise<SaveInfo> {
+  if (!inTauri()) {
+    return {
+      dir: 'C:\\Users\\me\\Pictures\\SnapMind',
+      name: 'SnapMind_20261122_101530',
+      quick: [
+        { label: '桌面', path: 'C:\\Users\\me\\Desktop' },
+        { label: '图片', path: 'C:\\Users\\me\\Pictures' },
+        { label: 'SnapMind', path: 'C:\\Users\\me\\Pictures\\SnapMind' },
+      ],
+    };
+  }
+  return invoke('save_info');
+}
+
+export async function pickSaveFile(dir: string, name: string, format: ImageFormat): Promise<string | null> {
+  if (!inTauri()) return null;
+  return invoke('pick_save_file', { dir, name, format });
+}
+
+export async function pickFolder(dir: string): Promise<string | null> {
+  if (!inTauri()) return null;
+  return invoke('pick_folder', { dir });
+}
+
+export async function openFolder(path: string): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('open_folder', { path });
 }

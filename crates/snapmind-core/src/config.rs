@@ -11,6 +11,8 @@ use std::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::export::{ImageFormat, DEFAULT_TEMPLATE};
+
 /// 当前配置版本。结构有不兼容变化时加一，并在 [`migrate`] 里补一步迁移。
 pub const CURRENT_VERSION: u32 = 1;
 
@@ -25,6 +27,7 @@ pub struct Config {
     pub version: u32,
     pub appearance: Appearance,
     pub capture: CaptureConfig,
+    pub save: SaveConfig,
 }
 
 impl Default for Config {
@@ -33,6 +36,7 @@ impl Default for Config {
             version: CURRENT_VERSION,
             appearance: Appearance::default(),
             capture: CaptureConfig::default(),
+            save: SaveConfig::default(),
         }
     }
 }
@@ -88,6 +92,48 @@ pub enum ColorFormat {
     Hsl,
 }
 
+/// 保存截图的设置（需求 3.7）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SaveConfig {
+    /// 默认保存目录；空字符串表示「图片\SnapMind」。
+    pub dir: String,
+    pub format: ImageFormat,
+    /// JPG / WebP 的质量，1–100。
+    pub quality: u8,
+    /// 文件名模板，花括号里写时间格式，如 `SnapMind_{yyyyMMdd_HHmmss}`。
+    pub filename_template: String,
+    /// Ctrl+S 的行为。
+    pub ctrl_s: CtrlSAction,
+    /// 用户在保存窗口里「＋添加」的常用位置。
+    pub extra_dirs: Vec<String>,
+}
+
+impl Default for SaveConfig {
+    fn default() -> Self {
+        Self {
+            dir: String::new(),
+            format: ImageFormat::Png,
+            quality: 90,
+            filename_template: DEFAULT_TEMPLATE.to_string(),
+            ctrl_s: CtrlSAction::Window,
+            extra_dirs: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CtrlSAction {
+    /// SnapMind 保存窗口
+    #[default]
+    Window,
+    /// 系统另存为对话框
+    System,
+    /// 直接保存到默认目录
+    Direct,
+}
+
 // ---------------------------------------------------------------- 错误
 
 #[derive(Debug, thiserror::Error)]
@@ -141,8 +187,9 @@ pub fn migrate(mut v: Value) -> Value {
 }
 
 /// 从 JSON 文本解析配置（先迁移，再按结构读取）。
+/// 允许开头带 UTF-8 BOM：用记事本、PowerShell 改过的配置常常带着它。
 pub fn parse(text: &str) -> Result<Config, ConfigError> {
-    let raw: Value = serde_json::from_str(text)?;
+    let raw: Value = serde_json::from_str(text.trim_start_matches('\u{feff}'))?;
     Ok(serde_json::from_value(migrate(raw))?)
 }
 
@@ -264,7 +311,15 @@ mod tests {
             json!({
                 "version": 1,
                 "appearance": { "theme": "system", "accent": "blue" },
-                "capture": { "colorFormat": "hex", "showHints": true }
+                "capture": { "colorFormat": "hex", "showHints": true },
+                "save": {
+                    "dir": "",
+                    "format": "png",
+                    "quality": 90,
+                    "filenameTemplate": "SnapMind_{yyyyMMdd_HHmmss}",
+                    "ctrlS": "window",
+                    "extraDirs": []
+                }
             })
         );
     }
@@ -309,6 +364,12 @@ mod tests {
         assert_eq!(c.appearance.accent, Accent::Green);
         assert_eq!(c.appearance.theme, ThemeMode::System);
         assert_eq!(c.version, CURRENT_VERSION);
+    }
+
+    #[test]
+    fn utf8_bom_is_accepted() {
+        let c = parse("\u{feff}{ \"appearance\": { \"theme\": \"dark\" } }").unwrap();
+        assert_eq!(c.appearance.theme, ThemeMode::Dark);
     }
 
     #[test]

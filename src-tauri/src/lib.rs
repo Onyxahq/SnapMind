@@ -2,6 +2,7 @@
 
 mod actions;
 mod commands;
+mod export;
 mod launch;
 mod overlay;
 mod state;
@@ -33,6 +34,7 @@ pub fn run() {
                 })
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .manage(overlay::CaptureState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .setup(|app| {
@@ -46,6 +48,7 @@ pub fn run() {
 
             tray::create(handle)?;
             overlay::prewarm(handle);
+            std::thread::spawn(export::cleanup_clip_files);
             if let Err(e) = handle.global_shortcut().register(actions::CAPTURE_SHORTCUT) {
                 // 被别的程序占用时不影响启动；M10.1 在设置页标红提示。
                 eprintln!("注册截图快捷键 {} 失败：{e}", actions::CAPTURE_SHORTCUT);
@@ -77,6 +80,13 @@ pub fn run() {
             commands::snap_chain,
             commands::cursor_nudge,
             commands::clipboard_write_text,
+            export::capture_copy,
+            export::capture_save,
+            export::capture_estimate,
+            export::save_info,
+            export::pick_save_file,
+            export::pick_folder,
+            export::open_folder,
             commands::ui_log,
         ])
         .run(tauri::generate_context!())
