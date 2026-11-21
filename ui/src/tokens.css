@@ -1,0 +1,147 @@
+/*
+ * 云母（Mica）设计令牌。组件只引用这里的变量，不写死颜色、圆角、投影和动效。
+ * 明暗：data-theme="light|dark"；强调色：data-accent="blue|sky|violet|green"。
+ * 一般设在 <html> 上；也可以设在任意元素上，让局部换一套令牌（组件演示页并排展示两种模式）。
+ * 由 $lib/theme.ts 负责设置这两个属性。
+ */
+
+:root {
+  /* 字体：不随包附带网络字体，缺 Inter 时退到 Segoe UI，中文退到微软雅黑 */
+  --font: Inter, 'Segoe UI Variable Text', 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, 'Noto Sans SC', monospace;
+
+  /* 圆角 */
+  --r-tag: 6px;      /* 标签、尺寸提示 */
+  --r-ctl: 8px;      /* 按钮、输入框、分段控件 */
+  --r-panel: 12px;   /* 工具条、菜单、设置卡片 */
+  --r-card: 14px;    /* 翻译卡片、划词卡片 */
+  --r-win: 16px;     /* 窗口 */
+  --r-full: 999px;   /* 开关、悬浮球 */
+
+  /* 模糊 */
+  --blur-1: blur(20px) saturate(1.4); /* 工具条、提示 */
+  --blur-2: blur(24px) saturate(1.4); /* 卡片、菜单 */
+
+  /* 动效：出现比消失慢；跟手的东西不加缓动 */
+  --ease-in: cubic-bezier(.2, .9, .3, 1.15);    /* 出现 */
+  --ease-out: cubic-bezier(.4, 0, 1, 1);        /* 消失 */
+  --ease-hover: cubic-bezier(.2, 0, 0, 1);      /* 悬停、吸附 */
+  --ease-press: cubic-bezier(.3, 0, .5, 1);     /* 按压 */
+  --ease-switch: cubic-bezier(.2, .9, .3, 1.2); /* 开关，带一点过冲 */
+  --ease-scrim: cubic-bezier(0, 0, .2, 1);      /* 截图遮罩淡入 */
+  --ease-theme: cubic-bezier(.25, .1, .25, 1);  /* 明暗切换 */
+  --d-in: 180ms;
+  --d-out: 120ms;
+  --d-hover: 150ms;
+  --d-press: 100ms;
+  --d-switch: 220ms;
+  --d-scrim: 120ms;
+  --d-snap: 120ms;
+  --d-theme: 300ms;
+}
+
+/* ---------- 浅色 ---------- */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #E6EBF2;
+  --wall: #C7D2E1;
+  --glass: rgba(255, 255, 255, .82);
+  --glass2: rgba(255, 255, 255, .92);
+  --solid: #FFFFFF;
+  --card: rgba(255, 255, 255, .72);
+  --card-ring: 0 0 0 1px rgba(15, 23, 42, .06);
+  --sunken: #EEF2F7;
+  --text: #0F172A;
+  --text2: #475569;
+  --text3: #64748B;
+  --line: rgba(15, 23, 42, .08);
+  --line2: rgba(15, 23, 42, .14);
+  --hover: rgba(15, 23, 42, .06);
+  --elev: 0 0 0 1px rgba(15, 23, 42, .06), 0 12px 32px rgba(15, 23, 42, .14);
+  --elev-sm: 0 0 0 1px rgba(15, 23, 42, .06), 0 4px 12px rgba(15, 23, 42, .08);
+  --seg-on: #FFFFFF;
+  --seg-sh: 0 1px 2px rgba(15, 23, 42, .12);
+  --field: #FFFFFF;
+  --chip: rgba(15, 23, 42, .72);
+  --chip-text: #FFFFFF;
+  --scrim: rgba(15, 23, 42, .45);
+  --doc: #FFFFFF;
+  --doc-line: #E2E8F0;
+  --danger: #DC2626;
+  --on-accent: #FFFFFF;
+  --accent: #2563EB;
+  --accent-soft: rgba(37, 99, 235, .12);
+}
+
+/* ---------- 深夜 ---------- */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0E1219;
+  --wall: #1A2232;
+  --glass: rgba(30, 37, 48, .80);
+  --glass2: rgba(30, 37, 48, .92);
+  --solid: #1C222C;
+  --card: rgba(255, 255, 255, .04);
+  --card-ring: 0 0 0 1px rgba(255, 255, 255, .06);
+  --sunken: rgba(0, 0, 0, .25);
+  --text: #E8ECF2;
+  --text2: #9BA6B5;
+  --text3: #8B95A3;
+  --line: rgba(255, 255, 255, .07);
+  --line2: rgba(255, 255, 255, .12);
+  --hover: rgba(255, 255, 255, .08);
+  --elev: inset 0 1px 0 rgba(255, 255, 255, .07), 0 0 0 1px rgba(255, 255, 255, .07), 0 16px 40px rgba(0, 0, 0, .45);
+  --elev-sm: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 0 1px rgba(255, 255, 255, .07), 0 6px 16px rgba(0, 0, 0, .35);
+  --seg-on: rgba(255, 255, 255, .1);
+  --seg-sh: inset 0 1px 0 rgba(255, 255, 255, .06);
+  --field: rgba(255, 255, 255, .04);
+  --chip: rgba(28, 34, 44, .9);
+  --chip-text: #E8ECF2;
+  --scrim: rgba(3, 6, 12, .6);
+  --doc: #161B22;
+  --doc-line: #2A3240;
+  --danger: #F87171;
+  --on-accent: #0B1220;
+  --accent: #60A5FA;
+  --accent-soft: rgba(96, 165, 250, .16);
+}
+
+/* ---------- 强调色（深夜自动提亮） ---------- */
+[data-accent='sky'] { --accent: #0284C7; --accent-soft: rgba(2, 132, 199, .12); }
+[data-accent='violet'] { --accent: #7C3AED; --accent-soft: rgba(124, 58, 237, .12); }
+[data-accent='green'] { --accent: #059669; --accent-soft: rgba(5, 150, 105, .12); }
+[data-theme='dark'][data-accent='sky'] { --accent: #38BDF8; --accent-soft: rgba(56, 189, 248, .16); }
+[data-theme='dark'][data-accent='violet'] { --accent: #A78BFA; --accent-soft: rgba(167, 139, 250, .16); }
+[data-theme='dark'][data-accent='green'] { --accent: #34D399; --accent-soft: rgba(52, 211, 153, .16); }
+
+/* ---------- 基础 ---------- */
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+/* 明暗切换的颜色过渡；加上 .theme-anim 才生效，避免窗口打开时闪一下 */
+html.theme-anim, html.theme-anim body {
+  transition: background-color var(--d-theme) var(--ease-theme), color var(--d-theme) var(--ease-theme);
+}
+*, *::before, *::after { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
+::selection { background: var(--accent-soft); }
+
+/* 字号（规范 §2） */
+.t-title { font-size: 26px; line-height: 36px; font-weight: 600; }
+.t-trans { font-size: 17px; line-height: 28px; font-weight: 500; }
+.t-body { font-size: 14px; line-height: 20px; font-weight: 500; }
+.t-src { font-size: 13px; line-height: 20px; font-weight: 400; color: var(--text2); }
+.t-note { font-size: 12px; line-height: 18px; font-weight: 400; color: var(--text2); }
+.t-label { font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .06em; color: var(--text3); }
+.mono { font-family: var(--font-mono); }
+
+/* 出现 / 消失 */
+@keyframes sm-pop-in { from { opacity: 0; transform: scale(.96) translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes sm-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.98); } }
