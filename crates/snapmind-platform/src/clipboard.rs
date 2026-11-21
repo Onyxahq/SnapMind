@@ -12,6 +12,29 @@ use std::path::Path;
 #[error("写入剪贴板失败：{0}")]
 pub struct ClipboardError(String);
 
+/// 剪贴板里的内容（贴剪贴板 Shift+F3 用）。
+#[derive(Debug)]
+pub enum ClipContent {
+    /// RGBA8，自上而下
+    Image { width: u32, height: u32, rgba: Vec<u8> },
+    Text(String),
+    Empty,
+}
+
+/// 读取剪贴板：优先取图片，其次取文字。
+pub fn read() -> ClipContent {
+    let Ok(mut cb) = arboard::Clipboard::new() else { return ClipContent::Empty };
+    if let Ok(img) = cb.get_image() {
+        if img.width > 0 && img.height > 0 {
+            return ClipContent::Image { width: img.width as u32, height: img.height as u32, rgba: img.bytes.into_owned() };
+        }
+    }
+    match cb.get_text() {
+        Ok(t) if !t.trim().is_empty() => ClipContent::Text(t),
+        _ => ClipContent::Empty,
+    }
+}
+
 /// 写入纯文字。
 pub fn set_text(text: &str) -> Result<(), ClipboardError> {
     let mut cb = arboard::Clipboard::new().map_err(|e| ClipboardError(e.to_string()))?;

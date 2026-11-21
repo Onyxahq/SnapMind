@@ -3,7 +3,7 @@
 use serde::Serialize;
 use serde_json::Value;
 use snapmind_core::config::Config;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::state::{self, AppState};
 
@@ -124,4 +124,100 @@ pub fn pin_through(app: AppHandle, window: tauri::WebviewWindow) {
     if let Some(id) = crate::pin::id_of(window.label()) {
         crate::pin::set_through(&app, id, true);
     }
+}
+
+/// 贴图悬停状态（工具条据此显示 / 延迟隐藏），同时带上当前不透明度。
+#[tauri::command]
+pub fn pin_hover(app: AppHandle, window: tauri::WebviewWindow, on: bool, opacity: f64) {
+    if let Some(id) = crate::pin::id_of(window.label()) {
+        crate::pintools::pin_hover(&app, id, on, opacity);
+    }
+}
+
+/// 贴图不透明度变化（同步工具条滑块）。
+#[tauri::command]
+pub fn pin_opacity(app: AppHandle, window: tauri::WebviewWindow, opacity: f64) {
+    if let Some(id) = crate::pin::id_of(window.label()) {
+        crate::pintools::opacity_changed(&app, id, opacity);
+    }
+}
+
+/// 工具条悬停状态。
+#[tauri::command]
+pub fn tools_hover(app: AppHandle, on: bool) {
+    crate::pintools::tools_hover(&app, on);
+}
+
+/// 工具条「更多」菜单开关。
+#[tauri::command]
+pub fn tools_menu(app: AppHandle, open: bool) {
+    crate::pintools::menu(&app, open);
+}
+
+/// 工具条报告内容尺寸（CSS 像素）。
+#[tauri::command]
+pub fn tools_layout(app: AppHandle, width: f64, height: f64) {
+    crate::pintools::layout(&app, width, height);
+}
+
+/// 复制贴图（文字卡片复制文字）。
+#[tauri::command]
+pub async fn pin_copy(app: AppHandle, state: State<'_, AppState>, id: u32) -> Result<(), String> {
+    let template = state.config.get().save.filename_template;
+    tauri::async_runtime::spawn_blocking(move || crate::pin::copy(&app, id, &template))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// 保存贴图：系统另存为对话框（挂在贴图窗口下），格式按扩展名，默认目录和文件名模板与截图一致。
+#[tauri::command]
+pub async fn pin_save(app: AppHandle, state: State<'_, AppState>, id: u32) -> Result<Option<String>, String> {
+    use snapmind_core::export::{self, ImageFormat};
+    use tauri_plugin_dialog::DialogExt;
+    let image = crate::pin::image(&app, id).ok_or("贴图已关闭")?;
+    let window = app.get_webview_window(&crate::pin::label(id)).ok_or("贴图已关闭")?;
+    let config = state.config.get();
+    let dir = crate::export::default_dir(&app, &config);
+    let name = export::render_filename(&config.save.filename_template, export::now_local());
+    let fmt = config.save.format;
+    let quality = config.save.quality;
+    tauri::async_runtime::spawn_blocking(move || {
+        let picked = window
+            .dialog()
+            .file()
+            .set_parent(&window)
+            .set_directory(&dir)
+            .set_file_name(format!("{name}.{}", fmt.extension()))
+            .add_filter("PNG", &["png"])
+            .add_filter("JPG", &["jpg", "jpeg"])
+            .add_filter("WebP", &["webp"])
+            .blocking_save_file()
+            .and_then(|p| p.into_path().ok());
+        let Some(path) = picked else { return Ok(None) };
+        let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+        let format = match ext.as_str() {
+            "jpg" | "jpeg" => ImageFormat::Jpg,
+            "webp" => ImageFormat::Webp,
+            _ => ImageFormat::Png,
+        };
+        let bytes = export::encode(&image, format, quality, false).map_err(|e| e.to_string())?;
+        std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+        Ok(Some(path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// 文字卡片排版完成：页面把卡片渲染成 RGBA 交回（二进制请求体，请求头 x-width / x-height）。
+#[tauri::command]
+pub fn pin_set_image(app: AppHandle, window: tauri::WebviewWindow, request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let id = crate::pin::id_of(window.label()).ok_or("不是贴图窗口")?;
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("需要二进制数据".into()) };
+    let header = |n: &str| request.headers().get(n).and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u32>().ok());
+    let (w, h) = (header("x-width").unwrap_or(0), header("x-height").unwrap_or(0));
+    if w == 0 || h == 0 || (w * h * 4) as usize != bytes.len() {
+        return Err("卡片图片尺寸不对".into());
+    }
+    crate::pin::set_image(&app, id, snapmind_core::export::RgbaImage { width: w, height: h, data: bytes.clone() });
+    Ok(())
 }

@@ -2,12 +2,30 @@
   // 贴图窗口（需求第 6 节）：置顶、拖动移动、滚轮缩放、Ctrl+滚轮调不透明度、Ctrl+0 恢复 100%、
   // Ctrl+Shift+X 鼠标穿透（全局快捷键，在 Rust 里处理）、双击或 Esc 关闭。
   // 窗口比图片大一圈透明边距，用来画阴影；缩放由 Rust 改窗口尺寸。
+  // M3.2：悬停时显示共用的贴图工具条（复制、保存、更多、关闭）；Ctrl+C / Ctrl+S；文字卡片。
   import { onMount } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { inTauri, pinClose, pinInfo, pinReady, pinThrough, pinZoom, onPinThrough } from '$lib/ipc';
+  import {
+    inTauri,
+    onPinAction,
+    onPinThrough,
+    pinClose,
+    pinCopy,
+    pinHover,
+    pinInfo,
+    pinOpacity,
+    pinReady,
+    pinSave,
+    pinSetImage,
+    pinThrough,
+    pinZoom,
+    type PinAction,
+  } from '$lib/ipc';
   import { log } from '$lib/log';
-  import { PIN_MARGIN, opacityStep, zoomFactor } from '$lib/pin';
+  import { PIN_MARGIN, opacityStep, wrapText, zoomFactor } from '$lib/pin';
+  import ToastHost from '$lib/ui/ToastHost.svelte';
+  import { toast } from '$lib/ui/toast.svelte';
 
   let src = $state('');
   let natural = $state({ width: 1, height: 1 });
@@ -18,6 +36,9 @@
   let flashTimer = 0;
   let img = $state<HTMLImageElement>();
   let winWidth = $state(innerWidth);
+  let pinId = 0;
+  /** 文字卡片的原文（贴剪贴板里的文字时） */
+  let cardText: string | null = null;
 
   /** 当前缩放：图片显示宽度（物理像素）/ 图片原始宽度 */
   const zoom = $derived(((winWidth - 2 * PIN_MARGIN) * devicePixelRatio) / natural.width);
@@ -44,10 +65,49 @@
     if (inTauri()) getCurrentWindow().startDragging();
   }
 
+  function setOpacity(v: number) {
+    opacity = v;
+    pinOpacity(v);
+  }
+
+  async function copy() {
+    try {
+      await pinCopy(pinId);
+      toast(cardText ? '已复制文字' : '已复制图片');
+    } catch (e) {
+      toast(`复制失败：${e}`, { kind: 'error' });
+    }
+  }
+
+  async function save() {
+    try {
+      const path = await pinSave(pinId);
+      if (path) toast('已保存');
+    } catch (e) {
+      toast(`保存失败：${e}`, { kind: 'error' });
+    }
+  }
+
+  /** 工具条发来的动作。 */
+  function onAction(a: { action: PinAction; value?: number }) {
+    switch (a.action) {
+      case 'copy': return copy();
+      case 'save': return save();
+      case 'close': return pinClose();
+      case 'through': return pinThrough();
+      case 'zoom100':
+        pinZoom({ absolute: 1, x: innerWidth / 2, y: innerHeight / 2 });
+        return showLabel();
+      case 'opacity':
+        if (a.value !== undefined) setOpacity(a.value);
+        return showLabel();
+    }
+  }
+
   function onWheel(e: WheelEvent) {
     e.preventDefault();
     if (e.ctrlKey) {
-      opacity = opacityStep(opacity, e.deltaY);
+      setOpacity(opacityStep(opacity, e.deltaY));
     } else {
       pinZoom({ factor: zoomFactor(e.deltaY), x: e.clientX, y: e.clientY });
     }
@@ -55,9 +115,16 @@
   }
 
   function onKey(e: KeyboardEvent) {
+    const ctrl = e.ctrlKey || e.metaKey;
     if (e.key === 'Escape') {
       e.preventDefault();
       pinClose();
+    } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      copy();
+    } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      save();
     } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
       // 全局快捷键被别的程序占用时按键会落到这里
       e.preventDefault();
@@ -69,16 +136,50 @@
     }
   }
 
+  /** 把文字排成卡片图片（按当前主题配色，物理像素分辨率），交给 Rust 作为这张贴图的图片。 */
+  async function renderCard(text: string) {
+    const dpr = devicePixelRatio || 1;
+    const css = getComputedStyle(document.documentElement);
+    const bg = css.getPropertyValue('--solid').trim() || '#fff';
+    const fg = css.getPropertyValue('--text').trim() || '#0F172A';
+    const font = `15px Inter, 'Segoe UI', 'Microsoft YaHei UI', sans-serif`;
+    const pad = 16, lh = 24, maxW = 460;
+    const probe = new OffscreenCanvas(1, 1).getContext('2d')!;
+    probe.font = font;
+    const lines = wrapText(text.trim(), maxW, (s) => probe.measureText(s).width).slice(0, 200);
+    const textW = Math.max(...lines.map((l) => probe.measureText(l).width), 40);
+    const w = Math.ceil((Math.min(textW, maxW) + pad * 2) * dpr);
+    const h = Math.ceil((lines.length * lh + pad * 2) * dpr);
+    const c = new OffscreenCanvas(w, h);
+    const g = c.getContext('2d', { willReadFrequently: true })!;
+    g.scale(dpr, dpr);
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w / dpr, h / dpr);
+    g.fillStyle = fg;
+    g.font = font;
+    g.textBaseline = 'middle';
+    lines.forEach((l, i) => g.fillText(l, pad, pad + i * lh + lh / 2));
+    const data = g.getImageData(0, 0, w, h).data;
+    await pinSetImage(w, h, new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+    natural = { width: w, height: h };
+  }
+
   onMount(() => {
     const off = onPinThrough((on) => (through = on));
+    const offAction = onPinAction(onAction);
     const onResize = () => (winWidth = innerWidth);
     addEventListener('resize', onResize);
     (async () => {
       const info = await pinInfo();
       if (!info) return log('error', '找不到贴图数据');
       natural = info;
-      const id = getCurrentWindow().label.replace('pin-', '');
-      src = convertFileSrc(`pin/${id}`, 'snapframe');
+      pinId = Number(getCurrentWindow().label.replace('pin-', ''));
+      if (info.text) {
+        cardText = info.text;
+        await renderCard(info.text);
+      }
+      // 带上时间戳：文字卡片换过图，避免拿到缓存的占位图
+      src = `${convertFileSrc(`pin/${pinId}`, 'snapframe')}?t=${Date.now()}`;
       await new Promise((r) => requestAnimationFrame(r));
       try {
         await img!.decode();
@@ -89,6 +190,7 @@
     })();
     return () => {
       off.then((f) => f());
+      offAction.then((f) => f());
       removeEventListener('resize', onResize);
     };
   });
@@ -106,6 +208,8 @@
   aria-label="贴图"
   onpointerdown={onDown}
   onpointermove={onMove}
+  onpointerenter={() => pinHover(true, opacity)}
+  onpointerleave={() => pinHover(false, opacity)}
   onpointerup={() => (press = null)}
   ondblclick={() => pinClose()}
   onwheel={onWheel}
@@ -115,6 +219,8 @@
   {/if}
   <span class="chip" class:show={flash}>{label}</span>
 </div>
+
+<ToastHost />
 
 <style>
   :global(html), :global(body) {

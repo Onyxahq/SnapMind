@@ -33,6 +33,8 @@ pub struct Pin {
     /// 原始像素（复制、保存、识别用）
     pub image: Arc<RgbaImage>,
     pub through: bool,
+    /// 文字卡片的原文（贴剪贴板里的文字时）；复制时复制文字
+    pub text: Option<String>,
 }
 
 #[derive(Default)]
@@ -45,6 +47,8 @@ pub struct PinState {
 pub struct PinInfo {
     pub width: u32,
     pub height: u32,
+    /// 文字卡片：页面负责把文字排版成卡片图片再交回来
+    pub text: Option<String>,
 }
 
 pub fn label(id: u32) -> String {
@@ -86,11 +90,27 @@ fn rgba_to_bgra(img: &RgbaImage) -> Vec<u8> {
 
 /// 新建贴图。`at` 是图片左上角的虚拟桌面物理坐标，`scale` 是所在显示器的缩放。
 pub fn create<R: Runtime>(app: &AppHandle<R>, image: RgbaImage, at: (i32, i32), scale: f64) -> tauri::Result<u32> {
+    create_with(app, image, None, at, scale)
+}
+
+/// 新建文字卡片贴图：先用占位图建窗口，页面按主题把文字排成卡片后通过 [`set_image`] 交回。
+pub fn create_text<R: Runtime>(app: &AppHandle<R>, text: String, at: (i32, i32), scale: f64) -> tauri::Result<u32> {
+    let placeholder = RgbaImage { width: 1, height: 1, data: vec![0, 0, 0, 0] };
+    create_with(app, placeholder, Some(text), at, scale)
+}
+
+fn create_with<R: Runtime>(
+    app: &AppHandle<R>,
+    image: RgbaImage,
+    text: Option<String>,
+    at: (i32, i32),
+    scale: f64,
+) -> tauri::Result<u32> {
     let state = app.state::<PinState>();
     let id = state.next.fetch_add(1, Ordering::SeqCst) + 1;
     let (w, h) = (image.width, image.height);
     let frame = Arc::new(Frame::from_bgra(w, h, &rgba_to_bgra(&image)));
-    state.pins.lock().expect("贴图锁").insert(id, Pin { frame, image: Arc::new(image), through: false });
+    state.pins.lock().expect("贴图锁").insert(id, Pin { frame, image: Arc::new(image), through: false, text });
 
     let margin = (MARGIN_CSS * scale).round() as i32;
     let win = WebviewWindowBuilder::new(app, label(id), WebviewUrl::App("pin/index.html".into()))
@@ -124,7 +144,45 @@ pub fn ready<R: Runtime>(app: &AppHandle<R>, id: u32) {
 pub fn info<R: Runtime>(app: &AppHandle<R>, id: u32) -> Option<PinInfo> {
     let state = app.state::<PinState>();
     let pins = state.pins.lock().expect("贴图锁");
-    pins.get(&id).map(|p| PinInfo { width: p.image.width, height: p.image.height })
+    pins.get(&id).map(|p| PinInfo { width: p.image.width, height: p.image.height, text: p.text.clone() })
+}
+
+/// 换掉贴图的图片（文字卡片排版完成后），窗口按新尺寸以 100% 显示、左上角不动。
+pub fn set_image<R: Runtime>(app: &AppHandle<R>, id: u32, image: RgbaImage) {
+    let (w, h) = (image.width, image.height);
+    {
+        let state = app.state::<PinState>();
+        let mut pins = state.pins.lock().expect("贴图锁");
+        let Some(p) = pins.get_mut(&id) else { return };
+        p.frame = Arc::new(Frame::from_bgra(w, h, &rgba_to_bgra(&image)));
+        p.image = Arc::new(image);
+    }
+    if let Some(win) = app.get_webview_window(&label(id)) {
+        let scale = win.scale_factor().unwrap_or(1.0);
+        let margin = (MARGIN_CSS * scale).round() as u32;
+        let _ = win.set_size(PhysicalSize::new(w + 2 * margin, h + 2 * margin));
+    }
+}
+
+/// 复制贴图：文字卡片复制文字，图片复制图片（位图 + PNG + 文件）。
+pub fn copy<R: Runtime>(app: &AppHandle<R>, id: u32, template: &str) -> Result<(), String> {
+    let (image, text) = {
+        let state = app.state::<PinState>();
+        let pins = state.pins.lock().expect("贴图锁");
+        let p = pins.get(&id).ok_or("贴图已关闭")?;
+        (p.image.clone(), p.text.clone())
+    };
+    match text {
+        Some(t) => snapmind_platform::clipboard::set_text(&t).map_err(|e| e.to_string()),
+        None => crate::export::copy_image(&image, template).map(|_| ()),
+    }
+}
+
+/// 贴图的原始像素（保存用）。
+pub fn image<R: Runtime>(app: &AppHandle<R>, id: u32) -> Option<Arc<RgbaImage>> {
+    let state = app.state::<PinState>();
+    let pins = state.pins.lock().expect("贴图锁");
+    pins.get(&id).map(|p| p.image.clone())
 }
 
 pub fn frame<R: Runtime>(app: &AppHandle<R>, id: u32) -> Option<Arc<Frame>> {
@@ -211,6 +269,7 @@ pub fn close<R: Runtime>(app: &AppHandle<R>, id: u32) {
         (pins.is_empty(), pins.values().any(|p| p.through))
     };
     crate::tray::sync_through(app, any_through);
+    crate::pintools::forget(app, id);
     if let Some(w) = app.get_webview_window(&label(id)) {
         let _ = w.destroy();
     }

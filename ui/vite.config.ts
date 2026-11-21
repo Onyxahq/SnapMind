@@ -4,7 +4,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
-// 每种窗口一个入口：settings（设置）、overlay（截图遮罩）、pin（贴图），后续加入 card。
+// 每种窗口一个入口：settings（设置）、overlay（截图遮罩）、pin（贴图）、pintools（贴图工具条），后续加入 card。
 export default defineConfig({
   root: r('./src/entries'),
   publicDir: false,
@@ -27,6 +27,7 @@ export default defineConfig({
         settings: r('./src/entries/settings/index.html'),
         overlay: r('./src/entries/overlay/index.html'),
         pin: r('./src/entries/pin/index.html'),
+        pintools: r('./src/entries/pintools/index.html'),
       },
     },
   },

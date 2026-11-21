@@ -270,8 +270,8 @@ export async function capturePin(index: number, region: Region): Promise<number>
   return invoke('capture_pin', { index, region: intRegion(region) });
 }
 
-export async function pinInfo(): Promise<{ width: number; height: number } | null> {
-  if (!inTauri()) return { width: 400, height: 300 };
+export async function pinInfo(): Promise<{ width: number; height: number; text: string | null } | null> {
+  if (!inTauri()) return { width: 400, height: 300, text: null };
   return invoke('pin_info');
 }
 
@@ -301,4 +301,73 @@ export async function onPinThrough(cb: (on: boolean) => void): Promise<() => voi
 export async function pinThrough(): Promise<void> {
   if (!inTauri()) return;
   return invoke('pin_through');
+}
+
+// ---- 贴图工具条 ----
+
+export type PinAction = 'copy' | 'save' | 'close' | 'through' | 'zoom100' | 'opacity';
+
+export async function pinHover(on: boolean, opacity: number): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('pin_hover', { on, opacity });
+}
+
+export async function pinOpacity(opacity: number): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('pin_opacity', { opacity });
+}
+
+export async function pinCopy(id: number): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('pin_copy', { id });
+}
+
+/** 系统另存为保存贴图，返回保存路径（取消时为 null）。 */
+export async function pinSave(id: number): Promise<string | null> {
+  if (!inTauri()) return null;
+  return invoke('pin_save', { id });
+}
+
+/** 文字卡片排版好后把 RGBA 交给 Rust。 */
+export async function pinSetImage(width: number, height: number, rgba: Uint8Array): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('pin_set_image', rgba, { headers: { 'x-width': String(width), 'x-height': String(height) } });
+}
+
+export async function toolsHover(on: boolean): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('tools_hover', { on });
+}
+
+export async function toolsMenu(open: boolean): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('tools_menu', { open });
+}
+
+export async function toolsLayout(width: number, height: number): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('tools_layout', { width, height });
+}
+
+export interface ToolsTarget {
+  id: number;
+  placement: 'below' | 'above';
+  opacity: number;
+}
+
+export async function onToolsTarget(cb: (t: ToolsTarget) => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  return listen<ToolsTarget>('tools:target', (e) => cb(e.payload));
+}
+
+/** 工具条把动作发给对应的贴图窗口。 */
+export async function sendPinAction(id: number, action: PinAction, value?: number): Promise<void> {
+  if (!inTauri()) return;
+  const { emitTo } = await import('@tauri-apps/api/event');
+  return emitTo(`pin-${id}`, 'pin:action', { action, value });
+}
+
+export async function onPinAction(cb: (a: { action: PinAction; value?: number }) => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  return listen<{ action: PinAction; value?: number }>('pin:action', (e) => cb(e.payload));
 }

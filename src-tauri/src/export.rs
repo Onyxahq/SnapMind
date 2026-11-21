@@ -115,19 +115,20 @@ pub async fn capture_copy(app: AppHandle, state: State<'_, AppState>, index: usi
     let img = crop(&app, index, region)?;
     overlay::end(&app); // 先让遮罩消失，编码和写剪贴板在后台做
     let template = state.config.get().save.filename_template;
-    tauri::async_runtime::spawn_blocking(move || {
-        let png = export::encode(&img, ImageFormat::Png, 0, true).map_err(err)?;
-        let dir = clip_dir();
-        std::fs::create_dir_all(&dir).map_err(err)?;
-        let stem = export::render_filename(&template, export::now_local());
-        let path = export::unique_path(&dir, &stem, "png");
-        std::fs::write(&path, &png).map_err(err)?;
-        let clip = ImageClip { width: img.width, height: img.height, rgba: &img.data, png: &png, file: Some(&path) };
-        clipboard::set_image(&clip).map_err(err)?;
-        Ok(path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
-    })
-    .await
-    .map_err(err)?
+    tauri::async_runtime::spawn_blocking(move || copy_image(&img, &template)).await.map_err(err)?
+}
+
+/// 把图片放进剪贴板：位图 + PNG + 按模板命名的临时 PNG 文件（截图和贴图共用）。返回文件名。
+pub fn copy_image(img: &RgbaImage, template: &str) -> Result<String, String> {
+    let png = export::encode(img, ImageFormat::Png, 0, true).map_err(err)?;
+    let dir = clip_dir();
+    std::fs::create_dir_all(&dir).map_err(err)?;
+    let stem = export::render_filename(template, export::now_local());
+    let path = export::unique_path(&dir, &stem, "png");
+    std::fs::write(&path, &png).map_err(err)?;
+    let clip = ImageClip { width: img.width, height: img.height, rgba: &img.data, png: &png, file: Some(&path) };
+    clipboard::set_image(&clip).map_err(err)?;
+    Ok(path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
 }
 
 /// 贴图：裁剪（带标注）后结束截图，在原位置钉一张贴图。返回贴图 id。

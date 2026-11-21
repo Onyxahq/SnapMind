@@ -5,7 +5,8 @@
   "windows": [
     "settings",
     "overlay-*",
-    "pin-*"
+    "pin-*",
+    "pintools"
   ],
   "permissions": [
     "core:default",

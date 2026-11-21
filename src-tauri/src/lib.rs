@@ -6,6 +6,7 @@ mod export;
 mod launch;
 mod overlay;
 mod pin;
+mod pintools;
 mod state;
 mod tray;
 mod wm;
@@ -31,9 +32,11 @@ pub fn run() {
                     if event.state != ShortcutState::Pressed {
                         return;
                     }
-                    let through: Option<Shortcut> = pin::THROUGH_SHORTCUT.parse().ok();
-                    if through.is_some_and(|t| t.id() == shortcut.id()) {
+                    let is = |s: &str| s.parse::<Shortcut>().is_ok_and(|t| t.id() == shortcut.id());
+                    if is(pin::THROUGH_SHORTCUT) {
                         pin::toggle_through(app);
+                    } else if is(actions::PIN_CLIPBOARD_SHORTCUT) {
+                        actions::pin_clipboard(app);
                     } else {
                         actions::capture(app);
                     }
@@ -43,6 +46,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(overlay::CaptureState::default())
         .manage(pin::PinState::default())
+        .manage(pintools::ToolsState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
@@ -55,10 +59,13 @@ pub fn run() {
 
             tray::create(handle)?;
             overlay::prewarm(handle);
+            pintools::prewarm(handle);
             std::thread::spawn(export::cleanup_clip_files);
-            if let Err(e) = handle.global_shortcut().register(actions::CAPTURE_SHORTCUT) {
-                // 被别的程序占用时不影响启动；M10.1 在设置页标红提示。
-                eprintln!("注册截图快捷键 {} 失败：{e}", actions::CAPTURE_SHORTCUT);
+            for key in [actions::CAPTURE_SHORTCUT, actions::PIN_CLIPBOARD_SHORTCUT] {
+                if let Err(e) = handle.global_shortcut().register(key) {
+                    // 被别的程序占用时不影响启动；M10.1 在设置页标红提示。
+                    eprintln!("注册快捷键 {key} 失败：{e}");
+                }
             }
             if launch::mode(std::env::args()) == launch::LaunchMode::Interactive {
                 wm::show_settings(handle);
@@ -66,6 +73,12 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // 贴图移动或缩放：工具条跟着走
+            if let WindowEvent::Moved(_) | WindowEvent::Resized(_) = event {
+                if let Some(id) = pin::id_of(window.label()) {
+                    pintools::follow(window.app_handle(), id);
+                }
+            }
             // 常驻托盘：关闭窗口只是隐藏，退出走托盘菜单。
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if let Some(id) = pin::id_of(window.label()) {
@@ -98,6 +111,14 @@ pub fn run() {
             commands::pin_zoom,
             commands::pin_close,
             commands::pin_through,
+            commands::pin_hover,
+            commands::pin_opacity,
+            commands::pin_copy,
+            commands::pin_save,
+            commands::pin_set_image,
+            commands::tools_hover,
+            commands::tools_menu,
+            commands::tools_layout,
             export::capture_set_annotations,
             export::capture_save,
             export::capture_estimate,
