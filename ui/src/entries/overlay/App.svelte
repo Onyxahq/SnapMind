@@ -1,6 +1,6 @@
 <script lang="ts">
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
-  // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色。提示、工具条在 M1.5 起加入。
+  // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示。工具条在 M1.6 加入。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -23,6 +23,8 @@
   import ToastHost from '$lib/ui/ToastHost.svelte';
   import { toast } from '$lib/ui/toast.svelte';
   import Magnifier from './Magnifier.svelte';
+  import Hints from './Hints.svelte';
+  import { hintsFor } from '$lib/hints';
   import {
     cursorFor,
     fromCorners,
@@ -105,6 +107,10 @@
         }
       : null,
   );
+  /** 操作提示：内容随状态变化，避开已有选区（悬停高亮不算）。 */
+  const hintList = $derived(hintsFor(sel ? 'selected' : 'idle'));
+  const selOnlyCss = $derived(sel ? cssRect(sel) : null);
+
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
     session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move',
@@ -285,6 +291,10 @@
         e.preventDefault();
         copyColor();
         break;
+      case 'h':
+        e.preventDefault();
+        updateConfig({ capture: { showHints: !config.value.capture.showHints } });
+        break;
     }
   }
 
@@ -338,6 +348,9 @@
       handles={sel !== null && (!drag || drag.kind !== 'create')}
       animate={!sel && !drag}
     />
+  {/if}
+  {#if session && config.value.capture.showHints}
+    <Hints hints={hintList} avoid={selOnlyCss} cursor={cursorCss} />
   {/if}
   {#if showMag && cursorPx && cursorCss}
     <Magnifier

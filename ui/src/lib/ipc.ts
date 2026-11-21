@@ -15,7 +15,7 @@ export interface AppInfo {
 export interface Config {
   version: number;
   appearance: { theme: ThemeMode; accent: Accent };
-  capture: { colorFormat: ColorFormat };
+  capture: { colorFormat: ColorFormat; showHints: boolean };
 }
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
@@ -23,7 +23,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartia
 export const DEFAULT_CONFIG: Config = {
   version: 1,
   appearance: { theme: 'system', accent: 'blue' },
-  capture: { colorFormat: 'hex' },
+  capture: { colorFormat: 'hex', showHints: true },
 };
 
 export const CONFIG_CHANGED = 'config-changed';

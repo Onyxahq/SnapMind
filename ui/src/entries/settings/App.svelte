@@ -1,5 +1,5 @@
 <script lang="ts">
-  // 设置窗口。完整的分页布局在 M10.1 实现；这里先放「外观」，验证配置读写与即时生效。
+  // 设置窗口。完整的分页布局在 M10.1 实现；这里先放已经用得上的几项：外观、截图。
   import { onMount } from 'svelte';
   import { appInfo, type AppInfo } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';
@@ -8,6 +8,7 @@
   import Row from '$lib/ui/Row.svelte';
   import Seg from '$lib/ui/Seg.svelte';
   import AccentPicker from '$lib/ui/AccentPicker.svelte';
+  import Switch from '$lib/ui/Switch.svelte';
   import ToastHost from '$lib/ui/ToastHost.svelte';
   import { toast } from '$lib/ui/toast.svelte';
 
@@ -47,6 +48,17 @@
       <AccentPicker
         value={config.value.appearance.accent}
         onchange={(accent) => save({ appearance: { accent } })}
+      />
+    </Row>
+  </Card>
+
+  <h1 class="t-title">截图</h1>
+  <Card>
+    <Row title="截图时显示操作提示" desc="截图时按 H 也可以切换，会记住">
+      <Switch
+        label="截图时显示操作提示"
+        checked={config.value.capture.showHints}
+        onchange={(showHints) => save({ capture: { showHints } })}
       />
     </Row>
   </Card>

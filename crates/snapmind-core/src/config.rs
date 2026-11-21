@@ -64,11 +64,19 @@ pub enum Accent {
 }
 
 /// 截图编辑态的设置。
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct CaptureConfig {
     /// 放大镜里颜色值的格式，按 P 切换后记住。
     pub color_format: ColorFormat,
+    /// 是否显示操作提示。截图时按 H 切换，会记住；设置里也有同一个开关。
+    pub show_hints: bool,
+}
+
+impl Default for CaptureConfig {
+    fn default() -> Self {
+        Self { color_format: ColorFormat::default(), show_hints: true }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -256,7 +264,7 @@ mod tests {
             json!({
                 "version": 1,
                 "appearance": { "theme": "system", "accent": "blue" },
-                "capture": { "colorFormat": "hex" }
+                "capture": { "colorFormat": "hex", "showHints": true }
             })
         );
     }
@@ -266,6 +274,13 @@ mod tests {
         let mut t = json!({ "a": { "b": 1, "c": 2 }, "d": [1, 2] });
         merge_patch(&mut t, &json!({ "a": { "b": 9, "c": null }, "d": [3], "e": "x" }));
         assert_eq!(t, json!({ "a": { "b": 9 }, "d": [3], "e": "x" }));
+    }
+
+    #[test]
+    fn hints_default_on_even_when_capture_section_is_partial() {
+        let c = parse(r#"{ "capture": { "colorFormat": "rgb" } }"#).unwrap();
+        assert!(c.capture.show_hints);
+        assert_eq!(c.capture.color_format, ColorFormat::Rgb);
     }
 
     #[test]
