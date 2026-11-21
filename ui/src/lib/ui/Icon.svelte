@@ -16,6 +16,12 @@
     lock: 'M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z',
     unlock: 'M7 11V8a5 5 0 019.5-2M6 11h12v9H6z',
     plus: 'M12 5v14M5 12h14',
+    pen: 'M4 20l4.5-1L19 8.5 15.5 5 5 15.5z',
+    number: 'M12 3.5a8.5 8.5 0 110 17 8.5 8.5 0 010-17zM10.5 9.5L12.5 8v8',
+    eraser: 'M8 20h12M5.5 15.5l9-9a2 2 0 012.8 0l1.2 1.2a2 2 0 010 2.8L11 18H8z',
+    undo: 'M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 010 11H11',
+    textT: 'M5 6h14M12 6v13M9 19h6',
+    mosaic: 'M6 4h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2zM4 12h16M12 4v16',
   } as const;
   export type IconName = keyof typeof ICONS;
 </script>

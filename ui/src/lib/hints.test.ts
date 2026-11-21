@@ -5,13 +5,19 @@ const VIEW = { width: 1600, height: 900 };
 const PANEL = { width: 280, height: 200 };
 
 describe('hintsFor', () => {
-  it('两种状态都以 Esc 退出结尾，内容不同', () => {
+  it('框选前和有选区时都以 Esc 退出结尾，内容不同', () => {
     for (const s of ['idle', 'selected'] as const) {
       const h = hintsFor(s);
       expect(h.at(-1)).toEqual({ k: 'Esc', label: '退出' });
     }
     expect(hintsFor('idle')[0].label).toBe('框选区域');
     expect(hintsFor('selected')[0].label).toBe('调整大小');
+  });
+
+  it('标注时第一行带上当前工具名，Esc 退出的是标注', () => {
+    const h = hintsFor('annotate', '箭头');
+    expect(h[0]).toEqual({ k: '拖动', label: '绘制箭头' });
+    expect(h.at(-1)).toEqual({ k: 'Esc', label: '退出标注' });
   });
 });
 

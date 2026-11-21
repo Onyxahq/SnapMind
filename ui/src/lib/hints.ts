@@ -9,13 +9,13 @@ export interface Hint {
 }
 
 /** 编辑态的阶段。标注、识别、长截图、录屏随对应任务加入。 */
-export type HintState = 'idle' | 'selected';
+export type HintState = 'idle' | 'selected' | 'annotate';
 
 /**
  * 提示内容。只列出已经能用的操作，后续任务实现了新快捷键再补进来，
  * 不让提示里出现按了没反应的键。
  */
-export function hintsFor(state: HintState): Hint[] {
+export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
   switch (state) {
     case 'idle':
       return [
@@ -33,11 +33,23 @@ export function hintsFor(state: HintState): Hint[] {
         { k: '拖动边框', label: '调整大小' },
         { k: '拖动内部', label: '移动选区' },
         { k: '方向键', label: '微调 1px（Shift 10px）' },
+        { k: '空格', label: '开始标注' },
+        { k: '1 – 7', label: '标注工具' },
         { k: 'Ctrl+C', label: '复制并结束' },
         { k: 'Ctrl+S', label: '保存…' },
         { k: 'P / C', label: '颜色格式 / 复制颜色' },
         { k: '右键', label: '取消选区' },
         { k: 'Esc', label: '退出' },
+      ];
+    case 'annotate':
+      return [
+        { k: '拖动', label: `绘制${toolLabel}` },
+        { k: 'Shift', label: '正方形 / 正圆 / 45° 直线' },
+        { k: '1 – 7', label: '切换标注工具' },
+        { k: 'Ctrl+Z', label: '撤销' },
+        { k: 'Ctrl+C', label: '复制并结束' },
+        { k: '空格', label: '退出标注' },
+        { k: 'Esc', label: '退出标注' },
       ];
   }
 }

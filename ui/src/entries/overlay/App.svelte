@@ -1,7 +1,7 @@
 <script lang="ts">
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
-  // M1.6 工具条、复制 / 保存与逐级退出。标注在 M2 加入。
+  // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -47,6 +47,25 @@
     type Hit,
   } from '$lib/selection';
   import Selection from './Selection.svelte';
+  import AnnotationLayer from './AnnotationLayer.svelte';
+  import {
+    COLORS,
+    SIZES,
+    TOOL_INFO,
+    addPoint,
+    apply,
+    constrain,
+    defaultOpts,
+    emptyDoc,
+    hitShape,
+    nextNumber,
+    toolForKey,
+    undo as undoDoc,
+    type Doc,
+    type Shape,
+    type Tool,
+    type ToolOpts,
+  } from '$lib/annotate';
   import { devCapture, devChain } from './devFrame';
 
   /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
@@ -65,7 +84,9 @@
   type Drag =
     | { kind: 'create'; anchor: Point; downCss: Point; moved: boolean }
     | { kind: 'move'; start: Rect; p0: Point }
-    | { kind: 'resize'; handle: Handle; start: Rect; p0: Point };
+    | { kind: 'resize'; handle: Handle; start: Rect; p0: Point }
+    | { kind: 'draw' }
+    | { kind: 'erase'; removed: Shape[] };
   // raw：拖动过程中只整体替换，不需要深层响应
   let drag = $state.raw<Drag | null>(null);
   let hover = $state<Hit>(null);
@@ -76,6 +97,23 @@
   let pickRgb = $state<RGB | null>(null);
   /** 保存窗口是否打开（逐级退出的一级）。 */
   let saveOpen = $state(false);
+
+  // ---- 标注 ----
+  /** 当前标注工具；null 表示不在标注模式。 */
+  let tool = $state<Tool | null>(null);
+  let lastTool: Tool = 'rect';
+  /** 每个工具各自记住子类型、颜色、粗细（遮罩窗口常驻，所以整个运行期间都记得）。 */
+  let opts = $state(defaultOpts());
+  let doc = $state.raw<Doc>(emptyDoc());
+  /** 正在画的那一笔 */
+  let draft = $state.raw<Shape | null>(null);
+  let propsOpen = $state(false);
+  let shapeSeq = 0;
+  /** 橡皮擦一笔划过时先藏起来、松手后一次删除（一步撤销）。 */
+  const visibleShapes = $derived.by(() => {
+    const d = drag;
+    return d?.kind === 'erase' ? doc.shapes.filter((s) => !d.removed.includes(s)) : doc.shapes;
+  });
 
   /** 吸附链（本屏像素，从内到外）和当前高亮的层级。只在还没有选区时生效。 */
   let snapList = $state.raw<Rect[]>([]);
@@ -110,7 +148,9 @@
     const { x, y, width: w, height: h } = selCss;
     return `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${x}px ${y}px, ${x + w}px ${y}px, ${x + w}px ${y + h}px, ${x}px ${y + h}px, ${x}px ${y}px)`;
   });
-  const cursor = $derived(drag?.kind === 'move' ? 'move' : cursorFor(hover));
+  const cursor = $derived(
+    tool ? (tool === 'eraser' ? 'cell' : 'crosshair') : drag?.kind === 'move' ? 'move' : cursorFor(hover),
+  );
   /** 光标所在的截图像素（向下取整：光标落在哪个像素里就是哪个） */
   const cursorPx = $derived(
     cursorCss
@@ -121,13 +161,22 @@
       : null,
   );
   /** 操作提示：内容随状态变化，避开已有选区（悬停高亮不算）。 */
-  const hintList = $derived(hintsFor(sel ? 'selected' : 'idle'));
-  const showToolbar = $derived(sel !== null && !drag && !saveOpen && sel.width > 0 && sel.height > 0);
+  const hintList = $derived(
+    hintsFor(tool ? 'annotate' : sel ? 'selected' : 'idle', tool ? TOOL_INFO[tool].label : ''),
+  );
+  /** 画标注时工具条保持显示（不随每一笔闪烁）；调整选区时隐藏。 */
+  const showToolbar = $derived(
+    sel !== null &&
+      !saveOpen &&
+      sel.width > 0 &&
+      sel.height > 0 &&
+      (!drag || drag.kind === 'draw' || drag.kind === 'erase'),
+  );
   const selOnlyCss = $derived(sel ? cssRect(sel) : null);
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen,
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !tool,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -175,6 +224,10 @@
     snapList = [];
     snapLevel = 0;
     saveOpen = false;
+    tool = null;
+    propsOpen = false;
+    doc = emptyDoc();
+    draft = null;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
     frameReady = false;
     src = url ?? `${convertFileSrc(String(s.index), 'snapframe')}?s=${s.seq}`;
@@ -199,6 +252,10 @@
     sel = null;
     drag = null;
     saveOpen = false;
+    tool = null;
+    propsOpen = false;
+    doc = emptyDoc();
+    draft = null;
     frameReady = false;
     src = '';
   }
@@ -288,6 +345,12 @@
   function onDown(e: PointerEvent) {
     if (!session || e.button !== 0) return;
     const p = toPx(e.clientX, e.clientY);
+    if (tool && sel) {
+      propsOpen = false;
+      startDraw(clampToSel(p), e.shiftKey);
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+      return;
+    }
     const hit = sel ? hitTest(sel, p, HIT_TOL * mon.scale) : null;
     if (sel && hit === 'move') {
       drag = { kind: 'move', start: sel, p0: p };
@@ -325,11 +388,19 @@
         sel = resize(drag.start, drag.handle, p.x - drag.p0.x, p.y - drag.p0.y, W, H);
         hover = drag.handle;
         break;
+      case 'draw':
+      case 'erase':
+        continueDraw(clampToSel(p), e.shiftKey);
+        break;
     }
   }
 
   function onUp(e: PointerEvent) {
     if (!drag) return;
+    if (drag.kind === 'draw' || drag.kind === 'erase') {
+      endDraw();
+      return;
+    }
     if (drag.kind === 'create' && !drag.moved) {
       // 单击：选中吸附到的窗口或控件；桌面空白处选中整个显示器
       const p = toPx(e.clientX, e.clientY);
@@ -342,24 +413,136 @@
     hover = sel ? hitTest(sel, toPx(e.clientX, e.clientY), HIT_TOL * mon.scale) : null;
   }
 
-  /** 右键：有选区时取消选区，没有时退出截图。 */
+  /** 右键：标注时退出标注；有选区时取消选区（已有标注时不取消，免得标注丢失）；没有选区时退出截图。 */
   function onContext(e: MouseEvent) {
     e.preventDefault();
     if (!session || drag) return;
+    if (tool) {
+      exitAnnotate();
+      return;
+    }
+    if (sel && doc.shapes.length) return;
     if (sel) {
       sel = null;
       querySnap(toPx(e.clientX, e.clientY)); // 回到悬停吸附
     } else close();
   }
 
+  // ---------------------------------------------------------------- 标注
+
+  const clampToSel = (p: Point): Point =>
+    sel
+      ? {
+          x: Math.min(Math.max(p.x, sel.x), sel.x + sel.width),
+          y: Math.min(Math.max(p.y, sel.y), sel.y + sel.height),
+        }
+      : p;
+
+  /** 进入标注模式（还没有选区时先选中悬停的元素或整屏）。 */
+  function setTool(t: Tool) {
+    if (!session) return;
+    if (!sel) sel = region();
+    tool = t;
+    lastTool = t;
+    hover = null;
+  }
+
+  function exitAnnotate() {
+    tool = null;
+    propsOpen = false;
+  }
+
+  function setOpts(t: Tool, o: Partial<ToolOpts>) {
+    opts = { ...opts, [t]: { ...opts[t], ...o } };
+  }
+
+  function undo() {
+    if (drag) return;
+    doc = undoDoc(doc);
+  }
+
+  const style = (t: Tool) => ({
+    color: COLORS[opts[t].color].value,
+    width: SIZES[opts[t].size] * mon.scale,
+  });
+
+  let drawStart: Point = { x: 0, y: 0 };
+
+  function startDraw(p: Point, shift: boolean) {
+    if (!tool) return;
+    drawStart = p;
+    const id = ++shapeSeq;
+    switch (tool) {
+      case 'rect':
+        draft = { id, kind: 'rect', ellipse: opts.rect.sub === 1, a: p, b: p, ...style('rect') };
+        drag = { kind: 'draw' };
+        break;
+      case 'arrow':
+        draft = { id, kind: 'arrow', line: opts.arrow.sub === 1, a: p, b: p, ...style('arrow') };
+        drag = { kind: 'draw' };
+        break;
+      case 'pen':
+        draft = { id, kind: 'pen', highlighter: opts.pen.sub === 1, points: [p], ...style('pen') };
+        drag = { kind: 'draw' };
+        break;
+      case 'number': {
+        // 序号单击即放下，不需要拖动
+        const shape: Shape = { id, kind: 'number', n: nextNumber(doc.shapes), at: p, ...style('number') };
+        doc = apply(doc, { type: 'add', shapes: [shape] });
+        break;
+      }
+      case 'eraser':
+        drag = { kind: 'erase', removed: [] };
+        continueDraw(p, shift);
+        break;
+    }
+  }
+
+  function continueDraw(p: Point, shift: boolean) {
+    const d = drag;
+    if (d?.kind === 'erase') {
+      const tol = 6 * mon.scale;
+      const hit = doc.shapes.filter((s) => !d.removed.includes(s) && hitShape(s, p, tol));
+      if (hit.length) drag = { kind: 'erase', removed: [...d.removed, ...hit] };
+      return;
+    }
+    if (!draft) return;
+    switch (draft.kind) {
+      case 'rect':
+      case 'arrow':
+        draft = { ...draft, b: shift ? constrain(draft.kind, drawStart, p) : p };
+        break;
+      case 'pen':
+        draft = { ...draft, points: addPoint(draft.points, p, mon.scale) };
+        break;
+    }
+  }
+
+  function endDraw() {
+    const d = drag;
+    if (d?.kind === 'erase') {
+      doc = apply(doc, { type: 'remove', shapes: d.removed });
+    } else if (draft) {
+      // 太小的形状（误触）不保留
+      const tiny =
+        (draft.kind === 'rect' || draft.kind === 'arrow') &&
+        Math.hypot(draft.b.x - draft.a.x, draft.b.y - draft.a.y) < 3 * mon.scale;
+      if (!tiny) doc = apply(doc, { type: 'add', shapes: [draft] });
+    }
+    draft = null;
+    drag = null;
+  }
+
   // ---------------------------------------------------------------- 键盘
 
   function onKey(e: KeyboardEvent) {
     if (!session) return;
-    // Esc 逐级退出：保存窗口 → 截图（弹层、长截图、结果卡片、标注随后续任务加入）
+    // Esc 逐级退出：弹层 → 保存窗口 → 标注 → 截图（长截图 / 录屏、结果卡片随后续任务插入）
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (saveOpen) saveOpen = false;
+      if (propsOpen) propsOpen = false;
+      else if (saveOpen) saveOpen = false;
+      else if (tool) exitAnnotate();
       else close();
       return;
     }
@@ -380,8 +563,26 @@
       pin();
       return;
     }
+    if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      undo();
+      return;
+    }
+    if (e.key === ' ' && !ctrl && !e.altKey) {
+      e.preventDefault();
+      if (drag) return;
+      if (tool) exitAnnotate();
+      else setTool(lastTool);
+      return;
+    }
+    const t = !ctrl && !e.altKey && !e.shiftKey ? toolForKey(e.key) : null;
+    if (t) {
+      e.preventDefault();
+      if (!drag) setTool(t);
+      return;
+    }
     const d = nudgeDelta(e.key, e.shiftKey);
-    if (d && sel && !drag) {
+    if (d && sel && !drag && !tool) {
       e.preventDefault();
       sel = move(sel, d.x, d.y, W, H);
       return;
@@ -453,16 +654,29 @@
 >
   <img bind:this={img} {src} alt="" draggable="false" crossorigin="anonymous" />
   <div class="scrim" class:snapping={!sel && !drag} style:clip-path={scrimClip}></div>
+  {#if sel}
+    <AnnotationLayer shapes={visibleShapes} {draft} clip={sel} {mon} />
+  {/if}
   {#if selCss}
     <Selection
       rect={selCss}
       label={sizeLabel}
-      handles={sel !== null && (!drag || drag.kind !== 'create')}
+      handles={sel !== null && !tool && (!drag || drag.kind !== 'create')}
       animate={!sel && !drag}
     />
   {/if}
   {#if showToolbar && selOnlyCss}
-    <Toolbar sel={selOnlyCss} onaction={onAction} />
+    <Toolbar
+      sel={selOnlyCss}
+      {tool}
+      {opts}
+      canUndo={doc.history.length > 0}
+      bind:propsOpen
+      onaction={onAction}
+      ontool={setTool}
+      onopts={setOpts}
+      onundo={undo}
+    />
   {/if}
   {#if saveOpen && sel && session}
     <SaveDialog

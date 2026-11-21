@@ -3566,7 +3566,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind"
-version = "0.2.6"
+version = "0.3.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -3582,7 +3582,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-core"
-version = "0.2.6"
+version = "0.3.1"
 dependencies = [
  "chrono",
  "image",
@@ -3595,11 +3595,11 @@ dependencies = [
 
 [[package]]
 name = "snapmind-ocr"
-version = "0.2.6"
+version = "0.3.1"
 
 [[package]]
 name = "snapmind-platform"
-version = "0.2.6"
+version = "0.3.1"
 dependencies = [
  "arboard",
  "thiserror 2.0.21",
@@ -3608,7 +3608,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-providers"
-version = "0.2.6"
+version = "0.3.1"
 
 [[package]]
 name = "socket2"
