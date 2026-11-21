@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>截图编辑态原型</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.light{--bg:#E6EBF2;--wall:#C7D2E1;--glass:rgba(255,255,255,.86);--glass2:rgba(255,255,255,.95);--solid:#FFFFFF;--sunken:#EEF2F7;--text:#0F172A;--text2:#475569;--text3:#64748B;--line:rgba(15,23,42,.08);--line2:rgba(15,23,42,.14);--hover:rgba(15,23,42,.06);--elev:0 0 0 1px rgba(15,23,42,.06),0 12px 32px rgba(15,23,42,.16);--elev-sm:0 0 0 1px rgba(15,23,42,.06),0 4px 12px rgba(15,23,42,.08);--scrim:rgba(15,23,42,.45);--seg-on:#FFFFFF;--seg-sh:0 1px 2px rgba(15,23,42,.12);--field:#FFFFFF;--doc:#FFFFFF;--doc-text:#334155;--doc-title:#0F172A;--doc-line:#E2E8F0;--doc-sunken:#EEF2F7;--chip:rgba(15,23,42,.8);--chip-text:#FFFFFF;--accent:#2563EB;--on-accent:#FFFFFF;--accent-soft:rgba(37,99,235,.12)}
+.dark{--bg:#0E1219;--wall:#1A2232;--glass:rgba(30,37,48,.86);--glass2:rgba(30,37,48,.95);--solid:#1C222C;--sunken:rgba(0,0,0,.25);--text:#E8ECF2;--text2:#9BA6B5;--text3:#8B95A3;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);--hover:rgba(255,255,255,.08);--elev:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.07),0 16px 40px rgba(0,0,0,.45);--elev-sm:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(255,255,255,.07),0 6px 16px rgba(0,0,0,.35);--scrim:rgba(3,6,12,.6);--seg-on:rgba(255,255,255,.1);--seg-sh:inset 0 1px 0 rgba(255,255,255,.06);--field:rgba(255,255,255,.04);--doc:#161B22;--doc-text:#AEB8C4;--doc-title:#E6EDF3;--doc-line:#262D38;--doc-sunken:#0D1117;--chip:rgba(20,25,33,.92);--chip-text:#E8ECF2;--accent:#60A5FA;--on-accent:#0B1220;--accent-soft:rgba(96,165,250,.16)}
+.theme{transition:background-color .3s,color .3s}
+.light{--accent-strong:rgba(37,99,235,.36)}
+.dark{--accent-strong:rgba(96,165,250,.42)}
+.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ib{width:30px;height:30px;border:0;background:transparent;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;padding:0;transition:background .15s cubic-bezier(.2,0,0,1),color .15s,transform .1s;flex:none}
+.ib:hover{background:var(--hover);color:var(--text)}
+.ib:active{transform:scale(.9)}
+.ib.on{background:var(--accent-soft);color:var(--accent)}
+.chev{width:12px;height:30px;border:0;background:transparent;border-radius:5px;color:var(--text3);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.chev:hover{background:var(--hover);color:var(--text)}
+.tg{display:flex;align-items:center;flex:none}
+.sep{width:1px;height:18px;background:var(--line2);margin:0 3px;flex:none}
+.bar{display:flex;align-items:center;gap:1px;padding:4px;border-radius:10px}
+.seg-wrap{display:flex;background:var(--sunken);border-radius:7px;padding:2px;flex:none}
+.seg{border:0;background:transparent;font:inherit;font-size:12px;padding:3px 9px;border-radius:5px;color:var(--text2);cursor:pointer;transition:background .15s,color .15s;white-space:nowrap}
+.seg.on{background:var(--seg-on);color:var(--text);box-shadow:var(--seg-sh)}
+.gb{height:30px;padding:0 11px;border-radius:7px;border:1px solid var(--line2);background:var(--glass2);font:inherit;font-size:12.5px;color:var(--text);display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:background .15s,transform .1s;flex:none;white-space:nowrap}
+.gb:hover{background:var(--hover)}
+.gb:active{transform:scale(.96)}
+.pb{height:30px;padding:0 11px;border:0;border-radius:7px;font:inherit;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:filter .15s,transform .1s;flex:none;white-space:nowrap}
+.pb:hover{filter:brightness(1.08)}
+.pb:active{transform:scale(.95)}
+.pb.red{background:#EF4444;color:#fff}
+.glass{background:var(--glass);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);box-shadow:var(--elev)}
+.pop{animation:pop .18s cubic-bezier(.2,.9,.3,1.15) both}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(4px)}to{opacity:1;transform:none}}
+.fade{animation:fade .12s cubic-bezier(0,0,.2,1) both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.caret{display:inline-block;width:2px;height:1em;background:var(--accent);margin-left:2px;vertical-align:-2px;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.sk{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--line) 0%,var(--line2) 50%,var(--line) 100%);background-size:200% 100%;animation:sk 1.1s linear infinite}
+@keyframes sk{from{background-position:200% 0}to{background-position:-200% 0}}
+.field{width:100%;box-sizing:border-box;border-radius:7px;border:1px solid var(--line2);background:var(--field);color:var(--text);font:inherit;font-size:13px;line-height:20px;padding:7px 10px;resize:none;transition:border-color .15s,box-shadow .15s}
+.field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.code{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:19px;background:var(--sunken)}
+.hk{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:5px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:600;white-space:nowrap;box-sizing:border-box}
+.ln{position:absolute;white-space:nowrap;font-size:16px;line-height:26px;color:var(--doc-text)}
+.ann-mosaic{background-image:repeating-conic-gradient(rgba(127,127,127,.35) 0 25%,rgba(127,127,127,.12) 0 50%);background-size:10px 10px;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.ann-blur{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(127,127,127,.08)}
+.ann-text{position:absolute;border:1px dashed transparent;background:transparent;font:inherit;font-weight:600;padding:2px 4px;outline:none;pointer-events:auto}
+.ann-text:focus,.ann-text:hover{border-color:currentColor}
+.cdot{width:20px;height:20px;border-radius:50%;border:0;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);transition:transform .15s cubic-bezier(.2,.9,.3,1.2)}
+.cdot:hover{transform:scale(1.12)}
+.cdot.on{box-shadow:0 0 0 2px var(--glass2),0 0 0 4px var(--accent)}
+.sdot{width:26px;height:26px;border-radius:7px;border:0;background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.sdot:hover{background:var(--hover)}
+.sdot.on{background:var(--accent-soft)}
+.fi{display:flex;align-items:center;gap:10px;width:100%;height:32px;padding:0 10px;border:0;background:transparent;border-radius:7px;font:inherit;font-size:13px;color:var(--text);cursor:pointer;text-align:left}
+.fi:hover{background:var(--hover)}
+.fi kbd{margin-left:auto;font:inherit;font-size:11px;color:var(--text3)}
+.recdot{width:10px;height:10px;border-radius:50%;background:#EF4444;animation:rp 1s ease-in-out infinite}
+@keyframes rp{50%{opacity:.35}}
+.tbl{border-collapse:collapse;font-size:12px}
+.tbl td{border:1px solid var(--line2);padding:0}
+.tbl td input{width:100%;box-sizing:border-box;border:0;background:transparent;font:inherit;color:var(--text);padding:5px 8px;outline:none}
+.tbl td input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
+.tbl tr:first-child td{background:var(--sunken);font-weight:600}
+.ptbl{border-collapse:collapse;font-size:12px}
+.ptbl td{border:1px solid var(--line2);padding:4px 8px}
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 4px;line-height:1.1}
+.frac span:first-child{border-bottom:1.5px solid currentColor;padding:0 4px}
+.lbl{font-size:12px;font-weight:600;color:var(--text)}
+.qchip{height:26px;padding:0 10px;border-radius:7px;border:1px solid var(--line2);background:transparent;font:inherit;font-size:12px;color:var(--text2);cursor:pointer}
+.qchip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+</style>
+</helmet>
+<div class="theme {{mode}}" style="width:1280px;height:860px;box-sizing:border-box;padding:28px 48px 40px;background:var(--bg);font-family:Inter,'Noto Sans SC',sans-serif;color:var(--text);display:flex;flex-direction:column;gap:16px;overflow:hidden">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">
+      <h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700">截图编辑态 · 可操作原型 v3</h1>
+      <p style="margin:0;font-size:13px;line-height:20px;color:var(--text2)">复制、贴图、保存都会结束截图。浏览器会拦截 Ctrl+T，演示时请点工具条按钮。</p>
+    </div>
+    <span style="font-size:12px;padding:5px 10px;border-radius:999px;background:{{kbBg}};color:{{kbColor}};white-space:nowrap">{{kbText}}</span>
+    <div class="seg-wrap">
+      <button type="button" class="seg {{lightOn}}" onClick="{{setLight}}">浅色</button>
+      <button type="button" class="seg {{darkOn}}" onClick="{{setDark}}">深夜</button>
+    </div>
+    <button type="button" class="gb" onClick="{{reset}}"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 102.2-5.3M4.5 4.5v4h4"></path></svg>重新截图</button>
+  </div>
+
+  <div style="position:relative;width:1184px;height:680px;border-radius:16px;overflow:hidden;background:var(--wall);user-select:none;-webkit-user-select:none;transition:background-color .3s">
+    <input class="kb" readonly aria-label="截图快捷键" onKeyDown="{{onKey}}" onFocus="{{onKbFocus}}" onBlur="{{onKbBlur}}" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0">
+
+    <div style="position:absolute;left:40px;top:40px;width:700px;height:600px;background:var(--doc);border-radius:10px;box-shadow:var(--elev-sm);transition:background-color .3s"></div>
+    <div style="position:absolute;left:40px;top:40px;width:700px;height:36px;box-sizing:border-box;padding:0 14px;border-bottom:1px solid var(--doc-line);display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text3)">
+      <span>blog.example.com / multilingual</span>
+      <span style="display:flex;gap:18px"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12a1 1 0 011 1v12a1 1 0 01-1 1H6a1 1 0 01-1-1V6a1 1 0 011-1z"></path></svg><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+    </div>
+    <div style="position:absolute;left:0;top:0;width:1184px;height:680px;clip-path:inset(77px 444px 40px 40px round 0 0 10px 10px);pointer-events:none">
+      <div style="position:absolute;left:0;top:0;width:1184px;height:1100px;transform:translateY(-{{scrollY}}px);transition:transform .18s cubic-bezier(.2,0,0,1)">
+        <span class="ln" style="left:80px;top:100px;font-size:26px;line-height:34px;font-weight:700;color:var(--doc-title)">Designing for Multilingual Readers</span>
+        <span class="ln" style="left:80px;top:156px">Translation is not just about swapping words. A good translation keeps intent,</span>
+        <span class="ln" style="left:80px;top:182px">tone, and the small details that make a text feel native.</span>
+        <span class="ln" style="left:80px;top:228px">Large language models can now translate text while keeping formatting,</span>
+        <span class="ln" style="left:80px;top:254px">terminology, and code intact.</span>
+        <div style="position:absolute;left:80px;top:304px;width:620px;height:40px;display:flex;align-items:center;justify-content:center;font-family:'Cambria Math','Times New Roman',serif;font-size:20px;color:var(--doc-title)"><i>F</i><sub style="font-size:12px">1</sub>&#160;=&#160;<span class="frac"><span>2<i>PR</i></span><span><i>P</i> + <i>R</i></span></span></div>
+        <div style="position:absolute;left:80px;top:364px;width:620px;display:grid;grid-template-columns:220px 200px 200px;font-size:14px;color:var(--doc-text);border:1px solid var(--doc-line);border-radius:6px;overflow:hidden">
+          <span style="height:32px;line-height:32px;padding-left:12px;background:var(--doc-sunken);font-weight:600;color:var(--doc-title)">Engine</span><span style="height:32px;line-height:32px;padding-left:12px;background:var(--doc-sunken);font-weight:600;color:var(--doc-title)">Latency</span><span style="height:32px;line-height:32px;padding-left:12px;background:var(--doc-sunken);font-weight:600;color:var(--doc-title)">Offline</span>
+          <span style="height:32px;line-height:32px;padding-left:12px;border-top:1px solid var(--doc-line)">Local OCR</span><span style="height:32px;line-height:32px;padding-left:12px;border-top:1px solid var(--doc-line)">80 ms</span><span style="height:32px;line-height:32px;padding-left:12px;border-top:1px solid var(--doc-line)">✓</span>
+          <span style="height:32px;line-height:32px;padding-left:12px;border-top:1px solid var(--doc-line)">Vision LLM</span><span style="height:32px;line-height:32px;padding-left:12px;border-top:1px solid var(--doc-line)">1.2 s</span><span style="height:32px;line-height:32px;padding-left:12px;border-top:1px solid var(--doc-line)">✗</span>
+        </div>
+        <span class="ln" style="left:80px;top:484px">Pair them with fast on-device OCR, and any pixel on your screen becomes</span>
+        <span class="ln" style="left:80px;top:510px">something you can read, search, and copy.</span>
+        <span class="ln" style="left:80px;top:576px;font-size:22px;line-height:30px;font-weight:700;color:var(--doc-title)">How It Works</span>
+        <span class="ln" style="left:80px;top:626px">Press Shift+F1, drag over any text, and SnapMind recognizes it on your machine.</span>
+        <span class="ln" style="left:80px;top:652px">Paragraphs, tables and formulas keep their structure.</span>
+        <span class="ln" style="left:80px;top:698px">Translations stream into a card next to your selection, or replace the original</span>
+        <span class="ln" style="left:80px;top:724px">text in place so the layout stays exactly the same.</span>
+        <div style="position:absolute;left:80px;top:772px;width:620px;height:120px;border-radius:8px;background:var(--doc-sunken);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text3)">figure · history.png</div>
+        <span class="ln" style="left:80px;top:912px">Everything you pin or translate is kept in history, so nothing gets lost.</span>
+        <span class="ln" style="left:80px;top:938px">Shortcuts, toolbars and prompts can all be customized in Settings.</span>
+      </div>
+    </div>
+
+    <sc-if value="{{offPin}}" hint-placeholder-val="{{ false }}">
+      <div class="pop" style="position:absolute;left:{{selX}}px;top:{{selY}}px;width:{{selW}}px;height:{{selH}}px;box-sizing:border-box;box-shadow:0 0 0 1px var(--accent),0 14px 36px rgba(0,0,0,.28);pointer-events:none"><span style="position:absolute;right:6px;bottom:6px;font-size:11px;padding:2px 7px;border-radius:5px;background:var(--chip);color:var(--chip-text)">贴图</span></div>
+    </sc-if>
+
+    <sc-if value="{{showFullScrim}}" hint-placeholder-val="{{ true }}">
+      <div class="fade" style="position:absolute;left:0;top:0;width:1184px;height:680px;background:var(--scrim);pointer-events:none"></div>
+    </sc-if>
+    <sc-if value="{{hasHover}}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:{{hovX}}px;top:{{hovY}}px;width:{{hovW}}px;height:{{hovH}}px;box-sizing:border-box;border:1.5px dashed var(--accent);border-radius:4px;box-shadow:0 0 0 3000px var(--scrim);pointer-events:none;transition:left .12s cubic-bezier(.2,0,0,1),top .12s cubic-bezier(.2,0,0,1),width .12s cubic-bezier(.2,0,0,1),height .12s cubic-bezier(.2,0,0,1)"></div>
+    </sc-if>
+
+    <div onMouseDown="{{onDown}}" onMouseMove="{{onMove}}" onMouseUp="{{onUp}}" onMouseLeave="{{onLeave}}" onWheel="{{onWheel}}" onContextMenu="{{onCtx}}" style="position:absolute;left:0;top:0;width:1184px;height:680px;cursor:{{cursor}}"></div>
+
+    <sc-if value="{{showSel}}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:{{selX}}px;top:{{selY}}px;width:{{selW}}px;height:{{selH}}px;box-sizing:border-box;border:{{selBorder}};box-shadow:0 0 0 3000px var(--scrim);pointer-events:none">
+        <sc-if value="{{showHandles}}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{handles}}" as="h" hint-placeholder-count="8">
+            <span style="position:absolute;left:{{h.x}}px;top:{{h.y}}px;width:9px;height:9px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--solid);border:1.5px solid var(--accent)"></span>
+          </sc-for>
+        </sc-if>
+      </div>
+      <span style="position:absolute;left:{{selX}}px;top:{{labelY}}px;font-size:12px;line-height:18px;padding:3px 8px;border-radius:6px;background:var(--chip);color:var(--chip-text);pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums">{{sizeLabel}}</span>
+    </sc-if>
+
+    <sc-if value="{{showBoxes}}" hint-placeholder-val="{{ false }}">
+      <sc-for list="{{paraBoxes}}" as="b" hint-placeholder-count="2">
+        <div class="fade" style="position:absolute;left:{{b.x}}px;top:{{b.y}}px;width:{{b.w}}px;height:{{b.h}}px;box-sizing:border-box;border:1.5px dashed var(--accent);border-radius:4px;pointer-events:none;opacity:{{b.op}};transition:opacity .15s"><span style="position:absolute;left:-1px;top:-18px;font-size:10px;line-height:14px;padding:1px 5px;border-radius:4px;background:var(--accent);color:var(--on-accent);white-space:nowrap">{{b.label}}</span></div>
+      </sc-for>
+      <sc-for list="{{lineBoxes}}" as="b" hint-placeholder-count="4">
+        <div class="fade" style="position:absolute;left:{{b.x}}px;top:{{b.y}}px;width:{{b.w}}px;height:{{b.h}}px;box-sizing:border-box;border:{{b.bd}} solid var(--accent);background:{{b.bg}};opacity:{{b.op}};border-radius:2px;pointer-events:none;transition:opacity .15s,background-color .15s"></div>
+      </sc-for>
+    </sc-if>
+    <sc-if value="{{picking}}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:{{pkX}}px;top:{{pkY}}px;width:{{pkW}}px;height:{{pkH}}px;box-sizing:border-box;border:1.5px dashed var(--accent);background:var(--accent-soft);border-radius:3px;pointer-events:none"></div>
+    </sc-if>
+
+    <sc-if value="{{showCovers}}" hint-placeholder-val="{{ false }}">
+      <sc-for list="{{covers}}" as="c" hint-placeholder-count="1">
+        <div class="fade" style="position:absolute;left:{{c.x}}px;top:{{c.y}}px;width:{{c.w}}px;height:{{c.h}}px;box-sizing:border-box;padding:0 2px;background:var(--doc);color:var(--doc-title);font-size:{{c.size}}px;line-height:{{c.lh}}px;font-weight:{{c.weight}};display:flex;align-items:center;pointer-events:none">{{c.text}}</div>
+      </sc-for>
+    </sc-if>
+
+    <sc-for list="{{anns}}" as="a" hint-placeholder-count="0">
+      <sc-if value="{{a.isBox}}" hint-placeholder-val="{{ false }}"><div class="{{a.cls}}" style="position:absolute;left:{{a.x}}px;top:{{a.y}}px;width:{{a.w}}px;height:{{a.h}}px;box-sizing:border-box;border:{{a.bw}}px solid {{a.color}};border-radius:{{a.radius}};pointer-events:none"></div></sc-if>
+      <sc-if value="{{a.isLine}}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:{{a.x}}px;top:{{a.y}}px;width:{{a.len}}px;height:{{a.size}}px;margin-top:{{a.mt}}px;background:{{a.color}};border-radius:{{a.size}}px;transform:rotate({{a.ang}}deg);transform-origin:0 50%;pointer-events:none"><sc-if value="{{a.arrow}}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:{{a.hx}}px;top:50%;width:{{a.hs}}px;height:{{a.hs}}px;margin-top:{{a.hmt}}px;background:{{a.color}};clip-path:polygon(0 0,100% 50%,0 100%)"></span></sc-if></div></sc-if>
+      <sc-if value="{{a.isPen}}" hint-placeholder-val="{{ false }}"><svg style="position:absolute;left:0;top:0;width:1184px;height:680px;pointer-events:none;overflow:visible" viewBox="0 0 1184 680" aria-hidden="true"><path d="{{a.d}}" style="fill:none;stroke:{{a.color}};stroke-width:{{a.sw}};stroke-linecap:round;stroke-linejoin:round;opacity:{{a.op}}"></path></svg></sc-if>
+      <sc-if value="{{a.isNum}}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:{{a.x}}px;top:{{a.y}}px;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:{{a.color}};color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);pointer-events:none">{{a.n}}</span></sc-if>
+      <sc-if value="{{a.isText}}" hint-placeholder-val="{{ false }}"><input class="ann-text" aria-label="标注文字" value="{{a.text}}" onChange="{{a.onText}}" style="left:{{a.x}}px;top:{{a.y}}px;width:{{a.tw}}px;color:{{a.color}};font-size:{{a.fs}}px"></sc-if>
+    </sc-for>
+
+    <sc-if value="{{showTools}}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;right:{{tbRight}}px;top:{{tbY}}px" onMouseDown="{{keepFocus}}">
+        <div class="glass pop bar" style="transform-origin:top right">
+          <sc-for list="{{tools}}" as="t" hint-placeholder-count="7">
+            <span class="tg">
+              <button type="button" class="ib {{t.on}}" title="{{t.title}}" aria-label="{{t.label}}" onClick="{{t.pick}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.d}}"></path></svg></button>
+              <sc-if value="{{t.hasChev}}" hint-placeholder-val="{{ false }}"><button type="button" class="chev" aria-label="{{t.chevLabel}}" onClick="{{t.openProps}}"><svg class="ic" style="width:9px;height:9px;stroke-width:2.6" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></sc-if>
+            </span>
+          </sc-for>
+          <button type="button" class="ib" title="撤销  Ctrl+Z" aria-label="撤销" onClick="{{undo}}" disabled="{{noUndo}}" style="opacity:{{undoOp}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"></path></svg></button>
+          <span class="sep"></span>
+          <button type="button" class="ib" title="长截图  L" aria-label="长截图" onClick="{{startLong}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8a1 1 0 011 1v16a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zM12 8v8M9.5 13.5L12 16l2.5-2.5"></path></svg></button>
+          <button type="button" class="ib" title="录屏  R" aria-label="录屏" onClick="{{startRec}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h11a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM16 11l5-3v8l-5-3"></path></svg></button>
+          <button type="button" class="ib" title="识别文字  Shift+C" aria-label="识别文字" onClick="{{ocr}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5"></path></svg></button>
+          <button type="button" class="ib" title="识别为 Markdown  Shift+Alt+R" aria-label="识别为 Markdown" onClick="{{md}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1zM6.5 15V9l2.5 3 2.5-3v6M16.5 9v6M14.5 13l2 2 2-2"></path></svg></button>
+          <button type="button" class="ib" title="翻译  Ctrl+Q" aria-label="翻译" onClick="{{translate}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h9M7.5 3v2M5 5c.5 3.5 3 6.5 6.5 8M10 5c-.8 3.8-3 6.8-6.5 8.5M13 21l4-10 4 10M14.5 17.5h5"></path></svg></button>
+          <button type="button" class="ib" title="贴到屏幕  Ctrl+T" aria-label="贴到屏幕" onClick="{{pin}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z"></path></svg></button>
+          <button type="button" class="ib" title="保存  Ctrl+S" aria-label="保存" onClick="{{save}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14"></path></svg></button>
+          <span class="sep"></span>
+          <button type="button" class="ib" title="退出  Esc" aria-label="退出" onClick="{{escape}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+          <button type="button" class="pb" title="复制  Ctrl+C" onClick="{{copy}}">复制</button>
+          <button type="button" class="ib {{flyOn}}" title="更多：公式、表格" aria-label="更多" onClick="{{toggleFly}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h.01M12 12h.01M18 12h.01"></path></svg></button>
+        </div>
+
+        <sc-if value="{{showProps}}" hint-placeholder-val="{{ false }}">
+          <div class="glass pop" style="position:absolute;left:{{propX}}px;top:{{popTop}};bottom:{{popBottom}};display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;min-width:200px">
+            <sc-if value="{{propHasSub}}" hint-placeholder-val="{{ false }}">
+              <div class="seg-wrap" style="align-self:flex-start"><sc-for list="{{propSubs}}" as="s" hint-placeholder-count="2"><button type="button" class="seg {{s.on}}" onClick="{{s.pick}}">{{s.label}}</button></sc-for></div>
+            </sc-if>
+            <div style="display:flex;gap:10px;align-items:center"><sc-for list="{{propColors}}" as="c" hint-placeholder-count="6"><button type="button" class="cdot {{c.on}}" style="background:{{c.color}}" aria-label="{{c.label}}" onClick="{{c.pick}}"></button></sc-for></div>
+            <div style="display:flex;gap:4px;align-items:center"><span style="font-size:12px;color:var(--text3);margin-right:6px">粗细</span><sc-for list="{{propSizes}}" as="s" hint-placeholder-count="3"><button type="button" class="sdot {{s.on}}" aria-label="{{s.label}}" onClick="{{s.pick}}"><span style="width:{{s.d}}px;height:{{s.d}}px;border-radius:50%;background:var(--text)"></span></button></sc-for></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{fly}}" hint-placeholder-val="{{ false }}">
+          <div class="glass pop" style="position:absolute;right:0;top:{{popTop}};bottom:{{popBottom}};width:220px;padding:5px;border-radius:12px;display:flex;flex-direction:column;transform-origin:top right">
+            <button type="button" class="fi" onClick="{{latex}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5H6l6 7-6 7h12"></path></svg>公式识别 → LaTeX</button>
+            <button type="button" class="fi" onClick="{{table}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M4 15h16M10 5v14"></path></svg>表格识别<kbd>Excel · MD · HTML</kbd></button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showLong}}" hint-placeholder-val="{{ false }}">
+      <div class="glass pop" style="position:absolute;left:{{prevX}}px;top:{{selY}}px;width:150px;max-height:{{prevMaxH}}px;border-radius:10px;padding:8px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;overflow:hidden;pointer-events:none">
+        <span style="font-size:11px;color:var(--text3)">拼接预览</span>
+        <div style="position:relative;width:134px;height:{{prevBoxH}}px;overflow:hidden;border-radius:4px;background:var(--doc);box-shadow:0 0 0 1px var(--line2)">
+          <div style="position:absolute;left:0;bottom:0;width:134px;height:{{prevInnerH}}px">
+            <sc-for list="{{prevBars}}" as="b" hint-placeholder-count="6"><span style="position:absolute;left:{{b.x}}px;top:{{b.y}}px;width:{{b.w}}px;height:{{b.h}}px;border-radius:1px;background:{{b.c}}"></span></sc-for>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute;right:{{tbRight}}px;top:{{tbY}}px" onMouseDown="{{keepFocus}}">
+        <div class="glass pop bar" style="gap:4px;padding:4px 4px 4px 12px">
+          <span style="font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text2);min-width:86px">{{selW}} × {{longPx}}</span>
+          <div class="seg-wrap"><button type="button" class="seg {{vOn}}" onClick="{{dirV}}">纵向</button><button type="button" class="seg {{hOn}}" onClick="{{dirH}}">横向</button></div>
+          <span class="sep"></span>
+          <button type="button" class="ib" title="模拟向下滚动（滚轮）" aria-label="继续滚动" onClick="{{longStep}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"></path></svg></button>
+          <button type="button" class="ib" title="识别文字" aria-label="识别文字" onClick="{{longOcr}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5"></path></svg></button>
+          <button type="button" class="ib" title="贴到屏幕" aria-label="贴到屏幕" onClick="{{longPin}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z"></path></svg></button>
+          <button type="button" class="ib" title="保存" aria-label="保存" onClick="{{save}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14"></path></svg></button>
+          <button type="button" class="ib" title="取消  Esc" aria-label="取消" onClick="{{escape}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+          <button type="button" class="pb" title="完成并复制  Enter" onClick="{{longDone}}">完成并复制</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showRec}}" hint-placeholder-val="{{ false }}">
+      <div class="glass pop bar" onMouseDown="{{keepFocus}}" style="position:absolute;left:{{recX}}px;top:{{recY}}px;transform:translateX(-50%);gap:6px;padding:4px 4px 4px 12px;white-space:nowrap">
+        <sc-if value="{{recSetup}}" hint-placeholder-val="{{ true }}">
+          <b style="font-size:13px">录屏</b>
+          <div class="seg-wrap"><button type="button" class="seg {{mp4On}}" onClick="{{fmtMp4}}">MP4 视频</button><button type="button" class="seg {{gifOn}}" onClick="{{fmtGif}}">GIF 动图</button></div>
+          <span style="font-size:12px;color:var(--text3)">{{fpsText}}</span>
+          <button type="button" class="ib {{audioOn}}" title="录制声音" aria-label="录制声音" onClick="{{toggleAudio}}" disabled="{{audioDisabled}}" style="opacity:{{audioOp}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 013 3v5a3 3 0 01-6 0V6a3 3 0 013-3zM6 11a6 6 0 0012 0M12 17v4"></path></svg></button>
+          <button type="button" class="pb red" onClick="{{recStart}}"><span style="width:8px;height:8px;border-radius:50%;background:#fff"></span>开始录制</button>
+        </sc-if>
+        <sc-if value="{{recRunning}}" hint-placeholder-val="{{ false }}">
+          <span class="recdot"></span>
+          <b style="font-size:13px;font-variant-numeric:tabular-nums;min-width:44px">{{recTime}}</b>
+          <span style="font-size:12px;color:var(--text3)">{{recFmt}}</span>
+          <button type="button" class="ib" title="{{pauseLabel}}" aria-label="{{pauseLabel}}" onClick="{{recPause}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{pauseIcon}}"></path></svg></button>
+          <button type="button" class="pb red" onClick="{{recStop}}"><span style="width:9px;height:9px;border-radius:2px;background:#fff"></span>停止</button>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{hasCard}}" hint-placeholder-val="{{ false }}">
+      <section class="glass pop" style="position:absolute;left:{{cardX}}px;top:{{cardY}}px;width:380px;max-height:{{cardMaxH}}px;overflow:auto;box-sizing:border-box;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;transform-origin:top left">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;padding:3px 8px;border-radius:6px;background:var(--sunken);color:var(--text2);font-weight:500;white-space:nowrap">{{cardChip}}</span>
+          <span style="flex:1"></span>
+          <sc-if value="{{isTr}}" hint-placeholder-val="{{ false }}"><div class="seg-wrap"><button type="button" class="seg {{cardOn}}" onClick="{{viewCard}}">卡片</button><button type="button" class="seg {{coverOn}}" onClick="{{viewCover}}">覆盖</button></div></sc-if>
+          <sc-if value="{{isOcr}}" hint-placeholder-val="{{ false }}"><div class="seg-wrap"><button type="button" class="seg {{paraOn}}" onClick="{{ocrPara}}">按段落</button><button type="button" class="seg {{lineOn}}" onClick="{{ocrLine}}">按行</button></div></sc-if>
+          <sc-if value="{{isMd}}" hint-placeholder-val="{{ false }}"><div class="seg-wrap"><button type="button" class="seg {{srcOn}}" onClick="{{mdSrc}}">编辑</button><button type="button" class="seg {{prevOn}}" onClick="{{mdPrev}}">预览</button></div></sc-if>
+          <sc-if value="{{isTable}}" hint-placeholder-val="{{ false }}"><div class="seg-wrap"><sc-for list="{{tblFmts}}" as="f" hint-placeholder-count="3"><button type="button" class="seg {{f.on}}" onClick="{{f.pick}}">{{f.label}}</button></sc-for></div></sc-if>
+          <button type="button" class="ib" title="关闭" aria-label="关闭" onClick="{{closeCard}}" style="width:28px;height:28px"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+
+        <sc-if value="{{trBody}}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:11px;color:var(--text3);letter-spacing:.06em">原文 · 可编辑</span><textarea class="field" aria-label="原文" style="height:76px;font-size:13px;color:var(--text2)" value="{{trSrc}}" onChange="{{onTrSrc}}"></textarea></div>
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:11px;color:var(--text3);letter-spacing:.06em">译文 · 可编辑</span>
+            <sc-if value="{{loading}}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px;padding:10px 4px;height:92px;box-sizing:border-box"><div class="sk" style="width:92%"></div><div class="sk" style="width:70%"></div></div></sc-if>
+            <sc-if value="{{notLoading}}" hint-placeholder-val="{{ true }}"><textarea class="field" aria-label="译文" style="height:120px;font-size:15px;line-height:24px;font-weight:500" value="{{trDstShown}}" onChange="{{onTrDst}}"></textarea></sc-if>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3);flex:1">{{meta}}</span><button type="button" class="ib" title="按当前原文重新翻译" aria-label="重新翻译" onClick="{{retranslate}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 11-2.2-5.3M19.5 4.5v4h-4"></path></svg></button><button type="button" class="gb" onClick="{{pinTr}}">贴图</button><button type="button" class="pb" onClick="{{copyTr}}">复制译文</button></div>
+        </sc-if>
+        <sc-if value="{{coverBody}}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:12px;line-height:18px;color:var(--text2)">译文已覆盖到原文位置（只覆盖标题和段落，公式与表格保持原样）。复制或贴图会带上覆盖后的效果。</p></sc-if>
+
+        <sc-if value="{{isOcr}}" hint-placeholder-val="{{ false }}">
+          <textarea class="field" aria-label="识别结果" style="height:176px" value="{{ocrText}}" onChange="{{onOcrEdit}}"></textarea>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer"><input type="checkbox" checked="{{ocrBoxes}}" onChange="{{toggleBoxes}}">在截图上显示检测到的段落和行</label>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);min-height:26px"><span style="flex:1">{{ocrPickInfo}}</span><sc-if value="{{hasOcrSel}}" hint-placeholder-val="{{ false }}"><button type="button" class="gb" style="height:26px" onClick="{{clearOcrSel}}">恢复全部</button></sc-if></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3);flex:1">本地 OCR · {{ocrCount}} 字</span><button type="button" class="gb" onClick="{{translate}}">翻译</button><button type="button" class="pb" onClick="{{copyOcr}}">复制</button></div>
+        </sc-if>
+
+        <sc-if value="{{isMd}}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{mdSource}}" hint-placeholder-val="{{ true }}"><textarea class="field code" aria-label="Markdown 源码" style="height:220px;white-space:pre" value="{{mdText}}" onChange="{{onMdEdit}}"></textarea></sc-if>
+          <sc-if value="{{mdPreview}}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:20px;background:var(--sunken);border-radius:8px;padding:12px;max-height:240px;overflow:auto">
+              <sc-for list="{{mdItems}}" as="m" hint-placeholder-count="3">
+                <sc-if value="{{m.isH}}" hint-placeholder-val="{{ false }}"><b style="font-size:16px;line-height:22px">{{m.text}}</b></sc-if>
+                <sc-if value="{{m.isP}}" hint-placeholder-val="{{ false }}"><p style="margin:0">{{m.text}}</p></sc-if>
+                <sc-if value="{{m.isF}}" hint-placeholder-val="{{ false }}"><div style="text-align:center;font-family:'Cambria Math','Times New Roman',serif;font-size:15px;font-style:italic;color:var(--text2)">{{m.text}}</div></sc-if>
+                <sc-if value="{{m.isT}}" hint-placeholder-val="{{ false }}"><table class="ptbl"><tbody><sc-for list="{{m.rows}}" as="r" hint-placeholder-count="3"><tr><sc-for list="{{r.cells}}" as="c" hint-placeholder-count="3"><td style="font-weight:{{r.w}}">{{c}}</td></sc-for></tr></sc-for></tbody></table></sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+          <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3);flex:1">Obsidian 风格 · 可直接修改</span><button type="button" class="gb" onClick="{{saveMd}}">存为 .md</button><button type="button" class="pb" onClick="{{copyMd}}">复制</button></div>
+        </sc-if>
+
+        <sc-if value="{{isLatex}}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{hasFormula}}" hint-placeholder-val="{{ true }}">
+            <div style="text-align:center;font-family:'Cambria Math','Times New Roman',serif;font-size:22px;padding:10px;background:var(--sunken);border-radius:8px"><i>F</i><sub style="font-size:13px">1</sub> = <span class="frac"><span>2<i>PR</i></span><span><i>P</i> + <i>R</i></span></span></div>
+            <textarea class="field code" aria-label="LaTeX" style="height:64px" value="{{latexText}}" onChange="{{onLatexEdit}}"></textarea>
+            <span style="font-size:12px;color:var(--text3)">{{latexNote}}</span>
+            <div style="display:flex;gap:6px;justify-content:flex-end"><button type="button" class="gb" onClick="{{copyLatexBlock}}">复制 $$…$$</button><button type="button" class="pb" onClick="{{copyLatex}}">复制 LaTeX</button></div>
+          </sc-if>
+          <sc-if value="{{noFormula}}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:13px;color:var(--text2)">选区里没有识别到公式。试着框选中间那行公式。</p></sc-if>
+        </sc-if>
+
+        <sc-if value="{{isTable}}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{hasTable}}" hint-placeholder-val="{{ true }}">
+            <sc-if value="{{tblExcel}}" hint-placeholder-val="{{ true }}">
+              <table class="tbl" style="width:100%"><tbody><sc-for list="{{tblRows}}" as="r" hint-placeholder-count="3"><tr><sc-for list="{{r.cells}}" as="c" hint-placeholder-count="3"><td><input aria-label="单元格" value="{{c.v}}" onChange="{{c.edit}}"></td></sc-for></tr></sc-for></tbody></table>
+              <span style="font-size:12px;color:var(--text3)">单元格可以直接改。复制后可粘贴进 Excel。</span>
+            </sc-if>
+            <sc-if value="{{tblCode}}" hint-placeholder-val="{{ false }}"><textarea class="field code" aria-label="表格源码" style="height:150px;white-space:pre" value="{{tblText}}" onChange="{{onTblEdit}}"></textarea></sc-if>
+            <div style="display:flex;gap:6px;justify-content:flex-end"><sc-if value="{{tblExcel}}" hint-placeholder-val="{{ true }}"><button type="button" class="gb" onClick="{{exportXlsx}}">导出 .xlsx</button></sc-if><button type="button" class="pb" onClick="{{copyTable}}">复制</button></div>
+          </sc-if>
+          <sc-if value="{{noTable}}" hint-placeholder-val="{{ false }}"><p style="margin:0;font-size:13px;color:var(--text2)">选区里没有识别到表格。试着框选下方的表格。</p></sc-if>
+        </sc-if>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{showMag}}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:{{magX}}px;top:{{magY}}px;width:156px;border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.7),0 8px 24px rgba(0,0,0,.35);pointer-events:none;background:#000">
+        <div style="display:grid;grid-template-columns:repeat(11,14px);grid-auto-rows:14px;position:relative;width:154px;margin:1px">
+          <sc-for list="{{magCells}}" as="c" hint-placeholder-count="77"><span style="background:{{c}};box-shadow:inset 0 0 0 .5px rgba(127,127,127,.18)"></span></sc-for>
+          <span style="position:absolute;left:70px;top:0;width:14px;height:98px;background:rgba(56,140,255,.32)"></span>
+          <span style="position:absolute;left:0;top:42px;width:154px;height:14px;background:rgba(56,140,255,.32)"></span>
+          <span style="position:absolute;left:70px;top:42px;width:14px;height:14px;box-sizing:border-box;border:2px solid #fff;box-shadow:0 0 0 1px #000"></span>
+        </div>
+        <div style="background:rgba(10,12,16,.92);color:#E8ECF2;padding:6px 8px;display:flex;flex-direction:column;gap:3px;font-size:11px;line-height:15px;align-items:center">
+          <span style="font-variant-numeric:tabular-nums">({{magPos}})</span>
+          <span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:{{magColor}};box-shadow:0 0 0 1px rgba(255,255,255,.4)"></span><span style="font-family:'JetBrains Mono',monospace">{{magValue}}</span></span>
+          <span style="color:#9BA6B5">P 切换格式 · C 复制颜色</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showHints}}" hint-placeholder-val="{{ true }}">
+      <div class="fade" style="position:absolute;left:{{hintX}}px;top:{{hintY}}px;display:flex;flex-direction:column;gap:5px;padding:10px 12px;border-radius:10px;background:var(--chip);color:var(--chip-text);pointer-events:none;min-width:200px">
+        <sc-for list="{{hints}}" as="h" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:10px;font-size:12px;line-height:20px"><span style="display:flex;min-width:96px;justify-content:flex-end"><span class="hk">{{h.k}}</span></span><span>{{h.label}}</span></div>
+        </sc-for>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);padding-top:3px;border-top:1px solid rgba(255,255,255,.12)">H 隐藏提示（会记住，下次也不显示）</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showSave}}" hint-placeholder-val="{{ false }}">
+      <div class="fade" style="position:absolute;left:0;top:0;width:1184px;height:680px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)" onMouseDown="{{stopOnly}}">
+        <div class="glass pop" style="width:820px;height:500px;border-radius:14px;display:flex;flex-direction:column;overflow:hidden">
+          <div style="height:44px;flex:none;display:flex;align-items:center;padding:0 8px 0 16px;border-bottom:1px solid var(--line)"><b style="font-size:13px;flex:1">保存截图</b><button type="button" class="ib" aria-label="关闭" title="取消  Esc" onClick="{{closeSave}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+          <div style="flex:1;display:flex;min-height:0">
+            <div style="flex:1;background:var(--sunken);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px">
+              <div style="position:relative;width:{{svW}}px;height:{{svH}}px;background:var(--doc);box-shadow:0 0 0 1px var(--line2),0 8px 20px rgba(0,0,0,.12);overflow:hidden">
+                <sc-for list="{{svBars}}" as="b" hint-placeholder-count="6"><span style="position:absolute;left:{{b.x}}px;top:{{b.y}}px;width:{{b.w}}px;height:{{b.h}}px;border-radius:1px;background:{{b.c}}"></span></sc-for>
+              </div>
+              <span style="font-size:12px;color:var(--text3);font-variant-numeric:tabular-nums">{{saveDim}}</span>
+            </div>
+            <div style="width:320px;flex:none;box-sizing:border-box;padding:16px;display:flex;flex-direction:column;gap:14px;border-left:1px solid var(--line)">
+              <div style="display:flex;flex-direction:column;gap:8px"><span class="lbl">保存位置</span>
+                <div style="display:flex;gap:6px"><input class="field" aria-label="保存位置" value="{{saveDir}}" readonly><button type="button" class="ib" title="打开目录" aria-label="打开目录" onClick="{{openDir}}" style="width:34px;height:34px;border:1px solid var(--line2)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg></button></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{dirs}}" as="d" hint-placeholder-count="3"><button type="button" class="qchip {{d.on}}" onClick="{{d.pick}}">{{d.label}}</button></sc-for><button type="button" class="qchip" onClick="{{browseDir}}">＋</button></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px"><span class="lbl">文件名</span>
+                <div style="display:flex;gap:6px"><input class="field" aria-label="文件名" value="{{saveName}}" onChange="{{onSaveName}}"><select class="field" style="width:86px" aria-label="格式" onChange="{{onSaveFmt}}" value="{{saveFmt}}"><option value="png">.png</option><option value="jpg">.jpg</option><option value="webp">.webp</option></select></div>
+                <span style="font-size:11.5px;color:var(--text3)">{{fmtNote}}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px"><span class="lbl">尺寸</span>
+                <div style="display:flex;gap:6px;align-items:center"><input class="field" style="width:96px" aria-label="宽" value="{{saveW}}" onChange="{{onSaveW}}"><span style="color:var(--text3)">×</span><input class="field" style="width:96px" aria-label="高" value="{{saveH}}" onChange="{{onSaveH}}"><button type="button" class="ib {{lockOn}}" title="锁定比例" aria-label="锁定比例" onClick="{{toggleLock}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6z"></path></svg></button></div>
+                <span style="font-size:11.5px;color:var(--text3)">原始尺寸 {{origDim}}</span>
+              </div>
+              <sc-if value="{{hasQuality}}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:6px"><span class="lbl">质量 {{saveQ}}%</span><input type="range" min="40" max="100" value="{{saveQ}}" onChange="{{onSaveQ}}" aria-label="质量" style="accent-color:var(--accent)"></div></sc-if>
+              <span style="flex:1"></span>
+              <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text2)"><span>预计大小</span><b style="font-size:15px;color:var(--text)">{{saveSize}}</b></div>
+              <button type="button" class="pb" style="height:36px" onClick="{{doSave}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14"></path></svg>保存（Enter）</button>
+              <button type="button" style="border:0;background:transparent;font:inherit;font-size:12px;color:var(--accent);cursor:pointer;padding:0" onClick="{{sysDialog}}">改用系统保存对话框</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{confirm}}" hint-placeholder-val="{{ false }}">
+      <div class="fade" style="position:absolute;left:0;top:0;width:1184px;height:680px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.15)">
+        <div class="glass pop" style="width:360px;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px">
+          <b style="font-size:15px">退出截图？</b>
+          <span style="font-size:13px;line-height:20px;color:var(--text2)">标注还没有复制或保存，退出后会丢失。</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);flex:1;cursor:pointer"><input type="checkbox" checked="{{noAsk}}" onChange="{{toggleNoAsk}}">不再询问</label>
+            <button type="button" class="gb" onClick="{{cancelConfirm}}">取消</button>
+            <button type="button" class="pb" onClick="{{exitNow}}">退出</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isOff}}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:24px;display:flex;justify-content:center"><button type="button" class="gb pop" style="height:36px;border-radius:999px;padding:0 16px" onClick="{{reset}}">截图已结束 · 按 Shift+F1 或点这里重新截图</button></div>
+    </sc-if>
+
+    <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;top:16px;width:1184px;display:flex;justify-content:center;pointer-events:none">
+        <div class="glass pop" style="display:flex;align-items:center;gap:10px;height:38px;padding:0 16px 0 12px;border-radius:12px;font-size:13px">
+          <span style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:13px;height:13px;stroke-width:2.4" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+          {{toast}}
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.SW = 1184; this.SH = 680;
+    this.timers = []; this.iv = null; this.tt = null; this.recIv = null;
+    var L = function (t, x, y, w, h) { return { t: t, x: x, y: y, w: w, h: h }; };
+    this.blocks = [
+      { id: 'win', x: 40, y: 40, w: 700, h: 600, win: true },
+      { id: 'h', kind: 'h', x: 72, y: 94, w: 636, h: 46, size: 24, lh: 34, weight: 700, lines: [L('Designing for Multilingual Readers', 80, 100, 470, 34)], zh: '为多语言读者而设计', md: '## Designing for Multilingual Readers' },
+      { id: 'p1', kind: 'p', x: 72, y: 150, w: 636, h: 64, size: 15, lh: 26, weight: 400, lines: [L('Translation is not just about swapping words. A good translation keeps intent,', 80, 156, 600, 26), L('tone, and the small details that make a text feel native.', 80, 182, 420, 26)], zh: '翻译不只是替换词语。好的翻译会保留意图、语气，以及让文字读起来地道的那些细节。' },
+      { id: 'p2', kind: 'p', x: 72, y: 222, w: 636, h: 64, size: 15, lh: 26, weight: 400, lines: [L('Large language models can now translate text while keeping formatting,', 80, 228, 560, 26), L('terminology, and code intact.', 80, 254, 215, 26)], zh: '大语言模型如今可以在翻译文本的同时，完整保留格式、术语和代码。' },
+      { id: 'f', kind: 'f', x: 72, y: 298, w: 636, h: 52, lines: [L('F1 = 2PR / (P + R)', 340, 304, 110, 40)], zh: 'F₁ = 2PR / (P + R)', md: '$$\nF_1 = \\frac{2PR}{P + R}\n$$' },
+      { id: 't', kind: 't', x: 72, y: 358, w: 636, h: 108,
+        lines: [L('Engine', 92, 370, 56, 20), L('Latency', 312, 370, 60, 20), L('Offline', 512, 370, 54, 20), L('Local OCR', 92, 402, 76, 20), L('80 ms', 312, 402, 44, 20), L('✓', 512, 402, 12, 20), L('Vision LLM', 92, 434, 80, 20), L('1.2 s', 312, 434, 36, 20), L('✗', 512, 434, 12, 20)],
+        rows: [['Engine', 'Latency', 'Offline'], ['Local OCR', '80 ms', '✓'], ['Vision LLM', '1.2 s', '✗']], zh: '（表格）引擎 / 延迟 / 离线：本地 OCR 80 ms ✓；视觉大模型 1.2 s ✗' },
+      { id: 'p3', kind: 'p', x: 72, y: 478, w: 636, h: 64, size: 15, lh: 26, weight: 400, lines: [L('Pair them with fast on-device OCR, and any pixel on your screen becomes', 80, 484, 565, 26), L('something you can read, search, and copy.', 80, 510, 315, 26)], zh: '再配上快速的本地 OCR，屏幕上的任何像素都能变成可阅读、可搜索、可复制的文字。' }
+    ];
+    this.extra = [L('How It Works', 80, 576, 150, 30), L('Press Shift+F1, drag over any text, and SnapMind recognizes it on your machine.', 80, 626, 610, 26), L('Paragraphs, tables and formulas keep their structure.', 80, 652, 400, 26), L('Translations stream into a card next to your selection, or replace the original', 80, 698, 600, 26), L('text in place so the layout stays exactly the same.', 80, 724, 380, 26), L('figure', 80, 772, 620, 120), L('Everything you pin or translate is kept in history, so nothing gets lost.', 80, 912, 560, 26), L('Shortcuts, toolbars and prompts can all be customized in Settings.', 80, 938, 500, 26)];
+    this.toolDefs = [
+      { label: '矩形', key: '1', d: 'M6 5h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z', subs: ['矩形', '椭圆'] },
+      { label: '画笔', key: '2', d: 'M4 20l4.5-1L19 8.5 15.5 5 5 15.5z', subs: ['画笔', '荧光笔'] },
+      { label: '箭头', key: '3', d: 'M5 19L19 5M10 5h9v9', subs: ['箭头', '直线'] },
+      { label: '文字', key: '4', d: 'M5 6h14M12 6v13M9 19h6', subs: null },
+      { label: '序号', key: '5', d: 'M12 3.5a8.5 8.5 0 110 17 8.5 8.5 0 010-17zM10.5 9.5L12.5 8v8', subs: null },
+      { label: '马赛克', key: '6', d: 'M6 4h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2zM4 12h16M12 4v16', subs: ['马赛克', '模糊'] },
+      { label: '橡皮擦', key: '7', d: 'M8 20h12M5.5 15.5l9-9a2 2 0 012.8 0l1.2 1.2a2 2 0 010 2.8L11 18H8z', subs: null, noChev: true }
+    ];
+    this.colors = [['#EF4444', '红'], ['#F59E0B', '黄'], ['#22C55E', '绿'], ['#2563EB', '蓝'], ['#FFFFFF', '白'], ['#0F172A', '黑']];
+    this.sizes = [2, 4, 6];
+    var hidden = false;
+    try { hidden = window.localStorage.getItem('snapmind.hintsHidden') === '1'; } catch (x) { hidden = false; }
+    this.state = {
+      mode: props && props.mode === 'dark' ? 'dark' : 'light',
+      phase: 'idle', act: null, start: null, orig: null, edge: null, sel: null, hover: null, cur: null, cursor: 'crosshair',
+      card: null, view: 'card', ocrMode: 'para', ocrBoxes: true, ocrText: '', ocrSel: null, pick: null, trSrc: '', trDst: '', mdView: 'source', mdText: '', latexText: 'F_1 = \\frac{2PR}{P + R}', tblFmt: 'excel', tbl: null, tblText: '',
+      tool: -1, lastTool: 0, opts: [0, 1, 2, 3, 4, 5, 6].map(function () { return { sub: 0, c: 0, s: 1 }; }),
+      propOpen: -1, fly: false, anns: [], draft: null, seq: 1,
+      fmt: 1, long: null, scrollY: 0, rec: null, toast: null, confirm: false, noAsk: false, hintsHidden: hidden, kb: false,
+      saveOpen: false, saveFmt: 'png', saveName: 'SnapMind_20261122_101530', saveDir: 2, saveW: 0, saveH: 0, lock: true, saveQ: 90, offPin: false
+    };
+    var self = this;
+    this.keepFocus = function (e) { if (e.target && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT') e.preventDefault(); e.stopPropagation(); };
+    this.stopOnly = function (e) { e.stopPropagation(); };
+    this.onDown = function (e) { self.down(e); };
+    this.onMove = function (e) { self.move(e); };
+    this.onUp = function () { self.up(); };
+    this.onLeave = function () { self.up(); if (self.state.cur) self.setState({ cur: null, hover: self.state.phase === 'idle' ? null : self.state.hover }); };
+    this.onWheel = function (e) { self.wheel(e); };
+    this.onCtx = function (e) { e.preventDefault(); };
+    this.onKey = function (e) { self.key(e); };
+    this.onKbFocus = function () { self.setState({ kb: true }); };
+    this.onKbBlur = function () { self.setState({ kb: false }); };
+  }
+  componentDidUpdate(prev) { if (prev.mode !== this.props.mode && this.props.mode) this.setState({ mode: this.props.mode === 'dark' ? 'dark' : 'light' }); }
+  componentWillUnmount() { this.clearStream(); if (this.tt) clearTimeout(this.tt); if (this.recIv) clearInterval(this.recIv); }
+  clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  pt(e) { var r = e.currentTarget.getBoundingClientRect(); var s = r.width / this.SW || 1; return { x: Math.round((e.clientX - r.left) / s), y: Math.round((e.clientY - r.top) / s) }; }
+  hit(p) { var best = null; this.blocks.forEach(function (b) { if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) { if (!best || b.w * b.h < best.w * best.h) best = b; } }); return best; }
+  inside(s, p) { return s && p.x >= s.x && p.x <= s.x + s.w && p.y >= s.y && p.y <= s.y + s.h; }
+  zone(p) {
+    var s = this.state.sel, t = 7; if (!s) return null;
+    var inY = p.y >= s.y - t && p.y <= s.y + s.h + t, inX = p.x >= s.x - t && p.x <= s.x + s.w + t;
+    var e = { l: Math.abs(p.x - s.x) <= t && inY, r: Math.abs(p.x - s.x - s.w) <= t && inY, t: Math.abs(p.y - s.y) <= t && inX, b: Math.abs(p.y - s.y - s.h) <= t && inX };
+    if (e.l || e.r || e.t || e.b) return { type: 'resize', edge: e };
+    if (this.inside(s, p)) return { type: 'move' };
+    return null;
+  }
+  cursorFor(z) { if (!z) return 'crosshair'; if (z.type === 'move') return 'move'; var e = z.edge; if ((e.l && e.t) || (e.r && e.b)) return 'nwse-resize'; if ((e.r && e.t) || (e.l && e.b)) return 'nesw-resize'; if (e.l || e.r) return 'ew-resize'; return 'ns-resize'; }
+  picked() { var s = this.state.sel; if (!s) return []; return this.blocks.filter(function (b) { if (b.win) return false; var oy = Math.min(b.y + b.h, s.y + s.h) - Math.max(b.y, s.y); var ox = Math.min(b.x + b.w, s.x + s.w) - Math.max(b.x, s.x); return oy > b.h * 0.35 && ox > 40; }); }
+  opt(i) { var o = this.state.opts[i]; return { sub: o.sub, color: this.colors[o.c][0], size: this.sizes[o.s] }; }
+  overlayBusy() { var st = this.state; return st.phase === 'off' || st.long || (st.rec && st.rec.status !== 'setup') || st.confirm || st.saveOpen; }
+  down(e) {
+    if (e.button === 2) {
+      var c0 = this.state.card;
+      if (c0 && c0.kind === 'ocr') { e.preventDefault(); var p0 = this.pt(e); this.setState({ act: 'pick', start: p0, pick: { x: p0.x, y: p0.y, w: 0, h: 0 } }); }
+      return;
+    }
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    var kb = e.currentTarget.parentNode.querySelector('.kb');
+    if (kb) { try { kb.focus({ preventScroll: true }); } catch (x) { kb.focus(); } }
+    var st = this.state, p = this.pt(e);
+    if (this.overlayBusy()) return;
+    var base = { propOpen: -1, fly: false, cur: p };
+    if (st.phase === 'selected' && st.sel) {
+      if (st.tool >= 0) {
+        if (!this.inside(st.sel, p)) { this.setState(base); return; }
+        var o = this.opt(st.tool), id = st.seq;
+        if (st.tool === 3) { base.anns = st.anns.concat([{ id: id, type: 'text', x: p.x - 6, y: p.y - 14, text: '输入文字', color: o.color, size: o.size }]); base.seq = id + 1; this.setState(base); return; }
+        if (st.tool === 4) { var n = st.anns.filter(function (a) { return a.type === 'num'; }).length + 1; base.anns = st.anns.concat([{ id: id, type: 'num', x: p.x, y: p.y, n: n, color: o.color }]); base.seq = id + 1; this.setState(base); return; }
+        if (st.tool === 6) { var anns = st.anns.slice(), hi = -1; for (var i = anns.length - 1; i >= 0; i--) { if (this.annHit(anns[i], p)) { hi = i; break; } } if (hi >= 0) anns.splice(hi, 1); base.anns = anns; this.setState(base); return; }
+        var types = [['rect', 'ellipse'], ['pen', 'marker'], ['arrow', 'line'], null, null, ['mosaic', 'blur']];
+        base.draft = { id: id, type: types[st.tool][o.sub], x1: p.x, y1: p.y, x2: p.x, y2: p.y, pts: [[p.x, p.y]], color: o.color, size: o.size };
+        base.act = 'draw'; base.seq = id + 1; this.setState(base); return;
+      }
+      var z = this.zone(p);
+      if (z) { base.act = z.type; base.edge = z.edge || null; base.start = p; base.orig = Object.assign({}, st.sel); if (st.card) { this.clearStream(); base.card = null; base.view = 'card'; } this.setState(base); return; }
+    }
+    this.clearStream();
+    base.phase = 'drag'; base.act = 'new'; base.start = p; base.sel = { x: p.x, y: p.y, w: 0, h: 0 };
+    base.hover = null; base.card = null; base.view = 'card'; base.anns = []; base.long = null; base.rec = null; base.tool = -1;
+    this.setState(base);
+  }
+  annHit(a, p) {
+    var m = 8, x1, y1, x2, y2;
+    if (a.type === 'num') return Math.abs(p.x - a.x) < 15 && Math.abs(p.y - a.y) < 15;
+    if (a.type === 'text') { x1 = a.x; y1 = a.y; x2 = a.x + a.text.length * 16; y2 = a.y + 30; }
+    else if (a.type === 'pen' || a.type === 'marker') { var xs = a.pts.map(function (q) { return q[0]; }), ys = a.pts.map(function (q) { return q[1]; }); x1 = Math.min.apply(null, xs); x2 = Math.max.apply(null, xs); y1 = Math.min.apply(null, ys); y2 = Math.max.apply(null, ys); }
+    else { x1 = Math.min(a.x1, a.x2); x2 = Math.max(a.x1, a.x2); y1 = Math.min(a.y1, a.y2); y2 = Math.max(a.y1, a.y2); }
+    return p.x >= x1 - m && p.x <= x2 + m && p.y >= y1 - m && p.y <= y2 + m;
+  }
+  move(e) {
+    var st = this.state, p = this.pt(e), SW = this.SW, SH = this.SH, u = { cur: p };
+    if (st.act === 'pick') { var ps = st.start; u.pick = { x: Math.min(ps.x, p.x), y: Math.min(ps.y, p.y), w: Math.abs(p.x - ps.x), h: Math.abs(p.y - ps.y) }; }
+    else if (st.act === 'new') { var s = st.start; var x = this.clamp(Math.min(s.x, p.x), 0, SW), y = this.clamp(Math.min(s.y, p.y), 0, SH); var x2 = this.clamp(Math.max(s.x, p.x), 0, SW), y2 = this.clamp(Math.max(s.y, p.y), 0, SH); u.sel = { x: x, y: y, w: x2 - x, h: y2 - y }; }
+    else if (st.act === 'move') { var o = st.orig; u.sel = { x: this.clamp(o.x + p.x - st.start.x, 0, SW - o.w), y: this.clamp(o.y + p.y - st.start.y, 0, SH - o.h), w: o.w, h: o.h }; }
+    else if (st.act === 'resize') { var g = st.orig, ed = st.edge, a1 = g.x, b1 = g.y, a2 = g.x + g.w, b2 = g.y + g.h; if (ed.l) a1 = p.x; if (ed.r) a2 = p.x; if (ed.t) b1 = p.y; if (ed.b) b2 = p.y; var nx = this.clamp(Math.min(a1, a2), 0, SW), ny = this.clamp(Math.min(b1, b2), 0, SH); u.sel = { x: nx, y: ny, w: Math.max(4, this.clamp(Math.max(a1, a2), 0, SW) - nx), h: Math.max(4, this.clamp(Math.max(b1, b2), 0, SH) - ny) }; }
+    else if (st.act === 'draw' && st.draft) { var d = Object.assign({}, st.draft, { x2: this.clamp(p.x, st.sel.x, st.sel.x + st.sel.w), y2: this.clamp(p.y, st.sel.y, st.sel.y + st.sel.h) }); if (d.type === 'pen' || d.type === 'marker') { var last = d.pts[d.pts.length - 1]; if (Math.abs(last[0] - p.x) + Math.abs(last[1] - p.y) > 2) d.pts = d.pts.concat([[d.x2, d.y2]]); } u.draft = d; }
+    else if (st.phase === 'idle') { var b = this.hit(p), id = b ? b.id : null, curId = st.hover ? st.hover.id : null; if (id !== curId) u.hover = b; }
+    else if (st.phase === 'selected') { if (st.tool >= 0) u.cursor = this.inside(st.sel, p) ? (st.tool === 6 ? 'cell' : 'crosshair') : 'default'; else if (st.long || st.rec) u.cursor = 'default'; else u.cursor = this.cursorFor(this.zone(p)); }
+    else if (st.phase === 'off') u.cursor = 'default';
+    this.setState(u);
+  }
+  up() {
+    var st = this.state; if (!st.act) return;
+    if (st.act === 'pick') {
+      var rr = st.pick, cc = st.card, keys = [];
+      if (cc && rr && (rr.w > 3 || rr.h > 3)) cc.blocks.forEach(function (b) { b.lines.forEach(function (l, j) { if (l.x < rr.x + rr.w && l.x + l.w > rr.x && l.y < rr.y + rr.h && l.y + l.h > rr.y) keys.push(b.id + ':' + j); }); });
+      var sel2 = keys.length ? keys : null;
+      this.setState({ act: null, pick: null, ocrSel: sel2, ocrText: cc ? this.ocrTextFor(cc.blocks, st.ocrMode, sel2) : st.ocrText });
+      return;
+    }
+    if (st.act === 'new') { var sel = st.sel; if (sel.w < 6 && sel.h < 6) { var b = st.hover || this.hit(st.start); if (!b) { this.setState({ phase: 'idle', sel: null, act: null }); return; } sel = { x: b.x, y: b.y, w: b.w, h: b.h }; } this.setState({ phase: 'selected', sel: sel, act: null, cursor: 'move' }); return; }
+    if (st.act === 'draw') { var d = st.draft, ok = d && (Math.abs(d.x2 - d.x1) > 3 || Math.abs(d.y2 - d.y1) > 3 || d.pts.length > 2); this.setState({ act: null, draft: null, anns: ok ? st.anns.concat([d]) : st.anns }); return; }
+    this.setState({ act: null });
+  }
+  wheel(e) {
+    var st = this.state;
+    if (st.long) { this.longStep(e.deltaY < 0 ? -1 : 1); return; }
+    if (st.phase === 'idle' && st.hover) {
+      if (e.deltaY < 0 && !st.hover.win) this.setState({ hover: this.blocks[0] });
+      else if (e.deltaY > 0 && st.hover.win && st.cur) { var c = null, self = this; this.blocks.forEach(function (b) { if (!b.win && self.inside(b, st.cur)) c = b; }); if (c) this.setState({ hover: c }); }
+    }
+  }
+  key(e) {
+    var st = this.state, c = e.code || '', k = e.key, ctrl = e.ctrlKey || e.metaKey, sh = e.shiftKey, alt = e.altKey;
+    var has = st.phase === 'selected' && !!st.sel, done = true;
+    if (st.saveOpen) { if (k === 'Escape') this.setState({ saveOpen: false }); else if (k === 'Enter') this.doSave(); else done = false; if (done) e.preventDefault(); return; }
+    if (st.phase === 'off') { if (sh && k === 'F1') this.reset(); else done = false; if (done) e.preventDefault(); return; }
+    if (k === 'Escape') this.escape();
+    else if (ctrl && c === 'KeyC') { if (has) this.copy(); }
+    else if (ctrl && c === 'KeyS') { if (has) this.openSave(); }
+    else if (ctrl && c === 'KeyT') { if (has) this.pin(); }
+    else if (ctrl && c === 'KeyQ') { if (has) this.runTranslate(); }
+    else if (ctrl && c === 'KeyZ') this.undo();
+    else if (sh && alt && c === 'KeyR') { if (has) this.runMd(); }
+    else if (sh && c === 'KeyC') { if (has) this.runOcr(); }
+    else if (ctrl || alt) done = false;
+    else if (c === 'Space') { if (has) this.toggleAnnot(); }
+    else if (c === 'KeyL') { if (has) this.startLong(); }
+    else if (c === 'KeyR') { if (has) this.recKey(); }
+    else if (c === 'KeyP') this.setState({ fmt: (st.fmt + 1) % 3 });
+    else if (c === 'KeyC') this.copyColor();
+    else if (c === 'KeyH') this.toggleHints();
+    else if (c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD') { var cur = st.cur || { x: 600, y: 300 }, dx = c === 'KeyA' ? -1 : c === 'KeyD' ? 1 : 0, dy = c === 'KeyW' ? -1 : c === 'KeyS' ? 1 : 0; this.setState({ cur: { x: this.clamp(cur.x + dx, 0, this.SW - 1), y: this.clamp(cur.y + dy, 0, this.SH - 1) } }); }
+    else if (k && k.indexOf('Arrow') === 0) { if (has) { var s = st.sel, n = sh ? 10 : 1; var mx = k === 'ArrowLeft' ? -n : k === 'ArrowRight' ? n : 0, my = k === 'ArrowUp' ? -n : k === 'ArrowDown' ? n : 0; this.setState({ sel: { x: this.clamp(s.x + mx, 0, this.SW - s.w), y: this.clamp(s.y + my, 0, this.SH - s.h), w: s.w, h: s.h } }); } }
+    else if (k === 'Enter') { if (st.long) this.longDone(); else if (has) this.copy(); }
+    else if (/^Digit[1-7]$/.test(c)) { if (has) this.pickTool(Number(c.slice(5)) - 1); }
+    else done = false;
+    if (done) e.preventDefault();
+  }
+  toggleHints() { var h = !this.state.hintsHidden; try { window.localStorage.setItem('snapmind.hintsHidden', h ? '1' : '0'); } catch (x) {} this.setState({ hintsHidden: h }); this.toast(h ? '提示已隐藏，下次截图也不显示 · 按 H 恢复' : '已显示操作提示'); }
+  pickTool(i) { var st = this.state; var t = st.tool === i ? -1 : i; this.setState({ tool: t, lastTool: t >= 0 ? t : st.lastTool, propOpen: -1, fly: false, card: t >= 0 ? null : st.card }); }
+  toggleAnnot() { var st = this.state; if (st.tool >= 0) this.setState({ tool: -1, propOpen: -1 }); else this.pickTool(st.lastTool); }
+  undo() { var a = this.state.anns; if (a.length) this.setState({ anns: a.slice(0, -1) }); }
+  escape() {
+    var st = this.state;
+    if (st.confirm) this.setState({ confirm: false });
+    else if (st.saveOpen) this.setState({ saveOpen: false });
+    else if (st.fly || st.propOpen >= 0) this.setState({ fly: false, propOpen: -1 });
+    else if (st.long) this.setState({ long: null, scrollY: 0 });
+    else if (st.rec) { if (this.recIv) clearInterval(this.recIv); this.recIv = null; this.setState({ rec: null }); }
+    else if (st.card) { this.clearStream(); this.setState({ card: null, view: 'card' }); }
+    else if (st.tool >= 0) this.setState({ tool: -1 });
+    else if (st.phase === 'selected' && st.anns.length && !st.noAsk) this.setState({ confirm: true });
+    else this.endShot(null, false);
+  }
+  endShot(msg, pinIt) {
+    this.clearStream(); if (this.recIv) clearInterval(this.recIv); this.recIv = null;
+    this.setState({ phase: 'off', act: null, card: null, hover: null, view: 'card', tool: -1, anns: [], draft: null, long: null, rec: null, confirm: false, fly: false, propOpen: -1, saveOpen: false, offPin: !!pinIt, scrollY: 0, cur: null, cursor: 'default' });
+    if (msg) this.toast(msg);
+  }
+  reset() {
+    this.clearStream(); if (this.recIv) clearInterval(this.recIv); this.recIv = null;
+    this.setState({ phase: 'idle', act: null, sel: null, card: null, hover: null, view: 'card', tool: -1, anns: [], draft: null, long: null, rec: null, confirm: false, fly: false, propOpen: -1, cursor: 'crosshair', saveOpen: false, offPin: false, scrollY: 0 });
+  }
+  clearStream() { this.timers.forEach(function (t) { clearTimeout(t); }); this.timers = []; if (this.iv) { clearInterval(this.iv); this.iv = null; } }
+  toast(msg) { var self = this; if (this.tt) clearTimeout(this.tt); this.setState({ toast: msg }); this.tt = setTimeout(function () { self.setState({ toast: null }); }, 2000); }
+  openCard(card, extra) { this.clearStream(); this.setState(Object.assign({ card: card, view: 'card', fly: false, propOpen: -1, tool: -1 }, extra || {})); }
+  ocrTextFor(pk, mode, sel) {
+    var pickL = function (b) { return b.lines.filter(function (l, i) { return !sel || sel.indexOf(b.id + ':' + i) >= 0; }); };
+    var parts = pk.map(function (b) { return { b: b, ls: pickL(b) }; }).filter(function (o) { return o.ls.length; });
+    if (mode === 'line') return parts.map(function (o) { return o.ls.map(function (l) { return l.t; }).join('\n'); }).join('\n');
+    return parts.map(function (o) {
+      if (o.b.kind === 't') { var rows = {}, ys = []; o.ls.forEach(function (l) { if (!rows[l.y]) { rows[l.y] = []; ys.push(l.y); } rows[l.y].push(l.t); }); return ys.map(function (y) { return rows[y].join('\t'); }).join('\n'); }
+      return o.ls.map(function (l) { return l.t; }).join(' ');
+    }).join('\n\n');
+  }
+  mdFor(pk) { var self = this; return pk.map(function (b) { if (b.kind === 't') return self.tblMd(b.rows); return b.md || b.lines.map(function (l) { return l.t; }).join(' '); }).join('\n\n'); }
+  tblMd(rows) { return '| ' + rows[0].join(' | ') + ' |\n| ' + rows[0].map(function () { return '---'; }).join(' | ') + ' |\n' + rows.slice(1).map(function (r) { return '| ' + r.join(' | ') + ' |'; }).join('\n'); }
+  tblHtml(rows) { return '<table>\n  <tr>' + rows[0].map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr>\n' + rows.slice(1).map(function (r) { return '  <tr>' + r.map(function (x) { return '<td>' + x + '</td>'; }).join('') + '</tr>'; }).join('\n') + '\n</table>'; }
+  runOcr() { var pk = this.picked(), txt = this.ocrTextFor(pk, this.state.ocrMode, null); this.openCard({ kind: 'ocr', blocks: pk }, { ocrText: txt, ocrSel: null }); }
+  runMd() { var pk = this.picked(); this.openCard({ kind: 'md', blocks: pk }, { mdView: 'source', mdText: this.mdFor(pk) || '' }); }
+  runLatex() { this.openCard({ kind: 'latex', blocks: this.picked() }, { latexText: 'F_1 = \\frac{2PR}{P + R}' }); }
+  runTable() { var pk = this.picked(), tb = pk.filter(function (b) { return b.kind === 't'; })[0]; var rows = tb ? tb.rows.map(function (r) { return r.slice(); }) : null; this.openCard({ kind: 'table', blocks: pk }, { tbl: rows, tblFmt: 'excel', tblText: '' }); }
+  setTblFmt(f) { var st = this.state, rows = st.tbl; if (!rows) return; this.setState({ tblFmt: f, tblText: f === 'md' ? this.tblMd(rows) : f === 'html' ? this.tblHtml(rows) : '' }); }
+  runTranslate(keepSrc) {
+    var self = this, pk = this.picked();
+    var en = pk.length ? pk.map(function (b) { return b.lines.map(function (l) { return l.t; }).join(' '); }).join('\n\n') : '（选区内没有识别到文字）';
+    var zh = pk.length ? pk.map(function (b) { return b.zh; }).join('\n\n') : '选区内没有可翻译的文字。';
+    var src = keepSrc && this.state.trSrc ? this.state.trSrc : en;
+    this.openCard({ kind: 'tr', en: src, zh: zh, shown: 0, loading: true, blocks: pk }, { trSrc: src, trDst: '' });
+    this.timers.push(setTimeout(function () {
+      var c0 = self.state.card; if (!c0 || c0.kind !== 'tr') return;
+      self.setState({ card: Object.assign({}, c0, { loading: false }) });
+      self.iv = setInterval(function () { var c = self.state.card; if (!c || c.kind !== 'tr') { clearInterval(self.iv); self.iv = null; return; } var n = Math.min(c.zh.length, c.shown + 2); self.setState({ card: Object.assign({}, c, { shown: n }) }); if (n >= c.zh.length) { clearInterval(self.iv); self.iv = null; self.setState({ trDst: c.zh }); } }, 22);
+    }, 380));
+  }
+  startLong() { if (!this.state.sel) return; this.clearStream(); this.setState({ long: { dir: 'v' }, scrollY: 0, card: null, tool: -1, fly: false, propOpen: -1, rec: null }); }
+  longStep(dir) { if (!this.state.long) return; this.setState({ scrollY: this.clamp(this.state.scrollY + (dir < 0 ? -60 : 60), 0, 420) }); }
+  longDone() { var st = this.state; if (!st.long) return; this.endShot('长截图 ' + st.sel.w + ' × ' + (st.sel.h + st.scrollY) + ' 已复制', false); }
+  recKey() { var r = this.state.rec; if (!r) this.startRec(); else if (r.status === 'setup') this.recStart(); else this.recStop(); }
+  startRec() { if (!this.state.sel) return; this.clearStream(); this.setState({ rec: { status: 'setup', fmt: 'mp4', audio: true, t: 0 }, card: null, tool: -1, long: null, fly: false, propOpen: -1 }); }
+  recStart() { var self = this, r = this.state.rec; if (!r) return; this.setState({ rec: Object.assign({}, r, { status: 'rec', t: 0 }) }); if (this.recIv) clearInterval(this.recIv); this.recIv = setInterval(function () { var q = self.state.rec; if (q && q.status === 'rec') self.setState({ rec: Object.assign({}, q, { t: q.t + 1 }) }); }, 1000); }
+  recStop() { var r = this.state.rec; if (!r) return; this.endShot('录屏已保存 · ' + (r.fmt === 'gif' ? 'GIF' : 'MP4') + ' · ' + this.fmtTime(r.t), false); }
+  fmtTime(t) { var m = Math.floor(t / 60), s = t % 60; return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
+  copy() { this.endShot(this.state.anns.length ? '截图（含标注）已复制 · PNG' : '截图已复制 · PNG', false); }
+  pin() { this.endShot('已贴到屏幕 · 后台识别文字中', true); }
+  openSave() { var s = this.state.sel; if (!s) return; var h = s.h + (this.state.long ? this.state.scrollY : 0); this.setState({ saveOpen: true, saveW: s.w, saveH: h, fly: false, propOpen: -1 }); }
+  doSave() { var st = this.state; this.endShot('已保存到 ' + this.dirList()[st.saveDir][1] + '\\' + st.saveName + '.' + st.saveFmt, false); }
+  dirList() { return [['桌面', 'C:\\Users\\louis\\Desktop'], ['图片', 'C:\\Users\\louis\\Pictures'], ['SnapMind', 'D:\\Pictures\\SnapMind']]; }
+  pal() { var d = this.state.mode === 'dark'; return { wall: d ? '#1A2232' : '#C7D2E1', doc: d ? '#161B22' : '#FFFFFF', text: d ? '#AEB8C4' : '#334155', title: d ? '#E6EDF3' : '#0F172A', sunken: d ? '#0D1117' : '#EEF2F7', line: d ? '#262D38' : '#E2E8F0' }; }
+  allLines() { var out = []; for (var i = 1; i < this.blocks.length; i++) out = out.concat(this.blocks[i].lines); return out.concat(this.extra); }
+  sample(x, y) {
+    var P = this.pal(), sy = this.state.scrollY;
+    if (x < 40 || x > 740 || y < 40 || y > 640) return P.wall;
+    if (y < 76) return y >= 75 ? P.line : P.doc;
+    var cy = y + sy;
+    if (cy >= 772 && cy <= 892 && x >= 80 && x <= 700) return P.sunken;
+    if (x >= 80 && x <= 700 && cy >= 364 && cy <= 396) return this.inLine(x, cy) && ((x * 7 + cy * 13) % 9 < 3) ? P.title : P.sunken;
+    if (x >= 80 && x <= 700 && (Math.abs(cy - 396) < 1 || Math.abs(cy - 428) < 1 || Math.abs(cy - 364) < 1 || Math.abs(cy - 460) < 1)) return P.line;
+    if (this.inLine(x, cy)) return ((x * 7 + cy * 13) % 9 < 3) ? (cy < 140 ? P.title : P.text) : P.doc;
+    return P.doc;
+  }
+  inLine(x, y) { var ls = this.allLines(); for (var j = 0; j < ls.length; j++) { var l = ls[j]; if (l.t === 'figure') continue; if (x >= l.x && x <= l.x + l.w && y >= l.y + 5 && y <= l.y + l.h - 5) return true; } return false; }
+  bars(x0, y0, w, h, k) {
+    var P = this.pal(), out = [];
+    this.allLines().forEach(function (l) {
+      if (l.y + l.h < y0 || l.y > y0 + h) return;
+      var lx = Math.max(l.x, x0), rx = Math.min(l.x + l.w, x0 + w); if (rx <= lx) return;
+      var fig = l.t === 'figure';
+      out.push({ x: Math.round((lx - x0) * k), y: Math.round((l.y - y0 + (fig ? 0 : l.h * 0.3)) * k), w: Math.max(2, Math.round((rx - lx) * k)), h: Math.max(fig ? 6 : 2, Math.round((fig ? l.h : l.h * 0.4) * k)), c: fig ? P.sunken : (l.h >= 30 ? P.title : P.text) });
+    });
+    return out;
+  }
+  fmtColor(hex) {
+    var n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255, f = this.state.fmt;
+    if (f === 0) return hex.toUpperCase();
+    if (f === 1) return 'rgb(' + r + ', ' + g + ', ' + b + ')';
+    var R = r / 255, G = g / 255, B = b / 255, mx = Math.max(R, G, B), mn = Math.min(R, G, B), h = 0, s = 0, l = (mx + mn) / 2;
+    if (mx !== mn) { var d = mx - mn; s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === R ? (G - B) / d + (G < B ? 6 : 0) : mx === G ? (B - R) / d + 2 : (R - G) / d + 4; h *= 60; }
+    return 'hsl(' + Math.round(h) + ', ' + Math.round(s * 100) + '%, ' + Math.round(l * 100) + '%)';
+  }
+  copyColor() { var c = this.state.cur; if (!c) return; this.toast('已复制 ' + this.fmtColor(this.sample(c.x, c.y))); }
+  parseMd(text) {
+    var blocks = String(text).split(/\n\s*\n/), out = [];
+    blocks.forEach(function (b) {
+      var t = b.trim(); if (!t) return;
+      if (/^#{1,6}\s/.test(t)) out.push({ isH: true, text: t.replace(/^#{1,6}\s+/, ''), rows: [] });
+      else if (t.indexOf('$$') === 0) out.push({ isF: true, text: t.replace(/\$\$/g, '').trim(), rows: [] });
+      else if (t.charAt(0) === '|') {
+        var rows = t.split('\n').filter(function (r) { return !/^\|\s*-/.test(r.trim()); }).map(function (r, i) { return { cells: r.trim().replace(/^\||\|$/g, '').split('|').map(function (c) { return c.trim(); }), w: i === 0 ? 600 : 400 }; });
+        out.push({ isT: true, text: '', rows: rows });
+      } else out.push({ isP: true, text: t.replace(/\n/g, ' '), rows: [] });
+    });
+    return out;
+  }
+  annView(a) {
+    var self = this, v = { isBox: false, isLine: false, isPen: false, isNum: false, isText: false, color: a.color };
+    if (a.type === 'rect' || a.type === 'ellipse' || a.type === 'mosaic' || a.type === 'blur') { v.isBox = true; v.x = Math.min(a.x1, a.x2); v.y = Math.min(a.y1, a.y2); v.w = Math.abs(a.x2 - a.x1); v.h = Math.abs(a.y2 - a.y1); v.bw = (a.type === 'rect' || a.type === 'ellipse') ? a.size : 0; v.radius = a.type === 'ellipse' ? '50%' : '3px'; v.cls = a.type === 'mosaic' ? 'ann-mosaic' : a.type === 'blur' ? 'ann-blur' : ''; }
+    else if (a.type === 'arrow' || a.type === 'line') { var dx = a.x2 - a.x1, dy = a.y2 - a.y1, len = Math.sqrt(dx * dx + dy * dy), hs = 10 + a.size * 2; v.isLine = true; v.x = a.x1; v.y = a.y1; v.size = a.size; v.mt = -a.size / 2; v.ang = Math.atan2(dy, dx) * 180 / Math.PI; v.arrow = a.type === 'arrow'; v.len = v.arrow ? Math.max(0, len - hs * 0.6) : len; v.hs = hs; v.hx = v.len - hs * 0.4; v.hmt = -hs / 2; }
+    else if (a.type === 'pen' || a.type === 'marker') { v.isPen = true; v.d = 'M' + a.pts.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L'); v.sw = a.type === 'marker' ? a.size * 4 + 6 : a.size; v.op = a.type === 'marker' ? 0.4 : 1; }
+    else if (a.type === 'num') { v.isNum = true; v.x = a.x; v.y = a.y; v.n = a.n; }
+    else if (a.type === 'text') { v.isText = true; v.x = a.x; v.y = a.y; v.text = a.text; v.fs = 12 + a.size * 2; v.tw = Math.max(60, a.text.length * (12 + a.size * 2) + 16); v.onText = function (e) { var val = e.target.value; self.setState({ anns: self.state.anns.map(function (q) { return q.id === a.id ? Object.assign({}, q, { text: val }) : q; }) }); }; }
+    return v;
+  }
+  renderVals() {
+    var self = this, st = this.state, sel = st.sel, SW = this.SW, SH = this.SH;
+    var has = st.phase === 'selected' && !!sel, off = st.phase === 'off';
+    var showSel = !!sel && (st.phase === 'drag' || st.phase === 'selected');
+    var recActive = !!st.rec && st.rec.status !== 'setup';
+    var TBW = st.long ? 470 : 690;
+    var tbRight = 0, tbY = 0;
+    if (sel) { tbRight = this.clamp(SW - (sel.x + sel.w), 8, SW - TBW - 8); tbY = sel.y + sel.h + 8; if (tbY + 40 > SH - 8) { tbY = sel.y - 46; if (tbY < 8) tbY = sel.y + sel.h - 46; } }
+    var popDown = tbY + 40 + 200 < SH;
+    var c = st.card, cardX = 0, cardY = 0, cardMaxH = 460;
+    if (sel) {
+      if (sel.x + sel.w + 16 + 380 <= SW - 12) { cardX = sel.x + sel.w + 16; cardY = sel.y; }
+      else if (sel.x - 396 >= 12) { cardX = sel.x - 396; cardY = sel.y; }
+      else { cardX = this.clamp(sel.x + sel.w - 380, 12, SW - 392); cardY = 12; }
+      cardY = this.clamp(cardY, 12, SH - 320); cardMaxH = SH - cardY - 12;
+    }
+    var pk = c ? c.blocks : [];
+    var isTr = !!c && c.kind === 'tr', isOcr = !!c && c.kind === 'ocr', isMd = !!c && c.kind === 'md', isLatex = !!c && c.kind === 'latex', isTable = !!c && c.kind === 'table';
+    var covers = [];
+    if (isTr && st.view === 'cover' && !c.loading) covers = pk.filter(function (b) { return b.kind === 'h' || b.kind === 'p'; }).map(function (b) { return { x: b.x + 6, y: b.y + 4, w: b.w - 12, h: b.h - 8, size: b.size, lh: b.lh, weight: b.weight, text: b.zh }; });
+    var paraBoxes = [], lineBoxes = [];
+    var osel = st.ocrSel;
+    if (isOcr && st.ocrBoxes) pk.forEach(function (b, i) {
+      var any = false;
+      b.lines.forEach(function (l, j) { var on = !osel || osel.indexOf(b.id + ':' + j) >= 0; if (on) any = true; lineBoxes.push({ x: l.x - 3, y: l.y + 3, w: l.w + 6, h: l.h - 6, bg: osel && on ? 'var(--accent-strong)' : 'var(--accent-soft)', bd: osel && on ? '1.5px' : '1px', op: on ? 1 : 0.3 }); });
+      paraBoxes.push({ x: b.x + 2, y: b.y + 2, w: b.w - 4, h: b.h - 4, op: any ? 1 : 0.3, label: (b.kind === 't' ? '表格 ' : b.kind === 'f' ? '公式 ' : '段落 ') + (i + 1) + ' · ' + b.lines.length + (b.kind === 't' ? ' 格' : ' 行') });
+    });
+    var lines = pk.reduce(function (n, b) { return n + b.lines.length; }, 0);
+    var hasF = pk.some(function (b) { return b.kind === 'f'; });
+    var tools = this.toolDefs.map(function (t, i) { return { label: t.label, title: t.label + '  ' + t.key, d: t.d, on: st.tool === i ? 'on' : '', hasChev: !t.noChev, chevLabel: t.label + '样式', pick: function () { self.pickTool(i); }, openProps: function () { self.setState({ propOpen: st.propOpen === i ? -1 : i, fly: false, tool: i, lastTool: i, card: null }); } }; });
+    var propX = 4; for (var i = 0; i < st.propOpen; i++) propX += (this.toolDefs[i].noChev ? 30 : 42) + 1;
+    var po = st.propOpen >= 0 ? st.opts[st.propOpen] : null;
+    var setOpt = function (k, v) { var arr = st.opts.map(function (o, j) { if (j !== st.propOpen) return o; var n = Object.assign({}, o); n[k] = v; return n; }); self.setState({ opts: arr }); };
+    var pdef = st.propOpen >= 0 ? this.toolDefs[st.propOpen] : null;
+    var propSubs = pdef && pdef.subs ? pdef.subs.map(function (s, j) { return { label: s, on: po.sub === j ? 'on' : '', pick: function () { setOpt('sub', j); } }; }) : [];
+    var propColors = this.colors.map(function (cc, j) { return { color: cc[0], label: cc[1], on: po && po.c === j ? 'on' : '', pick: function () { setOpt('c', j); } }; });
+    var propSizes = this.sizes.map(function (s, j) { return { d: 4 + j * 4, label: ['细', '中', '粗'][j], on: po && po.s === j ? 'on' : '', pick: function () { setOpt('s', j); } }; });
+    var annList = st.anns.concat(st.draft ? [st.draft] : []).map(function (a) { return self.annView(a); });
+    var handles = sel ? [[0, 0], [sel.w / 2, 0], [sel.w, 0], [sel.w, sel.h / 2], [sel.w, sel.h], [sel.w / 2, sel.h], [0, sel.h], [0, sel.h / 2]].map(function (q) { return { x: q[0], y: q[1] }; }) : [];
+
+    var cur = st.cur;
+    var showMag = !!cur && !off && st.tool < 0 && !st.long && !st.rec && !st.confirm && !st.saveOpen && st.act !== 'move' && st.act !== 'draw' && st.act !== 'pick';
+    var magCells = [], magX = 0, magY = 0, magHex = '#000000';
+    if (showMag) {
+      for (var yy = -3; yy <= 3; yy++) for (var xx = -5; xx <= 5; xx++) magCells.push(this.sample(cur.x + xx, cur.y + yy));
+      magHex = this.sample(cur.x, cur.y);
+      magX = cur.x + 22; if (magX + 160 > SW) magX = cur.x - 178;
+      magY = cur.y + 22; if (magY + 170 > SH) magY = cur.y - 188;
+    }
+
+    var hints;
+    if (st.long) hints = [{ k: '滚轮', label: '继续拼接' }, { k: 'Enter', label: '完成并复制' }, { k: 'Ctrl+S', label: '保存' }, { k: 'Esc', label: '取消长截图' }];
+    else if (st.rec) hints = [{ k: 'R', label: st.rec.status === 'setup' ? '开始录制' : '停止并保存' }, { k: 'Esc', label: '放弃录屏' }];
+    else if (st.tool >= 0) hints = [{ k: '拖动', label: '绘制' + this.toolDefs[st.tool].label }, { k: '1 – 7', label: '切换标注工具' }, { k: 'Ctrl+Z', label: '撤销' }, { k: '空格', label: '退出标注' }];
+    else if (has && isOcr) hints = [{ k: '右键划过', label: '只选一部分识别结果' }, { k: '右键单击', label: '恢复全部' }, { k: 'Esc', label: '关闭识别结果' }];
+    else if (has) hints = [{ k: '拖动边框', label: '调整大小' }, { k: '拖动内部', label: '移动选区' }, { k: '空格', label: '开始标注' }, { k: 'Ctrl+C', label: '复制并结束' }, { k: 'Ctrl+T', label: '贴图并结束' }, { k: 'Ctrl+S', label: '保存…' }, { k: 'Shift+C', label: '识别文字' }, { k: 'Shift+Alt+R', label: '识别为 Markdown' }, { k: 'Ctrl+Q', label: '翻译' }, { k: 'L / R', label: '长截图 / 录屏' }, { k: 'P / C', label: '颜色格式 / 复制颜色' }, { k: 'Esc', label: '退出' }];
+    else hints = [{ k: '拖动', label: '框选区域' }, { k: '单击', label: '选中高亮的元素' }, { k: '滚轮', label: '选择上级 / 下级元素' }, { k: 'W A S D', label: '逐像素移动光标' }, { k: 'P', label: '切换颜色格式' }, { k: 'C', label: '复制颜色值' }, { k: 'Esc', label: '退出' }];
+    var hintH = 30 + hints.length * 25;
+    var hintX = 16, hintY = SH - 16 - hintH;
+    var ov = function (x, y, w, h) { return sel && showSel && !(sel.x > x + w || sel.x + sel.w < x || sel.y > y + h || sel.y + sel.h < y); };
+    if (ov(hintX, hintY, 280, hintH)) { if (!ov(16, 16, 280, hintH)) hintY = 16; else { hintX = SW - 296; hintY = SH - 16 - hintH; } }
+
+    var r = st.rec;
+    var longH = sel ? sel.h + st.scrollY : 0, kPrev = sel ? 134 / Math.max(sel.w, 1) : 1;
+    var prevInnerH = Math.round(longH * kPrev);
+    var prevX = sel ? (sel.x + sel.w + 12 + 150 <= SW - 8 ? sel.x + sel.w + 12 : this.clamp(sel.x - 162, 8, SW - 158)) : 0;
+    var prevMaxH = sel ? Math.max(120, SH - sel.y - 8) : 0;
+
+    var dirs = this.dirList().map(function (d, j) { return { label: d[0], on: st.saveDir === j ? 'on' : '', pick: function () { self.setState({ saveDir: j }); } }; });
+    var svK = sel ? Math.min(380 / st.saveW || 1, 380 / st.saveH || 1, 1) : 1;
+    var svW = sel ? Math.max(20, Math.round(st.saveW * svK)) : 0, svH = sel ? Math.max(20, Math.round(st.saveH * svK)) : 0;
+    var svBars = sel && st.saveOpen ? this.bars(sel.x, sel.y, sel.w, sel.h + (st.long ? st.scrollY : 0), svW / sel.w) : [];
+    var px = st.saveW * st.saveH, bpp = st.saveFmt === 'png' ? 0.42 : st.saveFmt === 'jpg' ? 0.05 + st.saveQ / 100 * 0.22 : (0.05 + st.saveQ / 100 * 0.22) * 0.7;
+    var kb = px * bpp / 1024;
+    var ratio = sel ? (sel.h + (st.long ? st.scrollY : 0)) / sel.w : 1;
+
+    var mdItems = isMd ? this.parseMd(st.mdText) : [];
+    var tblRows = st.tbl ? st.tbl.map(function (row, ri) { return { cells: row.map(function (v, ci) { return { v: v, edit: function (e) { var val = e.target.value; var t = self.state.tbl.map(function (rr) { return rr.slice(); }); t[ri][ci] = val; self.setState({ tbl: t }); } }; }) }; }) : [];
+    var kbOn = st.kb;
+    return {
+      mode: st.mode, lightOn: st.mode === 'light' ? 'on' : '', darkOn: st.mode === 'dark' ? 'on' : '',
+      setLight: function () { self.setState({ mode: 'light' }); }, setDark: function () { self.setState({ mode: 'dark' }); },
+      kbText: kbOn ? '● 键盘快捷键已启用' : '点击屏幕区域以启用键盘快捷键', kbBg: kbOn ? 'var(--accent-soft)' : 'var(--sunken)', kbColor: kbOn ? 'var(--accent)' : 'var(--text2)',
+      reset: function () { self.reset(); }, escape: function () { self.escape(); }, keepFocus: this.keepFocus, stopOnly: this.stopOnly,
+      onKey: this.onKey, onKbFocus: this.onKbFocus, onKbBlur: this.onKbBlur,
+      onDown: this.onDown, onMove: this.onMove, onUp: this.onUp, onLeave: this.onLeave, onWheel: this.onWheel,
+      cursor: st.phase === 'idle' ? 'crosshair' : st.cursor, scrollY: st.scrollY,
+      isOff: off, offPin: off && st.offPin && !!sel,
+      showFullScrim: st.phase === 'idle' && !st.hover, hasHover: st.phase === 'idle' && !!st.hover,
+      hovX: st.hover ? st.hover.x : 0, hovY: st.hover ? st.hover.y : 0, hovW: st.hover ? st.hover.w : 0, hovH: st.hover ? st.hover.h : 0,
+      showSel: showSel, selX: sel ? sel.x : 0, selY: sel ? sel.y : 0, selW: sel ? sel.w : 0, selH: sel ? sel.h : 0,
+      selBorder: recActive ? '2px dashed #EF4444' : '1.5px solid var(--accent)', showHandles: has && !st.long && !st.rec, handles: handles,
+      labelY: sel ? (sel.y - 28 < 4 ? sel.y + 6 : sel.y - 28) : 0, sizeLabel: sel ? sel.x + ',' + sel.y + '   ' + sel.w + ' × ' + sel.h + ' px' : '',
+      showBoxes: paraBoxes.length > 0, paraBoxes: paraBoxes, lineBoxes: lineBoxes, showCovers: covers.length > 0, covers: covers, anns: annList,
+      showTools: has && st.act !== 'new' && !st.long && !st.rec, tbRight: tbRight, tbY: tbY, tools: tools,
+      undo: function () { self.undo(); }, noUndo: st.anns.length === 0, undoOp: st.anns.length ? 1 : 0.4,
+      startLong: function () { self.startLong(); }, startRec: function () { self.startRec(); },
+      ocr: function () { self.runOcr(); }, md: function () { self.runMd(); }, translate: function () { self.runTranslate(); }, pin: function () { self.pin(); }, save: function () { self.openSave(); }, copy: function () { self.copy(); },
+      flyOn: st.fly ? 'on' : '', fly: st.fly, toggleFly: function () { self.setState({ fly: !self.state.fly, propOpen: -1 }); },
+      latex: function () { self.runLatex(); }, table: function () { self.runTable(); },
+      popTop: popDown ? 'calc(100% + 8px)' : 'auto', popBottom: popDown ? 'auto' : 'calc(100% + 8px)',
+      showProps: st.propOpen >= 0, propX: propX, propHasSub: propSubs.length > 0, propSubs: propSubs, propColors: propColors, propSizes: propSizes,
+      showLong: !!st.long && !!sel, longPx: longH, prevX: prevX, prevMaxH: prevMaxH, prevBoxH: Math.min(prevInnerH, prevMaxH - 34), prevInnerH: prevInnerH,
+      prevBars: st.long && sel ? this.bars(sel.x, sel.y, sel.w, longH, kPrev) : [],
+      vOn: st.long && st.long.dir === 'v' ? 'on' : '', hOn: st.long && st.long.dir === 'h' ? 'on' : '',
+      dirV: function () { self.setState({ long: { dir: 'v' } }); }, dirH: function () { self.setState({ long: { dir: 'h' } }); self.toast('横向长截图：向右滚动拼接'); },
+      longStep: function () { self.longStep(1); }, longDone: function () { self.longDone(); },
+      longOcr: function () { self.endShot('已识别并复制长截图中的文字 · 6 段', false); }, longPin: function () { self.endShot('长截图已贴到屏幕', true); },
+      showRec: !!r && !!sel, recX: sel ? this.clamp(sel.x + sel.w / 2, 230, SW - 230) : 0, recY: sel ? (sel.y - 48 >= 8 ? sel.y - 48 : sel.y + 8) : 0,
+      recSetup: !!r && r.status === 'setup', recRunning: recActive, mp4On: r && r.fmt === 'mp4' ? 'on' : '', gifOn: r && r.fmt === 'gif' ? 'on' : '',
+      fmtMp4: function () { self.setState({ rec: Object.assign({}, self.state.rec, { fmt: 'mp4' }) }); }, fmtGif: function () { self.setState({ rec: Object.assign({}, self.state.rec, { fmt: 'gif', audio: false }) }); },
+      fpsText: r && r.fmt === 'gif' ? '15 fps · 无声音' : '30 fps', audioOn: r && r.audio ? 'on' : '', audioDisabled: !!r && r.fmt === 'gif', audioOp: r && r.fmt === 'gif' ? 0.4 : 1,
+      toggleAudio: function () { self.setState({ rec: Object.assign({}, self.state.rec, { audio: !self.state.rec.audio }) }); },
+      recStart: function () { self.recStart(); }, recStop: function () { self.recStop(); },
+      recPause: function () { var q = self.state.rec; self.setState({ rec: Object.assign({}, q, { status: q.status === 'paused' ? 'rec' : 'paused' }) }); },
+      pauseLabel: r && r.status === 'paused' ? '继续' : '暂停', pauseIcon: r && r.status === 'paused' ? 'M8 5l11 7-11 7z' : 'M9 5v14M15 5v14',
+      recTime: r ? this.fmtTime(r.t) : '00:00', recFmt: r && r.fmt === 'gif' ? 'GIF' : 'MP4',
+      hasCard: !!c && has && st.act !== 'new', cardX: cardX, cardY: cardY, cardMaxH: cardMaxH,
+      cardChip: isTr ? 'EN → 中文' : isOcr ? '识别结果 · ' + pk.length + ' 段 ' + lines + ' 行' : isMd ? 'Markdown' : isLatex ? '公式 → LaTeX' : '表格识别',
+      isTr: isTr, isOcr: isOcr, isMd: isMd, isLatex: isLatex, isTable: isTable,
+      closeCard: function () { self.clearStream(); self.setState({ card: null, view: 'card' }); },
+      trBody: isTr && st.view === 'card', coverBody: isTr && st.view === 'cover', cardOn: st.view === 'card' ? 'on' : '', coverOn: st.view === 'cover' ? 'on' : '',
+      viewCard: function () { self.setState({ view: 'card' }); }, viewCover: function () { self.setState({ view: 'cover' }); },
+      cardEn: isTr ? c.en : '', loading: isTr && c.loading, notLoading: !(isTr && c.loading), zhShown: isTr ? c.zh.slice(0, c.shown) : '', streaming: isTr && !c.loading && c.shown < c.zh.length,
+      meta: isTr && !c.loading && c.shown >= c.zh.length ? '本地 OCR → 大模型 · 0.8 s' : '翻译中…',
+      copyTr: function () { self.endShot('译文已复制', false); }, pinTr: function () { self.endShot('译文已贴到屏幕', true); },
+      paraOn: st.ocrMode === 'para' ? 'on' : '', lineOn: st.ocrMode === 'line' ? 'on' : '',
+      ocrPara: function () { self.setState({ ocrMode: 'para', ocrText: self.ocrTextFor(self.state.card.blocks, 'para', self.state.ocrSel) }); }, ocrLine: function () { self.setState({ ocrMode: 'line', ocrText: self.ocrTextFor(self.state.card.blocks, 'line', self.state.ocrSel) }); },
+      picking: st.act === 'pick' && !!st.pick, pkX: st.pick ? st.pick.x : 0, pkY: st.pick ? st.pick.y : 0, pkW: st.pick ? st.pick.w : 0, pkH: st.pick ? st.pick.h : 0,
+      ocrPickInfo: osel ? '已选 ' + osel.length + ' 行 · 右键划过可重新选择' : '右键划过截图上的检测框，可以只选其中一部分',
+      hasOcrSel: !!osel, clearOcrSel: function () { var cc = self.state.card; self.setState({ ocrSel: null, ocrText: self.ocrTextFor(cc.blocks, self.state.ocrMode, null) }); },
+      trSrc: st.trSrc, onTrSrc: function (e) { self.setState({ trSrc: e.target.value }); },
+      trDstShown: isTr && c.shown < c.zh.length ? c.zh.slice(0, c.shown) : st.trDst,
+      onTrDst: function (e) { var cc = self.state.card; if (cc && cc.shown >= cc.zh.length) self.setState({ trDst: e.target.value }); },
+      retranslate: function () { self.runTranslate(true); },
+      ocrText: st.ocrText, onOcrEdit: function (e) { self.setState({ ocrText: e.target.value }); }, ocrCount: st.ocrText.length,
+      ocrBoxes: st.ocrBoxes, toggleBoxes: function () { self.setState({ ocrBoxes: !self.state.ocrBoxes }); },
+      copyOcr: function () { self.endShot('已复制 ' + self.state.ocrText.length + ' 字', false); },
+      prevOn: st.mdView === 'preview' ? 'on' : '', srcOn: st.mdView === 'source' ? 'on' : '', mdPrev: function () { self.setState({ mdView: 'preview' }); }, mdSrc: function () { self.setState({ mdView: 'source' }); },
+      mdPreview: st.mdView === 'preview', mdSource: st.mdView === 'source', mdItems: mdItems, mdText: st.mdText, onMdEdit: function (e) { self.setState({ mdText: e.target.value }); },
+      copyMd: function () { self.endShot('Markdown 已复制', false); }, saveMd: function () { self.endShot('已保存 SnapMind_20261122_101530.md', false); },
+      hasFormula: hasF, noFormula: !hasF, latexText: st.latexText, onLatexEdit: function (e) { self.setState({ latexText: e.target.value }); },
+      latexNote: st.latexText === 'F_1 = \\frac{2PR}{P + R}' ? '识别结果可以直接修改。' : '已修改 · 真机版会用 KaTeX 实时渲染预览',
+      copyLatex: function () { self.endShot('LaTeX 已复制', false); }, copyLatexBlock: function () { self.endShot('已复制 $$' + self.state.latexText + '$$', false); },
+      hasTable: !!st.tbl, noTable: !st.tbl,
+      tblFmts: [['excel', 'Excel'], ['md', 'Markdown'], ['html', 'HTML']].map(function (f) { return { label: f[1], on: st.tblFmt === f[0] ? 'on' : '', pick: function () { self.setTblFmt(f[0]); } }; }),
+      tblExcel: st.tblFmt === 'excel', tblCode: st.tblFmt !== 'excel', tblText: st.tblText, onTblEdit: function (e) { self.setState({ tblText: e.target.value }); }, tblRows: tblRows,
+      copyTable: function () { self.endShot(self.state.tblFmt === 'excel' ? '表格已复制，可直接粘贴进 Excel' : '已复制 ' + (self.state.tblFmt === 'md' ? 'Markdown' : 'HTML') + ' 表格', false); },
+      exportXlsx: function () { self.endShot('已导出 SnapMind_20261122_101530.xlsx', false); },
+      showMag: showMag, magX: magX, magY: magY, magCells: magCells, magColor: magHex, magValue: this.fmtColor(magHex), magPos: cur ? cur.x + ', ' + cur.y : '',
+      showHints: !st.hintsHidden && !st.confirm && !st.saveOpen && !off, hints: hints, hintX: hintX, hintY: hintY,
+      showSave: st.saveOpen && !!sel, closeSave: function () { self.setState({ saveOpen: false }); },
+      svW: svW, svH: svH, svBars: svBars, saveDim: st.saveW + ' × ' + st.saveH + ' px',
+      saveDir: this.dirList()[st.saveDir][1], dirs: dirs, openDir: function () { self.toast('会在资源管理器中打开 ' + self.dirList()[self.state.saveDir][1]); }, browseDir: function () { self.toast('会打开选择文件夹窗口，并把它加入常用位置'); },
+      saveName: st.saveName, onSaveName: function (e) { self.setState({ saveName: e.target.value }); },
+      saveFmt: st.saveFmt, onSaveFmt: function (e) { self.setState({ saveFmt: e.target.value }); },
+      fmtNote: st.saveFmt === 'png' ? 'PNG：无损，支持透明' : st.saveFmt === 'jpg' ? 'JPG：体积小，不支持透明' : 'WebP：体积最小，较新的软件才支持',
+      saveW: st.saveW, saveH: st.saveH,
+      onSaveW: function (e) { var w = parseInt(e.target.value, 10) || 0; self.setState(self.state.lock ? { saveW: w, saveH: Math.round(w * ratio) } : { saveW: w }); },
+      onSaveH: function (e) { var h = parseInt(e.target.value, 10) || 0; self.setState(self.state.lock ? { saveH: h, saveW: Math.round(h / ratio) } : { saveH: h }); },
+      lockOn: st.lock ? 'on' : '', toggleLock: function () { self.setState({ lock: !self.state.lock }); },
+      origDim: sel ? sel.w + ' × ' + (sel.h + (st.long ? st.scrollY : 0)) + ' px' : '',
+      hasQuality: st.saveFmt !== 'png', saveQ: st.saveQ, onSaveQ: function (e) { self.setState({ saveQ: Number(e.target.value) }); },
+      saveSize: kb > 1024 ? (kb / 1024).toFixed(2) + ' MB' : kb.toFixed(1) + ' KB',
+      doSave: function () { self.doSave(); }, sysDialog: function () { self.endShot('会改用系统的另存为对话框（可在设置里设为默认）', false); },
+      confirm: st.confirm, noAsk: st.noAsk, toggleNoAsk: function () { self.setState({ noAsk: !self.state.noAsk }); }, cancelConfirm: function () { self.setState({ confirm: false }); }, exitNow: function () { self.endShot(null, false); },
+      hasToast: !!st.toast, toast: st.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

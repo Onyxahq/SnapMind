@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>设置原型</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.light{--bg:#E6EBF2;--card:rgba(255,255,255,.72);--card-ring:0 0 0 1px rgba(15,23,42,.06);--sunken:#EEF2F7;--text:#0F172A;--text2:#475569;--text3:#64748B;--line:rgba(15,23,42,.08);--line2:rgba(15,23,42,.14);--hover:rgba(15,23,42,.06);--seg-on:#FFFFFF;--seg-sh:0 1px 2px rgba(15,23,42,.12);--field:#FFFFFF;--glass:rgba(255,255,255,.94);--elev:0 0 0 1px rgba(15,23,42,.06),0 12px 32px rgba(15,23,42,.14);--doc:#FFFFFF;--doc-line:#E2E8F0;--danger:#DC2626;--accent:#2563EB;--on-accent:#FFFFFF;--accent-soft:rgba(37,99,235,.12)}
+.dark{--bg:#0E1219;--card:rgba(255,255,255,.04);--card-ring:0 0 0 1px rgba(255,255,255,.06);--sunken:rgba(0,0,0,.25);--text:#E8ECF2;--text2:#9BA6B5;--text3:#8B95A3;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);--hover:rgba(255,255,255,.07);--seg-on:rgba(255,255,255,.1);--seg-sh:inset 0 1px 0 rgba(255,255,255,.06);--field:rgba(255,255,255,.04);--glass:rgba(30,37,48,.95);--elev:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.07),0 16px 40px rgba(0,0,0,.45);--doc:#161B22;--doc-line:#2A3240;--danger:#F87171;--accent:#60A5FA;--on-accent:#0B1220;--accent-soft:rgba(96,165,250,.16)}
+.light.acc-sky{--accent:#0284C7;--accent-soft:rgba(2,132,199,.12)}
+.dark.acc-sky{--accent:#38BDF8;--accent-soft:rgba(56,189,248,.16)}
+.light.acc-violet{--accent:#7C3AED;--accent-soft:rgba(124,58,237,.12)}
+.dark.acc-violet{--accent:#A78BFA;--accent-soft:rgba(167,139,250,.16)}
+.light.acc-green{--accent:#059669;--accent-soft:rgba(5,150,105,.12)}
+.dark.acc-green{--accent:#34D399;--accent-soft:rgba(52,211,153,.16)}
+.theme{transition:background-color .3s,color .3s}
+.ic{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ib{width:28px;height:28px;border:0;background:transparent;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;padding:0;transition:background .15s,transform .1s;flex:none}
+.ib:hover{background:var(--hover);color:var(--text)}
+.ib:active{transform:scale(.9)}
+.ib:disabled{opacity:.3;cursor:default}
+.nav{display:flex;align-items:center;gap:12px;height:36px;padding:0 12px;border-radius:8px;border:0;background:transparent;width:100%;font:inherit;font-size:14px;color:var(--text);cursor:pointer;position:relative;text-align:left;transition:background .15s}
+.nav:hover{background:var(--hover)}
+.nav.on{background:var(--hover);font-weight:600}
+.nav.on::before{content:'';position:absolute;left:0;top:10px;width:3px;height:16px;border-radius:2px;background:var(--accent);animation:bar .22s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes bar{from{transform:scaleY(.2);opacity:0}to{transform:none;opacity:1}}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--card-ring);transition:background-color .3s}
+.row{display:flex;align-items:center;gap:16px;padding:12px 16px;min-height:34px}
+.row + .row{border-top:1px solid var(--line)}
+.rt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.rt b{font-size:14px;font-weight:500;line-height:20px}
+.rt span{font-size:12px;line-height:18px;color:var(--text2)}
+.sec{font-size:14px;font-weight:600;margin:8px 0 0}
+.seg-wrap{display:flex;background:var(--sunken);border-radius:8px;padding:2px;flex:none}
+.seg{border:0;background:transparent;font:inherit;font-size:12px;padding:5px 12px;border-radius:6px;color:var(--text2);cursor:pointer;transition:background .15s,color .15s;white-space:nowrap}
+.seg.on{background:var(--seg-on);color:var(--text);box-shadow:var(--seg-sh)}
+.gb{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:var(--field);font:inherit;font-size:13px;color:var(--text);display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:background .15s,transform .1s;flex:none;white-space:nowrap}
+.gb:hover{background:var(--hover)}
+.gb:active{transform:scale(.96)}
+.gb.danger{color:var(--danger)}
+.pb{height:32px;padding:0 14px;border:0;border-radius:8px;font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:filter .15s,transform .1s;flex:none;white-space:nowrap}
+.pb:hover{filter:brightness(1.08)}
+.pb:active{transform:scale(.95)}
+.field{height:34px;box-sizing:border-box;border-radius:8px;border:1px solid var(--line2);background:var(--field);color:var(--text);font:inherit;font-size:13px;padding:0 10px;transition:border-color .15s,box-shadow .15s}
+.field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea.field{height:auto;padding:10px 12px;line-height:20px;resize:vertical;width:100%;font-family:'JetBrains Mono','Noto Sans SC',monospace;font-size:12.5px}
+select.field option{color:#0F172A;background:#FFFFFF}
+.sw{width:40px;height:22px;border-radius:999px;background:var(--line2);position:relative;border:0;cursor:pointer;transition:background .2s;padding:0;flex:none}
+.sw::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .22s cubic-bezier(.2,.9,.3,1.2)}
+.sw.on{background:var(--accent)}
+.sw.on::after{transform:translateX(18px)}
+.sw:disabled{opacity:.4;cursor:not-allowed}
+.tile{flex:1;min-width:0;text-align:left;border:1px solid var(--line2);background:var(--field);border-radius:10px;padding:12px 14px;cursor:pointer;font:inherit;color:var(--text);display:flex;flex-direction:column;gap:4px;position:relative;transition:border-color .15s,box-shadow .15s,transform .1s}
+.tile:hover{border-color:var(--text3)}
+.tile.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tile:active{transform:scale(.98)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;background:var(--sunken);font-size:11.5px;color:var(--text2);white-space:nowrap}
+.chip.acc{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.kbd{min-width:120px;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:var(--field);font:inherit;font-size:13px;color:var(--text);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:border-color .15s,box-shadow .15s}
+.kbd:hover{border-color:var(--text3)}
+.kbd.rec{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);color:var(--accent)}
+.k{font-size:11px;padding:1px 6px;border-radius:5px;background:var(--sunken);border:1px solid var(--line2);color:var(--text);white-space:nowrap}
+.page{animation:page .2s cubic-bezier(.2,.9,.3,1) both}
+@keyframes page{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.pop{animation:pop .18s cubic-bezier(.2,.9,.3,1.15) both}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(4px)}to{opacity:1;transform:none}}
+.dot{width:30px;height:30px;border-radius:50%;border:0;cursor:pointer;padding:0;transition:transform .15s cubic-bezier(.2,.9,.3,1.2),box-shadow .15s}
+.dot:hover{transform:scale(1.1)}
+.dot.on{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--text)}
+input[type=range]{accent-color:var(--accent);width:180px}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;margin:0;cursor:pointer}
+.scroll{overflow:auto;scrollbar-width:thin}
+.prov{display:flex;align-items:center;gap:10px;width:100%;height:42px;padding:0 10px;border:0;border-radius:8px;background:transparent;font:inherit;color:var(--text);cursor:pointer;text-align:left;transition:background .15s}
+.prov:hover{background:var(--hover)}
+.prov.on{background:var(--accent-soft)}
+.logo{width:28px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex:none}
+.mrow{display:flex;align-items:center;gap:10px;padding:9px 14px}
+.mrow + .mrow{border-top:1px solid var(--line)}
+.crow{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;transition:background .15s}
+.crow + .crow{border-top:1px solid var(--line)}
+.num{width:20px;height:20px;border-radius:50%;background:var(--sunken);font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;color:var(--text2);flex:none}
+.num.first{background:var(--accent);color:var(--on-accent)}
+.trow{display:flex;align-items:center;gap:10px;padding:7px 10px 7px 8px;cursor:grab;transition:background .15s,box-shadow .15s}
+.trow + .trow{border-top:1px solid var(--line)}
+.trow:hover{background:var(--hover)}
+.trow.over{box-shadow:inset 0 2px 0 var(--accent)}
+.trow.hidden-item{opacity:.45}
+.trow.divider{background:var(--sunken);cursor:grab}
+.thumb{position:relative;border-radius:10px;overflow:hidden;background:var(--card);box-shadow:var(--card-ring);display:flex;flex-direction:column}
+.thumb .acts{position:absolute;right:8px;top:8px;display:flex;gap:4px;opacity:0;transform:translateY(-4px);transition:opacity .15s,transform .18s cubic-bezier(.2,.9,.3,1.15)}
+.thumb:hover .acts{opacity:1;transform:none}
+.mini{width:28px;height:28px;border:0;border-radius:7px;background:var(--glass);box-shadow:var(--elev);color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.hrow{display:flex;gap:14px;padding:12px 16px;align-items:flex-start}
+.hrow + .hrow{border-top:1px solid var(--line)}
+.hrow .acts{display:flex;gap:2px;opacity:0;transition:opacity .15s}
+.hrow:hover .acts{opacity:1}
+.drop{border:1.5px dashed var(--line2);border-radius:10px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer;background:transparent;font-family:inherit;width:100%;transition:border-color .15s,background .15s}
+.drop:hover{border-color:var(--accent);background:var(--accent-soft)}
+.tbprev{display:flex;align-items:center;gap:1px;padding:4px;border-radius:10px;background:var(--glass);box-shadow:var(--elev)}
+.tbprev span.i{width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:var(--text2)}
+</style>
+</helmet>
+<div class="theme {{mode}} {{acc}}" style="width:1120px;height:760px;box-sizing:border-box;background:var(--bg);font-family:Inter,'Noto Sans SC',sans-serif;color:var(--text);display:flex;flex-direction:column;overflow:hidden;position:relative">
+  <div style="height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 0 0 16px">
+    <span style="width:20px;height:20px;border-radius:6px;background:var(--accent);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:13px;height:13px;stroke-width:2.2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 12h8"></path></svg></span>
+    <span style="font-size:12px;color:var(--text2);flex:1">SnapMind 设置</span>
+    <span style="display:flex;color:var(--text2)">
+      <span style="width:46px;height:44px;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg></span>
+      <span style="width:46px;height:44px;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12a1 1 0 011 1v12a1 1 0 01-1 1H6a1 1 0 01-1-1V6a1 1 0 011-1z"></path></svg></span>
+      <span style="width:46px;height:44px;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+    </span>
+  </div>
+
+  <div style="display:flex;flex:1;min-height:0">
+    <nav style="width:228px;flex:none;box-sizing:border-box;padding:0 12px 16px;display:flex;flex-direction:column;gap:1px">
+      <div style="display:flex;align-items:center;gap:12px;padding:4px 12px 14px">
+        <span style="width:38px;height:38px;border-radius:11px;background:var(--accent);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5"></path></svg></span>
+        <span style="display:flex;flex-direction:column"><b style="font-size:15px;line-height:20px">SnapMind</b><span style="font-size:12px;color:var(--text3)">截图 · 识别 · 翻译</span></span>
+      </div>
+      <sc-for list="{{navs}}" as="n" hint-placeholder-count="10">
+        <button type="button" class="nav {{n.on}}" onClick="{{n.pick}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{n.d}}"></path></svg>{{n.label}}</button>
+      </sc-for>
+    </nav>
+
+    <main class="scroll" style="flex:1;min-width:0;box-sizing:border-box;padding:4px 36px 40px 12px">
+
+      <sc-if value="{{pgOcr}}" hint-placeholder-val="{{ true }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">识别与翻译</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">决定截图里的文字怎么被识别、怎么被翻译。下方流程会实时显示结果。</p></div>
+          <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span class="chip">截图</span>
+              <sc-for list="{{flow}}" as="f" hint-placeholder-count="2"><svg class="ic" style="width:14px;height:14px;color:var(--text3)" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg><span class="chip acc pop">{{f.label}}</span></sc-for>
+              <svg class="ic" style="width:14px;height:14px;color:var(--text3)" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+              <span class="chip">{{outLabel}}</span>
+            </div>
+            <span style="font-size:12px;line-height:18px;color:var(--text2)">{{flowNote}}</span>
+          </div>
+          <div class="card">
+            <div class="row"><div class="rt"><b>一步到位</b><span>识别和翻译交给同一个视觉大模型，看图直接给出原文和译文，只调用一次</span></div><button type="button" class="sw {{oneOn}}" role="switch" aria-checked="{{oneAria}}" aria-label="一步到位" onClick="{{toggleOne}}"></button></div>
+          </div>
+          <sc-if value="{{notOneStep}}" hint-placeholder-val="{{ true }}">
+            <h3 class="sec">识别槽 · 图片 → 文字</h3>
+            <div style="display:flex;gap:10px"><sc-for list="{{ocrOpts}}" as="o" hint-placeholder-count="2"><button type="button" class="tile {{o.on}}" onClick="{{o.pick}}"><b style="font-size:14px;font-weight:600">{{o.name}}</b><span style="font-size:12px;line-height:18px;color:var(--text2)">{{o.desc}}</span></button></sc-for></div>
+            <h3 class="sec">翻译槽 · 文字 → 译文</h3>
+            <div style="display:flex;gap:10px"><sc-for list="{{trOpts}}" as="o" hint-placeholder-count="2"><button type="button" class="tile {{o.on}}" onClick="{{o.pick}}"><b style="font-size:14px;font-weight:600">{{o.name}}</b><span style="font-size:12px;line-height:18px;color:var(--text2)">{{o.desc}}</span></button></sc-for></div>
+          </sc-if>
+
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><h3 class="sec" style="margin:0;flex:1">备用链 · 失败时按顺序自动切换</h3><button type="button" class="sw {{fbOn}}" role="switch" aria-checked="{{fbAria}}" aria-label="自动切换备用" onClick="{{toggleFb}}"></button></div>
+          <div class="card" style="opacity:{{fbOp}}">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px 10px 14px;border-bottom:1px solid var(--line)">
+              <div class="seg-wrap"><sc-for list="{{chainTabs}}" as="t" hint-placeholder-count="3"><button type="button" class="seg {{t.on}}" onClick="{{t.pick}}">{{t.label}}</button></sc-for></div>
+              <span style="flex:1"></span>
+              <span style="font-size:12px;color:var(--text2)">超时</span>
+              <select class="field" style="width:96px;height:30px" aria-label="超时"><option>8 秒</option><option>5 秒</option><option>15 秒</option></select>
+            </div>
+            <sc-for list="{{chain}}" as="c" hint-placeholder-count="3">
+              <div class="crow">
+                <span class="num {{c.first}}">{{c.n}}</span>
+                <span style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{c.name}}</span>
+                <span class="chip">{{c.tag}}</span>
+                <button type="button" class="ib" aria-label="上移" onClick="{{c.up}}" disabled="{{c.isFirst}}"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+                <button type="button" class="ib" aria-label="下移" onClick="{{c.down}}" disabled="{{c.isLast}}"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+                <button type="button" class="ib" aria-label="移除" onClick="{{c.remove}}"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+              </div>
+            </sc-for>
+            <div style="display:flex;align-items:center;gap:8px;padding:10px 12px 12px 14px;border-top:1px solid var(--line)">
+              <select class="field" style="flex:1" aria-label="添加备用" value="{{addSel}}" onChange="{{onAddSel}}"><sc-for list="{{addOpts}}" as="o" hint-placeholder-count="3"><option value="{{o}}">{{o}}</option></sc-for></select>
+              <button type="button" class="gb" onClick="{{addChain}}">＋ 加入链尾</button>
+            </div>
+          </div>
+          <span style="font-size:12px;line-height:18px;color:var(--text3);margin-top:-6px">第 1 个是首选。请求失败、超时或返回空结果时，自动换下一个，结果卡片会标出实际用的是哪个。</span>
+
+          <h3 class="sec">识别选项</h3>
+          <div class="card">
+            <div class="row"><div class="rt"><b>识别段落和行</b><span>把检测到的行合并成段落，段落之间空一行；关闭后逐行输出</span></div><button type="button" class="sw {{paraOn}}" role="switch" aria-checked="{{paraAria}}" aria-label="识别段落" onClick="{{togglePara}}"></button></div>
+            <div class="row"><div class="rt"><b>Markdown 格式</b><span>「识别为 Markdown」使用的方言</span></div><select class="field" style="width:220px" aria-label="Markdown 方言"><option>Obsidian（默认）</option><option>GitHub</option><option>CommonMark</option></select></div>
+            <div class="row"><div class="rt"><b>表格默认格式</b></div><div class="seg-wrap"><sc-for list="{{tblFmts}}" as="f" hint-placeholder-count="3"><button type="button" class="seg {{f.on}}" onClick="{{f.pick}}">{{f.label}}</button></sc-for></div></div>
+          </div>
+          <h3 class="sec">翻译偏好</h3>
+          <div class="card">
+            <div class="row"><div class="rt"><b>目标语言</b></div><select class="field" style="width:220px" aria-label="目标语言"><option>简体中文</option><option>English</option><option>日本語</option><option>繁體中文</option></select></div>
+            <div class="row"><div class="rt"><b>原文已是目标语言时</b></div><select class="field" style="width:220px" aria-label="第二语言"><option>翻译成 English</option><option>不翻译</option></select></div>
+            <div class="row"><div class="rt"><b>双语对照</b></div><button type="button" class="sw {{biOn}}" role="switch" aria-checked="{{biAria}}" aria-label="双语对照" onClick="{{toggleBi}}"></button></div>
+            <div class="row"><div class="rt"><b>保留格式</b><span>换行、列表、代码块、Markdown 保持不变</span></div><button type="button" class="sw {{keepOn}}" role="switch" aria-checked="{{keepAria}}" aria-label="保留格式" onClick="{{toggleKeep}}"></button></div>
+            <div class="row"><div class="rt"><b>自动判断专业术语</b><span>{{termNote}}</span></div><button type="button" class="sw {{termOn}}" role="switch" aria-checked="{{termAria}}" aria-label="自动判断专业术语" onClick="{{toggleTerm}}" disabled="{{termDisabled}}"></button></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgProv}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">模型服务</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">先添加服务商并填写 Key，再勾选要显示的模型。勾选的模型才会出现在下拉框和备用链里。</p></div>
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div class="card" style="width:210px;flex:none;padding:6px;display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--text3);padding:6px 10px 2px;letter-spacing:.06em">已添加</span>
+              <sc-for list="{{provAdded}}" as="p" hint-placeholder-count="2"><button type="button" class="prov {{p.on}}" onClick="{{p.pick}}"><span class="logo" style="background:{{p.color}}">{{p.mono}}</span><span style="display:flex;flex-direction:column;min-width:0;flex:1"><b style="font-size:13px;font-weight:600">{{p.name}}</b><span style="font-size:11px;color:var(--text3)">{{p.count}} 个模型已显示</span></span></button></sc-for>
+              <span style="font-size:11px;color:var(--text3);padding:10px 10px 2px;letter-spacing:.06em">可添加</span>
+              <sc-for list="{{provMore}}" as="p" hint-placeholder-count="4"><button type="button" class="prov {{p.on}}" onClick="{{p.pick}}"><span class="logo" style="background:{{p.color}};opacity:.55">{{p.mono}}</span><span style="font-size:13px;color:var(--text2);flex:1">{{p.name}}</span><span style="font-size:16px;color:var(--text3)">＋</span></button></sc-for>
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;align-items:center;gap:12px"><span class="logo" style="width:40px;height:40px;border-radius:12px;font-size:14px;background:{{cur.color}}">{{cur.mono}}</span><div style="flex:1"><b style="font-size:18px">{{cur.name}}</b><div style="font-size:12px;color:var(--text2)">{{cur.desc}}</div></div><sc-if value="{{curAdded}}" hint-placeholder-val="{{ true }}"><button type="button" class="gb" onClick="{{removeProv}}">移除</button></sc-if></div>
+              <sc-if value="{{curNotAdded}}" hint-placeholder-val="{{ false }}"><div class="card" style="padding:24px;display:flex;flex-direction:column;align-items:flex-start;gap:12px"><span style="font-size:13px;color:var(--text2);line-height:20px">添加后填写 API Key，就能获取并选择这个服务商的模型。</span><button type="button" class="pb" onClick="{{addProv}}">＋ 添加 {{cur.name}}</button></div></sc-if>
+              <sc-if value="{{curAdded}}" hint-placeholder-val="{{ true }}">
+                <div class="card">
+                  <div class="row"><div class="rt"><b>接口格式</b></div><span class="chip">{{cur.api}}</span></div>
+                  <div class="row"><div class="rt"><b>Base URL</b></div><input class="field" style="width:300px" aria-label="Base URL" value="{{cur.url}}" readonly></div>
+                  <div class="row"><div class="rt"><b>API Key</b><span>{{keyNote}}</span></div><input class="field" style="width:300px" type="password" aria-label="API Key" placeholder="{{keyPh}}"></div>
+                  <div class="row"><div class="rt"><b>连接测试</b></div><button type="button" class="gb" onClick="{{testConn}}">测试连接</button></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px"><h3 class="sec" style="margin:0;flex:1">模型 · 勾选后显示</h3><button type="button" class="gb" onClick="{{fetchModels}}">获取模型列表</button><button type="button" class="gb" onClick="{{notYet}}">＋ 手动添加</button></div>
+                <div class="card"><sc-for list="{{curModels}}" as="m" hint-placeholder-count="3"><label class="mrow" style="cursor:pointer"><input type="checkbox" checked="{{m.on}}" onChange="{{m.toggle}}"><span style="flex:1;font-size:13px;font-family:'JetBrains Mono',monospace">{{m.name}}</span><sc-for list="{{m.tags}}" as="t" hint-placeholder-count="1"><span class="chip">{{t}}</span></sc-for></label></sc-for></div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgPrompt}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">提示词</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">只在用到大模型时生效。每种任务一套提示词，可以随时恢复默认。</p></div>
+          <div style="display:flex;align-items:center;gap:10px"><div class="seg-wrap"><sc-for list="{{pTabs}}" as="t" hint-placeholder-count="4"><button type="button" class="seg {{t.on}}" onClick="{{t.pick}}">{{t.label}}</button></sc-for></div><span style="flex:1"></span><button type="button" class="gb" onClick="{{resetPrompt}}">恢复默认</button></div>
+          <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <span style="font-size:12px;line-height:18px;color:var(--text2)">{{pDesc}}</span>
+            <textarea class="field" rows="10" aria-label="提示词" value="{{pText}}" onChange="{{onPrompt}}"></textarea>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-size:12px;color:var(--text3)">可用变量</span><span class="chip">{target_lang}</span><span class="chip">{source_lang}</span><span class="chip">{glossary}</span><span class="chip">{text}</span></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgKeys}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:flex-end;gap:12px"><div style="flex:1"><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">快捷键</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">点击快捷键后按下新的组合键即可修改。</p></div><button type="button" class="gb" onClick="{{resetKeys}}">恢复默认</button></div>
+          <h3 class="sec">全局</h3>
+          <div class="card"><sc-for list="{{gkeys}}" as="k" hint-placeholder-count="5"><div class="row"><div class="rt"><b>{{k.name}}</b><span>{{k.desc}}</span></div><button type="button" class="kbd {{k.rec}}" onClick="{{k.pick}}">{{k.text}}</button></div></sc-for></div>
+          <h3 class="sec">截图编辑态与贴图（只在它们打开时生效）</h3>
+          <div class="card" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr))"><sc-for list="{{lkeys}}" as="k" hint-placeholder-count="16"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid var(--line)"><span style="font-size:13px">{{k.name}}</span><span class="k">{{k.text}}</span></div></sc-for></div>
+          <div class="card"><div class="row"><div class="rt"><b>截图时显示操作提示</b><span>截图中按 H 也会改变这里，下次截图沿用</span></div><button type="button" class="sw {{hintOn}}" role="switch" aria-checked="{{hintAria}}" aria-label="操作提示" onClick="{{toggleHint}}"></button></div></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgBar}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:flex-end;gap:12px"><div style="flex:1"><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">工具栏</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">拖动排序，取消勾选即隐藏。「更多」分隔线以下的按钮会收进「⋯」菜单。</p></div><button type="button" class="gb" onClick="{{resetBar}}">恢复默认</button></div>
+          <div class="seg-wrap" style="align-self:flex-start"><button type="button" class="seg {{barShotOn}}" onClick="{{barShot}}">截图工具条</button><button type="button" class="seg {{barPinOn}}" onClick="{{barPin}}">贴图工具条</button></div>
+          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+            <span style="font-size:12px;color:var(--text3)">预览</span>
+            <div class="tbprev"><sc-for list="{{barPrev}}" as="b" hint-placeholder-count="10"><span class="i" title="{{b.label}}"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="{{b.d}}"></path></svg></span></sc-for><span class="i" title="更多"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h.01M12 12h.01M18 12h.01"></path></svg></span></div>
+            <span style="font-size:12px;color:var(--text3)">「⋯」里：{{barMore}}</span>
+          </div>
+          <div class="card">
+            <sc-for list="{{barItems}}" as="b" hint-placeholder-count="12">
+              <div class="trow {{b.cls}}" draggable="true" onDragStart="{{b.dragStart}}" onDragOver="{{b.dragOver}}" onDrop="{{b.drop}}" onDragEnd="{{dragEnd}}">
+                <svg class="ic" style="width:14px;height:14px;color:var(--text3)" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"></path></svg>
+                <sc-if value="{{b.isItem}}" hint-placeholder-val="{{ true }}">
+                  <input type="checkbox" checked="{{b.on}}" onChange="{{b.toggle}}" aria-label="显示 {{b.label}}">
+                  <span style="width:28px;height:28px;border-radius:7px;background:var(--sunken);display:inline-flex;align-items:center;justify-content:center;color:var(--text2)"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="{{b.d}}"></path></svg></span>
+                  <span style="flex:1;font-size:13px">{{b.label}}</span>
+                  <span class="k">{{b.key}}</span>
+                </sc-if>
+                <sc-if value="{{b.isDiv}}" hint-placeholder-val="{{ false }}"><span style="flex:1;font-size:12px;font-weight:600;color:var(--text2)">—— 以下收进「⋯ 更多」——</span></sc-if>
+                <button type="button" class="ib" aria-label="上移" onClick="{{b.up}}"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg></button>
+                <button type="button" class="ib" aria-label="下移" onClick="{{b.down}}"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgShot}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">截图与贴图</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">复制、保存、录屏和贴图的默认行为。</p></div>
+          <h3 class="sec">截图</h3>
+          <div class="card">
+            <div class="row"><div class="rt"><b>图片格式</b><span>复制、保存和粘贴成文件时使用</span></div><div class="seg-wrap"><sc-for list="{{fmts}}" as="f" hint-placeholder-count="3"><button type="button" class="seg {{f.on}}" onClick="{{f.pick}}">{{f.label}}</button></sc-for></div></div>
+            <div class="row"><div class="rt"><b>图片质量</b><span>{{qNote}}</span></div><input type="range" min="40" max="100" value="{{q}}" onChange="{{onQ}}" aria-label="图片质量" disabled="{{qDisabled}}"><span style="width:44px;text-align:right;font-size:13px;color:var(--text2)">{{qText}}</span></div>
+            <div class="row" style="align-items:flex-start"><div class="rt"><b>文件名模板</b><span>粘贴到文件夹或聊天窗口时的文件名</span></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><input class="field" style="width:300px" aria-label="文件名模板" value="{{tpl}}" onChange="{{onTpl}}"><span style="font-size:12px;color:var(--text3)">预览：{{tplPreview}}</span></div></div>
+            <div class="row"><div class="rt"><b>保存目录</b><span>D:\Pictures\SnapMind</span></div><button type="button" class="gb" onClick="{{openDir}}"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>打开目录</button><button type="button" class="gb" onClick="{{browse}}">更改</button></div>
+            <div class="row"><div class="rt"><b>Ctrl+S 保存方式</b></div><div class="seg-wrap"><button type="button" class="seg {{saveOwn}}" onClick="{{setSaveOwn}}">SnapMind 保存窗口</button><button type="button" class="seg {{saveSys}}" onClick="{{setSaveSys}}">系统另存为</button><button type="button" class="seg {{saveQuick}}" onClick="{{setSaveQuick}}">直接保存</button></div></div>
+            <div class="row"><div class="rt"><b>有标注时退出前确认</b></div><button type="button" class="sw {{askOn}}" role="switch" aria-checked="{{askAria}}" aria-label="退出确认" onClick="{{toggleAsk}}"></button></div>
+          </div>
+          <h3 class="sec">录屏</h3>
+          <div class="card">
+            <div class="row"><div class="rt"><b>默认格式</b><span>按 R 时预选的格式，录制前还可以切换</span></div><div class="seg-wrap"><button type="button" class="seg {{recMp4}}" onClick="{{setMp4}}">MP4 视频</button><button type="button" class="seg {{recGif}}" onClick="{{setGif}}">GIF 动图</button></div></div>
+            <div class="row"><div class="rt"><b>帧率</b></div><select class="field" style="width:200px" aria-label="帧率"><option>30 fps</option><option>60 fps</option><option>15 fps（GIF 推荐）</option></select></div>
+            <div class="row"><div class="rt"><b>录制系统声音</b><span>GIF 不包含声音</span></div><button type="button" class="sw {{audioOn}}" role="switch" aria-checked="{{audioAria}}" aria-label="录制声音" onClick="{{toggleAudio}}"></button></div>
+          </div>
+          <h3 class="sec">贴图</h3>
+          <div class="card">
+            <div class="row"><div class="rt"><b>贴出后自动识别文字</b><span>后台运行本地 OCR，之后可以直接用鼠标选中图里的文字</span></div><button type="button" class="sw {{autoOcrOn}}" role="switch" aria-checked="{{autoOcrAria}}" aria-label="自动识别" onClick="{{toggleAutoOcr}}"></button></div>
+            <div class="row"><div class="rt"><b>Ctrl+滚轮调不透明度</b></div><button type="button" class="sw on" role="switch" aria-checked="true" aria-label="Ctrl+滚轮"></button></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgHist}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">历史记录</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">关掉的贴图和翻译结果都能在这里找回。</p></div>
+          <div class="card">
+            <div class="row"><div class="rt"><b>保留方式</b><span>{{histNote}}</span></div><div class="seg-wrap"><sc-for list="{{histModes}}" as="m" hint-placeholder-count="3"><button type="button" class="seg {{m.on}}" onClick="{{m.pick}}">{{m.label}}</button></sc-for></div></div>
+            <sc-if value="{{histByCount}}" hint-placeholder-val="{{ false }}"><div class="row" style="border-top:1px solid var(--line)"><div class="rt"><b>最多保留</b><span>超出后自动删除最早的记录</span></div><input class="field" style="width:96px;text-align:right" type="number" min="1" aria-label="保留条数" value="{{histMax}}" onChange="{{onHistMax}}"><span style="font-size:13px;color:var(--text2)">条</span></div></sc-if>
+            <sc-if value="{{histBySize}}" hint-placeholder-val="{{ true }}"><div class="row" style="border-top:1px solid var(--line)"><div class="rt"><b>最多占用</b><span>超出后自动删除最早的记录，贴图图片优先清理</span></div><input class="field" style="width:96px;text-align:right" type="number" min="10" aria-label="空间上限" value="{{histMB}}" onChange="{{onHistMB}}"><span style="font-size:13px;color:var(--text2)">MB</span></div></sc-if>
+            <div class="row" style="flex-direction:column;align-items:stretch;gap:10px;border-top:1px solid var(--line)">
+              <div style="display:flex;align-items:baseline;gap:8px"><b style="font-size:14px;font-weight:500;flex:1">占用空间</b><b style="font-size:18px">{{totalSize}}</b><span style="font-size:12px;color:var(--text3)">{{limitText}}</span></div>
+              <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--sunken)"><span style="width:{{pinPct}}%;background:var(--accent)"></span><span style="width:{{trPct}}%;background:var(--text3)"></span></div>
+              <div style="display:flex;gap:18px;font-size:12px;color:var(--text2)"><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--accent)"></span>贴图 {{pinCount}} 张 · {{pinSize}}</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:var(--text3)"></span>翻译 {{trCount}} 条 · {{trSize}}</span><span style="flex:1"></span><button type="button" class="gb" style="height:28px" onClick="{{openHistDir}}">打开所在文件夹</button></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="seg-wrap"><button type="button" class="seg {{hPinOn}}" onClick="{{hPin}}">贴图历史</button><button type="button" class="seg {{hTrOn}}" onClick="{{hTr}}">翻译历史</button></div>
+            <input class="field" style="flex:1" aria-label="搜索历史" placeholder="{{hPh}}" value="{{hq}}" onChange="{{onHq}}">
+            <button type="button" class="gb danger" onClick="{{clearHist}}">清空</button>
+          </div>
+          <sc-if value="{{hShowPin}}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+              <sc-for list="{{pins}}" as="p" hint-placeholder-count="6">
+                <div class="thumb pop">
+                  <div style="height:96px;background:var(--doc);margin:8px 8px 0;border-radius:6px;box-shadow:0 0 0 1px var(--line);padding:12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;overflow:hidden">
+                    <span style="width:{{p.w1}}%;height:8px;border-radius:4px;background:var(--text);opacity:.75"></span><span style="width:92%;height:5px;border-radius:3px;background:var(--doc-line)"></span><span style="width:{{p.w2}}%;height:5px;border-radius:3px;background:var(--doc-line)"></span><span style="width:{{p.w3}}%;height:20px;border-radius:4px;background:{{p.tint}};margin-top:2px"></span>
+                  </div>
+                  <div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:2px"><b style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{p.title}}</b><span style="font-size:11px;color:var(--text3)">{{p.meta}}</span></div>
+                  <div class="acts"><button type="button" class="mini" title="重新贴出" aria-label="重新贴出" onClick="{{p.repin}}"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z"></path></svg></button><button type="button" class="mini" title="复制" aria-label="复制" onClick="{{p.copy}}"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 9h7.5A1.5 1.5 0 0120 10.5v8a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 019 18.5V11a2 2 0 012-2zM15 9V5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15H9"></path></svg></button><button type="button" class="mini" title="删除" aria-label="删除" onClick="{{p.del}}"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"></path></svg></button></div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{hShowTr}}" hint-placeholder-val="{{ false }}">
+            <div class="card"><sc-for list="{{trs}}" as="t" hint-placeholder-count="5">
+              <div class="hrow"><span class="chip" style="flex:none;margin-top:1px">{{t.lang}}</span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;line-height:18px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{t.src}}</span><span style="font-size:14px;line-height:22px">{{t.dst}}</span><span style="font-size:11px;color:var(--text3)">{{t.meta}}</span></div>
+                <div class="acts"><button type="button" class="ib" title="复制译文" aria-label="复制译文" onClick="{{t.copy}}"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 9h7.5A1.5 1.5 0 0120 10.5v8a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 019 18.5V11a2 2 0 012-2zM15 9V5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15H9"></path></svg></button><button type="button" class="ib" title="贴到屏幕" aria-label="贴到屏幕" onClick="{{t.pin}}"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z"></path></svg></button><button type="button" class="ib" title="删除" aria-label="删除" onClick="{{t.del}}"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"></path></svg></button></div>
+              </div>
+            </sc-for></div>
+          </sc-if>
+          <sc-if value="{{hEmpty}}" hint-placeholder-val="{{ false }}"><div class="card" style="padding:40px;text-align:center;font-size:13px;color:var(--text3)">没有记录</div></sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgLook}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">外观</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">切换立即生效，已打开的贴图和卡片会一起刷新。</p></div>
+          <div style="display:flex;gap:10px">
+            <sc-for list="{{prefs}}" as="p" hint-placeholder-count="3">
+              <button type="button" class="tile {{p.on}}" style="padding:10px;gap:10px" onClick="{{p.pick}}">
+                <span style="display:flex;height:88px;border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px var(--line)">
+                  <span style="flex:1;background:{{p.bgA}};display:flex;align-items:flex-end;padding:10px"><span style="width:100%;height:36px;border-radius:6px;background:{{p.cardA}};box-shadow:0 4px 10px rgba(0,0,0,.15);display:flex;flex-direction:column;gap:5px;padding:7px;box-sizing:border-box"><span style="width:60%;height:5px;border-radius:3px;background:{{p.lineA}}"></span><span style="width:40%;height:5px;border-radius:3px;background:{{p.accA}}"></span></span></span>
+                  <span style="flex:1;background:{{p.bgB}};display:flex;align-items:flex-end;padding:10px"><span style="width:100%;height:36px;border-radius:6px;background:{{p.cardB}};box-shadow:0 4px 10px rgba(0,0,0,.15);display:flex;flex-direction:column;gap:5px;padding:7px;box-sizing:border-box"><span style="width:60%;height:5px;border-radius:3px;background:{{p.lineB}}"></span><span style="width:40%;height:5px;border-radius:3px;background:{{p.accB}}"></span></span></span>
+                </span>
+                <b style="font-size:14px;font-weight:600;padding:0 4px">{{p.label}}</b>
+              </button>
+            </sc-for>
+          </div>
+          <div class="card">
+            <div class="row"><div class="rt"><b>强调色</b><span>深夜模式下自动换成同色相的提亮版本</span></div><div style="display:flex;gap:12px"><sc-for list="{{accents}}" as="a" hint-placeholder-count="4"><button type="button" class="dot {{a.on}}" style="background:{{a.color}}" aria-label="{{a.label}}" onClick="{{a.pick}}"></button></sc-for></div></div>
+            <div class="row"><div class="rt"><b>悬浮球</b><span>屏幕边缘的快捷入口，可拖动，贴边半隐藏</span></div><button type="button" class="sw {{ballOn}}" role="switch" aria-checked="{{ballAria}}" aria-label="悬浮球" onClick="{{toggleBall}}"></button></div>
+            <div class="row"><div class="rt"><b>界面动效</b><span>「减弱」只保留淡入淡出</span></div><select class="field" style="width:200px" aria-label="界面动效"><option>完整</option><option>减弱</option></select></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgConf}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <div><h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">配置文件</h2><p style="margin:2px 0 0;font-size:13px;color:var(--text2)">所有设置都存在一个 JSON 文件里，可以导出备份、在别的电脑导入。</p></div>
+          <div class="card">
+            <div class="row"><div class="rt"><b>配置文件位置</b><span style="font-family:'JetBrains Mono',monospace">%APPDATA%\SnapMind\config.json</span></div><button type="button" class="gb" onClick="{{openConfDir}}"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path></svg>打开文件夹</button><button type="button" class="gb" onClick="{{copyPath}}">复制路径</button></div>
+          </div>
+          <h3 class="sec">导出</h3>
+          <div class="card">
+            <div class="row" style="flex-wrap:wrap;gap:10px 18px"><sc-for list="{{expParts}}" as="x" hint-placeholder-count="4"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" checked="{{x.on}}" onChange="{{x.toggle}}">{{x.label}}</label></sc-for></div>
+            <div class="row"><div class="rt"><b>包含 API Key</b><span>{{keyExpNote}}</span></div><button type="button" class="sw {{expKeyOn}}" role="switch" aria-checked="{{expKeyAria}}" aria-label="导出 Key" onClick="{{toggleExpKey}}"></button></div>
+            <div class="row"><span style="flex:1;font-size:12px;color:var(--text3)">将导出 {{expCount}} 项内容</span><button type="button" class="pb" onClick="{{doExport}}">导出配置…</button></div>
+          </div>
+          <h3 class="sec">导入</h3>
+          <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <button type="button" class="drop" onClick="{{doImport}}"><svg class="ic" style="width:22px;height:22px;color:var(--accent)" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 20h14"></path></svg>把 .json 配置文件拖到这里，或点击选择<span style="font-size:12px;color:var(--text3)">导入前会自动备份当前配置；可以只导入其中一部分</span></button>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px"><h3 class="sec" style="margin:0;flex:1">自动备份</h3><button type="button" class="sw {{bakOn}}" role="switch" aria-checked="{{bakAria}}" aria-label="自动备份" onClick="{{toggleBak}}"></button></div>
+          <div class="card">
+            <sc-for list="{{backups}}" as="b" hint-placeholder-count="3"><div class="row"><div class="rt"><b>{{b.time}}</b><span>{{b.reason}}</span></div><button type="button" class="gb" onClick="{{b.restore}}">恢复</button></div></sc-for>
+          </div>
+          <div class="card"><div class="row"><div class="rt"><b>恢复默认设置</b><span>快捷键、提示词、工具栏等全部还原；模型服务和历史记录保留</span></div><button type="button" class="gb danger" onClick="{{resetAll}}">恢复默认</button></div></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pgAbout}}" hint-placeholder-val="{{ false }}">
+        <div class="page" style="display:flex;flex-direction:column;gap:14px">
+          <h2 style="margin:0;font-size:26px;line-height:36px;font-weight:600">关于</h2>
+          <div class="card"><div class="row"><div class="rt"><b>SnapMind 0.1.0</b><span>交互原型 · Tauri 2 · 本地 OCR 引擎 PaddleOCR</span></div><button type="button" class="gb" onClick="{{checkUpdate}}">检查更新</button></div><div class="row"><div class="rt"><b>开机自动启动</b></div><button type="button" class="sw on" role="switch" aria-checked="true" aria-label="开机启动"></button></div></div>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:228px;right:0;bottom:24px;display:flex;justify-content:center;pointer-events:none">
+      <div class="pop" style="display:flex;align-items:center;gap:10px;height:38px;padding:0 16px 0 12px;border-radius:12px;font-size:13px;background:var(--glass);box-shadow:var(--elev);backdrop-filter:blur(24px)">
+        <span style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:13px;height:13px;stroke-width:2.4" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+        {{toast}}
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1120,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.defaults = {
+      ocr: '识别图片中的全部文字，按阅读顺序输出。\n- 同一段落内的换行合并成一行，段落之间空一行\n- 保留列表、代码和表格的结构\n- 只输出识别结果，不要解释',
+      tr: '把下面的文字翻译成 {target_lang}。\n- 保持原有的段落、换行和 Markdown 格式\n- 自动判断专业术语和专有名词：保留原文，或使用该领域的通行译法，并在全文保持一致\n- 以下术语保持原样：{glossary}\n- 只输出译文\n\n{text}',
+      one: '识别图片中的全部文字，并翻译成 {target_lang}。\n- 原文按段落整理，段落之间空一行\n- 译文与原文的段落一一对应\n- 自动判断专业术语，以下术语保持原样：{glossary}\n- 按 JSON 输出：{"source": "原文", "translation": "译文"}',
+      md: '把图片内容整理成 Obsidian 风格的 Markdown：\n- 标题用 #，列表、引用、代码块保持原有结构\n- 表格用管道表格\n- 公式用 $…$ 和 $$…$$（LaTeX）\n- 上下标用 <sup></sup> 和 <sub></sub>，高亮用 ==文字==\n- 只输出 Markdown'
+    };
+    var I = {
+      rect: 'M6 5h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z', pen: 'M4 20l4.5-1L19 8.5 15.5 5 5 15.5z', arrow: 'M5 19L19 5M10 5h9v9', text: 'M5 6h14M12 6v13M9 19h6',
+      num: 'M12 3.5a8.5 8.5 0 110 17 8.5 8.5 0 010-17zM10.5 9.5L12.5 8v8', mosaic: 'M6 4h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2zM4 12h16M12 4v16', eraser: 'M8 20h12M5.5 15.5l9-9a2 2 0 012.8 0l1.2 1.2a2 2 0 010 2.8L11 18H8z', undo: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3',
+      long: 'M8 3h8a1 1 0 011 1v16a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zM12 8v8M9.5 13.5L12 16l2.5-2.5', rec: 'M4 7h11a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zM16 11l5-3v8l-5-3',
+      ocr: 'M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5', md: 'M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1zM6.5 15V9l2.5 3 2.5-3v6M16.5 9v6M14.5 13l2 2 2-2',
+      tr: 'M3 5h9M7.5 3v2M5 5c.5 3.5 3 6.5 6.5 8M10 5c-.8 3.8-3 6.8-6.5 8.5M13 21l4-10 4 10M14.5 17.5h5', pin: 'M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z', save: 'M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14',
+      close: 'M6 6l12 12M18 6L6 18', copy: 'M11 9h7.5A1.5 1.5 0 0120 10.5v8a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 019 18.5V11a2 2 0 012-2zM15 9V5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15H9',
+      latex: 'M18 5H6l6 7-6 7h12', table: 'M4 5h16v14H4zM4 10h16M4 15h16M10 5v14', opacity: 'M12 3.5c3 3.6 6 7 6 10.5a6 6 0 01-12 0c0-3.5 3-6.9 6-10.5zM12 20V8', through: 'M5 3l14 8-6 2-2 6z', zoom: 'M11 4a7 7 0 110 14 7 7 0 010-14zM20 20l-4-4M8 11h6'
+    };
+    var it = function (id, label, key, icon, on) { return { id: id, label: label, key: key, d: I[icon], on: on !== false }; };
+    this.barDefaults = {
+      shot: [it('rect', '矩形 / 椭圆', '1', 'rect'), it('pen', '画笔 / 荧光笔', '2', 'pen'), it('arrow', '箭头 / 直线', '3', 'arrow'), it('text', '文字', '4', 'text'), it('num', '序号', '5', 'num'), it('mosaic', '马赛克 / 模糊', '6', 'mosaic'), it('eraser', '橡皮擦', '7', 'eraser'), it('undo', '撤销', 'Ctrl+Z', 'undo'), it('long', '长截图', 'L', 'long'), it('rec', '录屏', 'R', 'rec'), it('ocr', '识别文字', 'Shift+C', 'ocr'), it('md', '识别为 Markdown', 'Shift+Alt+R', 'md'), it('tr', '翻译', 'Ctrl+Q', 'tr'), it('pin', '贴到屏幕', 'Ctrl+T', 'pin'), it('save', '保存', 'Ctrl+S', 'save'), it('close', '退出', 'Esc', 'close'), it('copy', '复制', 'Ctrl+C', 'copy'), { id: '__more', divider: true }, it('latex', '公式 → LaTeX', '—', 'latex'), it('table', '表格识别', '—', 'table')],
+      pin: [it('tr', '翻译（原位覆盖）', 'Ctrl+Q', 'tr'), it('ocr', '识别文字', 'Shift+C', 'ocr'), it('md', '识别为 Markdown', 'Shift+Alt+R', 'md'), it('pen', '标注', '空格', 'pen'), it('save', '保存', 'Ctrl+S', 'save'), it('copy', '复制', 'Ctrl+C', 'copy'), it('close', '关闭', 'Esc', 'close'), { id: '__more', divider: true }, it('latex', '公式 → LaTeX', '—', 'latex'), it('table', '表格识别', '—', 'table'), it('opacity', '不透明度', 'Ctrl+滚轮', 'opacity'), it('through', '鼠标穿透', 'Ctrl+Shift+X', 'through'), it('zoom', '缩放到 100%', 'Ctrl+0', 'zoom')]
+    };
+    var clone = function (a) { return a.map(function (x) { return Object.assign({}, x); }); };
+    this.clone = clone;
+    this.state = {
+      page: 'ocr', pref: 'system', acc: 'blue',
+      one: false, ocr: 'local', tr: 'llm', para: true, tblFmt: 'excel', bi: true, keep: true, term: true,
+      fb: true, ctab: 'tr',
+      chains: {
+        tr: [['DeepSeek · deepseek-chat', '大模型'], ['Anthropic · claude-haiku-5-5', '大模型'], ['DeepL', '机器翻译'], ['Google 翻译', '机器翻译']],
+        ocr: [['本地 OCR · PaddleOCR', '本地'], ['Anthropic · claude-sonnet-5-5', '视觉大模型']],
+        one: [['Anthropic · claude-haiku-5-5', '视觉大模型'], ['Anthropic · claude-sonnet-5-5', '视觉大模型'], ['降级为：本地 OCR → 翻译链', '降级']]
+      },
+      addSel: '',
+      prov: 'deepseek',
+      provs: {
+        deepseek: { added: true, models: [{ name: 'deepseek-chat', tags: ['文本'], on: true }, { name: 'deepseek-reasoner', tags: ['文本', '推理'], on: false }] },
+        anthropic: { added: true, models: [{ name: 'claude-sonnet-5-5', tags: ['视觉'], on: true }, { name: 'claude-haiku-5-5', tags: ['视觉'], on: true }, { name: 'claude-opus-5-5', tags: ['视觉'], on: false }] },
+        google: { added: false, models: [{ name: 'gemini-2.5-flash', tags: ['视觉'], on: true }, { name: 'gemini-2.5-pro', tags: ['视觉'], on: false }] },
+        openai: { added: false, models: [{ name: 'gpt-4.1-mini', tags: ['视觉'], on: true }, { name: 'gpt-4.1', tags: ['视觉'], on: false }] },
+        openrouter: { added: false, models: [{ name: 'qwen/qwen2.5-vl-72b-instruct', tags: ['视觉'], on: true }, { name: 'deepseek/deepseek-chat', tags: ['文本'], on: false }] },
+        ollama: { added: false, models: [{ name: 'qwen2.5vl:7b', tags: ['视觉', '本地'], on: true }, { name: 'qwen2.5:7b', tags: ['文本', '本地'], on: false }] },
+        custom: { added: false, models: [] }
+      },
+      ptab: 'ocr', prompts: { ocr: this.defaults.ocr, tr: this.defaults.tr, one: this.defaults.one, md: this.defaults.md },
+      rec: null, hint: true,
+      btab: 'shot', bars: { shot: clone(this.barDefaults.shot), pin: clone(this.barDefaults.pin) }, dragI: -1, overI: -1,
+      fmt: 'png', q: 90, tpl: 'SnapMind_{yyyyMMdd_HHmmss}', saveMode: 'own', ask: true, recFmt: 'mp4', audio: true, autoOcr: true,
+      histMax: 500, histMode: 'size', histMB: 1024, htab: 'pin', hq: '',
+      pins: [
+        { id: 1, title: 'Designing for Multilingual Readers', meta: '今天 10:15 · 624 × 76', w1: 70, w2: 60, w3: 40, tint: 'rgba(37,99,235,.18)' },
+        { id: 2, title: 'API 参数表格', meta: '今天 09:42 · 880 × 420', w1: 45, w2: 80, w3: 90, tint: 'rgba(5,150,105,.18)' },
+        { id: 3, title: '設定を保存しました', meta: '昨天 22:08 · 360 × 120', w1: 55, w2: 50, w3: 30, tint: 'rgba(124,58,237,.18)' },
+        { id: 4, title: 'Error: ENOENT no such file', meta: '昨天 16:30 · 720 × 96', w1: 80, w2: 40, w3: 70, tint: 'rgba(239,68,68,.18)' },
+        { id: 5, title: 'F1 = 2PR / (P + R)', meta: '11月20日 · 300 × 80', w1: 35, w2: 70, w3: 50, tint: 'rgba(245,158,11,.2)' },
+        { id: 6, title: 'Release notes v2.4', meta: '11月19日 · 640 × 512', w1: 60, w2: 90, w3: 60, tint: 'rgba(2,132,199,.18)' }
+      ],
+      trs: [
+        { id: 1, lang: 'EN → 中', src: 'Large language models can now translate text while keeping formatting, terminology, and code intact.', dst: '大语言模型如今可以在翻译文本的同时，完整保留格式、术语和代码。', meta: '截图翻译 · 本地 OCR → deepseek-chat · 今天 10:15' },
+        { id: 2, lang: 'EN → 中', src: 'terminology', dst: '术语；专门用语', meta: '划词翻译 · deepseek-chat 超时，已切换到 DeepL · 今天 10:02' },
+        { id: 3, lang: '日 → 中', src: '設定を保存しました', dst: '设置已保存', meta: '截图翻译 · 一步到位 claude-haiku-5-5 · 昨天 22:08' },
+        { id: 4, lang: '中 → EN', src: '原文已是目标语言时翻译成英文', dst: 'Translate into English when the source is already in the target language', meta: '划词翻译 · deepseek-chat · 昨天 18:40' }
+      ],
+      exp: { settings: true, keys: true, prompts: true, provs: true }, expKey: false, bak: true,
+      ball: false, toast: null
+    };
+    this.tt = null;
+  }
+  componentWillUnmount() { if (this.tt) clearTimeout(this.tt); }
+  toast(msg) { var self = this; if (this.tt) clearTimeout(this.tt); this.setState({ toast: msg }); this.tt = setTimeout(function () { self.setState({ toast: null }); }, 1800); }
+  flip(k) { var o = {}; o[k] = !this.state[k]; this.setState(o); }
+  sw(k) { var self = this, v = this.state[k]; return { on: v ? 'on' : '', aria: v ? 'true' : 'false', toggle: function () { self.flip(k); } }; }
+  moveItem(arr, from, to) { var a = arr.slice(); if (to < 0 || to >= a.length || from === to) return a; var x = a.splice(from, 1)[0]; a.splice(to, 0, x); return a; }
+  renderVals() {
+    var self = this, st = this.state;
+    var sys = this.props.mode === 'dark' ? 'dark' : 'light';
+    var mode = st.pref === 'system' ? sys : st.pref;
+    var navDefs = [
+      ['ocr', '识别与翻译', 'M3 5h9M7.5 3v2M5 5c.5 3.5 3 6.5 6.5 8M10 5c-.8 3.8-3 6.8-6.5 8.5M13 21l4-10 4 10M14.5 17.5h5'],
+      ['prov', '模型服务', 'M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8zM18 15l.8 2.2 2.2.8-2.2.8L18 21l-.8-2.2-2.2-.8 2.2-.8z'],
+      ['prompt', '提示词', 'M4 5h16v11H8l-4 4zM8 9h8M8 12h5'],
+      ['keys', '快捷键', 'M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1zM7 10h.01M11 10h.01M15 10h.01M8 14h8'],
+      ['bar', '工具栏', 'M4 8h16M4 16h16M8 5v6M15 13v6'],
+      ['shot', '截图与贴图', 'M6 3v13a2 2 0 002 2h13M3 6h13a2 2 0 012 2v13'],
+      ['hist', '历史记录', 'M3.5 12a8.5 8.5 0 102.5-6M3.5 4v4h4M12 8v4l3 2'],
+      ['look', '外观', 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 3v18M12 8h6.5M12 12h9M12 16h6.5'],
+      ['conf', '配置文件', 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h4'],
+      ['about', '关于', 'M12 3a9 9 0 110 18 9 9 0 010-18zM12 11v5M12 8h.01']
+    ];
+    var navs = navDefs.map(function (n) { return { label: n[1], d: n[2], on: st.page === n[0] ? 'on' : '', pick: function () { self.setState({ page: n[0] }); } }; });
+
+    var provMeta = {
+      deepseek: { name: 'DeepSeek', mono: 'DS', color: '#4D6BFE', api: 'OpenAI 兼容', url: 'https://api.deepseek.com/v1', desc: '性价比高的中文文本模型' },
+      anthropic: { name: 'Anthropic', mono: 'AN', color: '#C2410C', api: 'Claude 原生', url: 'https://api.anthropic.com', desc: 'Claude 系列，支持图片输入' },
+      google: { name: 'Google Gemini', mono: 'GE', color: '#1A73E8', api: 'Gemini 原生', url: 'https://generativelanguage.googleapis.com', desc: 'Gemini 系列，支持图片输入' },
+      openai: { name: 'OpenAI', mono: 'OA', color: '#10A37F', api: 'OpenAI', url: 'https://api.openai.com/v1', desc: 'GPT 系列' },
+      openrouter: { name: 'OpenRouter', mono: 'OR', color: '#6467F2', api: 'OpenAI 兼容', url: 'https://openrouter.ai/api/v1', desc: '一个 Key 调用多家模型' },
+      ollama: { name: 'Ollama（本地）', mono: 'OL', color: '#334155', api: 'OpenAI 兼容', url: 'http://localhost:11434/v1', desc: '在本机运行模型，不需要 Key' },
+      custom: { name: '自定义服务', mono: '+', color: '#64748B', api: 'OpenAI 兼容', url: 'https://', desc: '任意 OpenAI 兼容接口' }
+    };
+    var order = ['deepseek', 'anthropic', 'google', 'openai', 'openrouter', 'ollama', 'custom'];
+    var mkProv = function (id) { var m = provMeta[id], p = st.provs[id]; return { name: m.name, mono: m.mono, color: m.color, count: p.models.filter(function (x) { return x.on; }).length, on: st.prov === id ? 'on' : '', pick: function () { self.setState({ prov: id }); } }; };
+    var curP = st.provs[st.prov], curM = provMeta[st.prov];
+    var setProv = function (patch) { var n = Object.assign({}, st.provs); n[st.prov] = Object.assign({}, curP, patch); self.setState({ provs: n }); };
+    var curModels = curP.models.map(function (m, i) { return { name: m.name, tags: m.tags, on: m.on, toggle: function () { setProv({ models: curP.models.map(function (x, j) { return j === i ? Object.assign({}, x, { on: !x.on }) : x; }) }); } }; });
+    var enabled = [], vision = [];
+    order.forEach(function (id) { var p = st.provs[id]; if (!p.added) return; p.models.forEach(function (m) { if (!m.on) return; var label = provMeta[id].name + ' · ' + m.name; enabled.push(label); if (m.tags.indexOf('视觉') >= 0) vision.push(label); }); });
+
+    var usesLlm = st.one || st.ocr === 'llm' || st.tr === 'llm';
+    var flow, note, out;
+    if (st.one) { flow = [{ label: '视觉大模型 · 识别 + 翻译一次完成' }]; note = '一步到位：看图后直接给出原文和译文。原位覆盖需要文字坐标，此时结果用卡片展示。'; out = '卡片'; }
+    else if (st.ocr === 'llm') { flow = [{ label: '大模型 · 识别' }, { label: st.tr === 'llm' ? '大模型 · 翻译' : '机器翻译' }]; note = '大模型识别后再翻译，共两次调用。原位覆盖不可用。'; out = '卡片'; }
+    else { flow = [{ label: '本地 OCR' }, { label: st.tr === 'llm' ? '大模型 · 翻译' : '机器翻译' }]; note = st.tr === 'llm' ? '本地 OCR 识别文字、行和段落坐标，再交给大模型翻译。原位覆盖可用。' : '本地 OCR 识别后交给机器翻译，完全不经过大模型。原位覆盖可用。'; out = '卡片 / 覆盖'; }
+    var ocrOpts = [['local', '本地 OCR', 'PaddleOCR · 离线 · 能识别行和段落，带坐标'], ['llm', '大模型', '视觉模型看图识别，复杂版面更稳，但没有坐标']].map(function (o) { return { name: o[1], desc: o[2], on: st.ocr === o[0] ? 'on' : '', pick: function () { self.setState({ ocr: o[0] }); } }; });
+    var trOpts = [['mt', '机器翻译', 'Google、微软、DeepL · 快、便宜'], ['llm', '大模型', '按提示词翻译，术语和格式更可控']].map(function (o) { return { name: o[1], desc: o[2], on: st.tr === o[0] ? 'on' : '', pick: function () { self.setState({ tr: o[0] }); } }; });
+
+    var chainArr = st.chains[st.ctab];
+    var setChain = function (arr) { var c = Object.assign({}, st.chains); c[st.ctab] = arr; self.setState({ chains: c }); };
+    var chain = chainArr.map(function (c, i) {
+      return { n: i + 1, name: c[0], tag: c[1], first: i === 0 ? 'first' : '', isFirst: i === 0, isLast: i === chainArr.length - 1,
+        up: function () { setChain(self.moveItem(chainArr, i, i - 1)); }, down: function () { setChain(self.moveItem(chainArr, i, i + 1)); },
+        remove: function () { if (chainArr.length <= 1) { self.toast('至少保留一个'); return; } setChain(chainArr.filter(function (x, j) { return j !== i; })); } };
+    });
+    var pool = st.ctab === 'tr' ? enabled.map(function (x) { return [x, '大模型']; }).concat([['DeepL', '机器翻译'], ['Google 翻译', '机器翻译'], ['微软翻译', '机器翻译']]) : st.ctab === 'ocr' ? [['本地 OCR · PaddleOCR', '本地']].concat(vision.map(function (x) { return [x, '视觉大模型']; })) : vision.map(function (x) { return [x, '视觉大模型']; }).concat([['降级为：本地 OCR → 翻译链', '降级']]);
+    var have = chainArr.map(function (c) { return c[0]; });
+    var avail = pool.filter(function (p) { return have.indexOf(p[0]) < 0; });
+    var addOpts = avail.length ? avail.map(function (p) { return p[0]; }) : ['（没有可添加的项）'];
+    var addSel = addOpts.indexOf(st.addSel) >= 0 ? st.addSel : addOpts[0];
+
+    var pTabDefs = [['ocr', '识别'], ['tr', '翻译'], ['one', '一步到位'], ['md', 'Markdown']];
+    var pDescs = { ocr: '识别槽使用大模型时生效。本地 OCR 不使用提示词。', tr: '翻译槽使用大模型时生效，划词翻译也用这一套。', one: '打开「一步到位」后生效：一次调用同时完成识别和翻译。', md: '「识别为 Markdown」（Shift+Alt+R）使用大模型时生效。' };
+    var gkeyDefs = [['shot', '截图', '进入截图编辑态', 'Shift + F1'], ['pin', '贴图', '把剪贴板里的图片或文字贴到屏幕上', 'Shift + F3'], ['sel', '划词翻译', '翻译当前选中的文字', 'Ctrl + Alt + D'], ['otr', '截图 OCR 后翻译', '框选后直接出翻译卡片', 'Ctrl + Shift + O'], ['ocr', '直接截图 OCR', '框选后复制识别出的文字', 'Ctrl + Shift + S']];
+    var gkeys = gkeyDefs.map(function (k) { var r = st.rec === k[0]; return { name: k[1], desc: k[2], text: r ? '请按下新的组合键…' : k[3], rec: r ? 'rec' : '', pick: function () { self.setState({ rec: r ? null : k[0] }); } }; });
+    var lkeys = [['复制并结束', 'Ctrl+C / Enter'], ['贴图并结束', 'Ctrl+T'], ['保存…', 'Ctrl+S'], ['开始 / 退出标注', '空格'], ['识别文字', 'Shift+C'], ['识别为 Markdown', 'Shift+Alt+R'], ['翻译', 'Ctrl+Q'], ['长截图 / 录屏', 'L / R'], ['切换颜色格式', 'P'], ['复制颜色值', 'C'], ['逐像素移动光标', 'W A S D'], ['选择上级 / 下级元素', '滚轮'], ['标注工具', '1 – 7'], ['撤销', 'Ctrl+Z'], ['显示 / 隐藏提示', 'H'], ['逐级退出', 'Esc']].map(function (x) { return { name: x[0], text: x[1] }; });
+
+    var bar = st.bars[st.btab];
+    var setBar = function (arr) { var b = Object.assign({}, st.bars); b[st.btab] = arr; self.setState({ bars: b }); };
+    var divAt = bar.findIndex(function (b) { return b.divider; });
+    var barItems = bar.map(function (b, i) {
+      return { isItem: !b.divider, isDiv: !!b.divider, label: b.label || '', key: b.key || '', d: b.d || '', on: !!b.on,
+        cls: (b.divider ? 'divider ' : '') + (!b.divider && !b.on ? 'hidden-item ' : '') + (st.overI === i && st.dragI !== i ? 'over' : ''),
+        toggle: function () { setBar(bar.map(function (x, j) { return j === i ? Object.assign({}, x, { on: !x.on }) : x; })); },
+        up: function () { setBar(self.moveItem(bar, i, i - 1)); }, down: function () { setBar(self.moveItem(bar, i, i + 1)); },
+        dragStart: function (e) { try { e.dataTransfer.setData('text/plain', String(i)); e.dataTransfer.effectAllowed = 'move'; } catch (x) {} self.setState({ dragI: i }); },
+        dragOver: function (e) { e.preventDefault(); if (self.state.overI !== i) self.setState({ overI: i }); },
+        drop: function (e) { e.preventDefault(); var from = self.state.dragI; if (from >= 0) setBar(self.moveItem(bar, from, i)); self.setState({ dragI: -1, overI: -1 }); } };
+    });
+    var barPrev = bar.filter(function (b, i) { return !b.divider && b.on && i < divAt; }).map(function (b) { return { label: b.label, d: b.d }; });
+    var barMore = bar.filter(function (b, i) { return !b.divider && b.on && i > divAt; }).map(function (b) { return b.label; }).join('、') || '（空）';
+
+    var fmts = [['png', 'PNG'], ['jpg', 'JPG'], ['webp', 'WebP']].map(function (f) { return { label: f[1], on: st.fmt === f[0] ? 'on' : '', pick: function () { self.setState({ fmt: f[0] }); } }; });
+    var ext = st.fmt === 'jpg' ? '.jpg' : st.fmt === 'webp' ? '.webp' : '.png';
+    var tplPreview = String(st.tpl).replace('{yyyyMMdd_HHmmss}', '20261122_101530').replace('{yyyyMMdd}', '20261122').replace('{HHmmss}', '101530') + ext;
+
+    var q = st.hq.trim().toLowerCase();
+    var pins = st.pins.filter(function (p) { return !q || p.title.toLowerCase().indexOf(q) >= 0; }).map(function (p) { return Object.assign({}, p, { repin: function () { self.toast('已重新贴到屏幕'); }, copy: function () { self.toast('图片已复制'); }, del: function () { self.setState({ pins: self.state.pins.filter(function (x) { return x.id !== p.id; }) }); } }); });
+    var trs = st.trs.filter(function (t) { return !q || (t.src + t.dst).toLowerCase().indexOf(q) >= 0; }).map(function (t) { return Object.assign({}, t, { copy: function () { self.toast('译文已复制'); }, pin: function () { self.toast('译文已贴到屏幕'); }, del: function () { self.setState({ trs: self.state.trs.filter(function (x) { return x.id !== t.id; }) }); } }); });
+    var pinCount = st.pins.length ? 122 + st.pins.length : 0, trCount = st.trs.length ? 348 + st.trs.length : 0;
+    var pinMB = pinCount * 0.37, trMB = trCount * 0.0031, tot = pinMB + trMB;
+    var fmtMB = function (v) { return v >= 1 ? v.toFixed(1) + ' MB' : Math.round(v * 1024) + ' KB'; };
+
+    var prefDefs = [['system', '跟随系统', 'light', 'dark'], ['light', '浅色', 'light', 'light'], ['dark', '深夜', 'dark', 'dark']];
+    var pal = { light: { bg: '#E6EBF2', card: '#FFFFFF', line: '#CBD5E1', acc: '#2563EB' }, dark: { bg: '#0E1219', card: '#1E2530', line: '#3A4352', acc: '#60A5FA' } };
+    var prefs = prefDefs.map(function (p) { var A = pal[p[2]], B = pal[p[3]]; return { label: p[1], on: st.pref === p[0] ? 'on' : '', bgA: A.bg, cardA: A.card, lineA: A.line, accA: A.acc, bgB: B.bg, cardB: B.card, lineB: B.line, accB: B.acc, pick: function () { self.setState({ pref: p[0] }); } }; });
+    var accents = [['blue', '蓝', '#2563EB', '#60A5FA'], ['sky', '天蓝', '#0284C7', '#38BDF8'], ['violet', '紫', '#7C3AED', '#A78BFA'], ['green', '绿', '#059669', '#34D399']].map(function (a) { return { label: a[1], color: mode === 'dark' ? a[3] : a[2], on: st.acc === a[0] ? 'on' : '', pick: function () { self.setState({ acc: a[0] }); } }; });
+
+    var expDefs = [['settings', '常规设置'], ['keys', '快捷键与工具栏'], ['prompts', '提示词'], ['provs', '模型服务与备用链']];
+    var expParts = expDefs.map(function (x) { return { label: x[1], on: st.exp[x[0]], toggle: function () { var e = Object.assign({}, self.state.exp); e[x[0]] = !e[x[0]]; self.setState({ exp: e }); } }; });
+    var expCount = expDefs.filter(function (x) { return st.exp[x[0]]; }).length;
+
+    var one = this.sw('one'), fb = this.sw('fb'), para = this.sw('para'), bi = this.sw('bi'), keep = this.sw('keep'), term = this.sw('term'), ask = this.sw('ask'), audio = this.sw('audio'), autoOcr = this.sw('autoOcr'), ball = this.sw('ball'), hint = this.sw('hint'), expKey = this.sw('expKey'), bak = this.sw('bak');
+    var hPinShow = st.htab === 'pin' && pins.length > 0, hTrShow = st.htab === 'tr' && trs.length > 0;
+    return {
+      mode: mode, acc: st.acc === 'blue' ? '' : 'acc-' + st.acc, navs: navs,
+      pgOcr: st.page === 'ocr', pgProv: st.page === 'prov', pgPrompt: st.page === 'prompt', pgKeys: st.page === 'keys', pgBar: st.page === 'bar', pgShot: st.page === 'shot', pgHist: st.page === 'hist', pgLook: st.page === 'look', pgConf: st.page === 'conf', pgAbout: st.page === 'about',
+      flow: flow, flowNote: note, outLabel: out,
+      oneOn: one.on, oneAria: one.aria, toggleOne: one.toggle, notOneStep: !st.one,
+      ocrOpts: ocrOpts, trOpts: trOpts,
+      fbOn: fb.on, fbAria: fb.aria, toggleFb: fb.toggle, fbOp: st.fb ? 1 : 0.45,
+      chainTabs: [['tr', '翻译'], ['ocr', '识别'], ['one', '一步到位']].map(function (t) { return { label: t[1], on: st.ctab === t[0] ? 'on' : '', pick: function () { self.setState({ ctab: t[0], addSel: '' }); } }; }),
+      chain: chain, addOpts: addOpts, addSel: addSel, onAddSel: function (e) { self.setState({ addSel: e.target.value }); },
+      addChain: function () { var p = avail.filter(function (x) { return x[0] === addSel; })[0]; if (!p) return; setChain(chainArr.concat([p])); self.setState({ addSel: '' }); },
+      paraOn: para.on, paraAria: para.aria, togglePara: para.toggle,
+      tblFmts: [['excel', 'Excel'], ['md', 'Markdown'], ['html', 'HTML']].map(function (f) { return { label: f[1], on: st.tblFmt === f[0] ? 'on' : '', pick: function () { self.setState({ tblFmt: f[0] }); } }; }),
+      biOn: bi.on, biAria: bi.aria, toggleBi: bi.toggle, keepOn: keep.on, keepAria: keep.aria, toggleKeep: keep.toggle,
+      termOn: usesLlm && st.term ? 'on' : '', termAria: term.aria, toggleTerm: term.toggle, termDisabled: !usesLlm,
+      termNote: usesLlm ? '由大模型识别专有名词和行业术语，保留原文或使用通行译法，并在全文统一' : '只在使用大模型翻译时可用',
+      notYet: function () { self.toast('原型里暂不支持'); },
+      provAdded: order.filter(function (id) { return st.provs[id].added; }).map(mkProv), provMore: order.filter(function (id) { return !st.provs[id].added; }).map(mkProv),
+      cur: { name: curM.name, mono: curM.mono, color: curM.color, api: curM.api, url: curM.url, desc: curM.desc }, curAdded: curP.added, curNotAdded: !curP.added,
+      addProv: function () { setProv({ added: true }); self.toast('已添加 ' + curM.name); }, removeProv: function () { setProv({ added: false }); },
+      keyNote: st.prov === 'ollama' ? '本地服务不需要 Key' : '只保存在本机的系统凭据库里', keyPh: st.prov === 'ollama' ? '不需要' : '粘贴你的 API Key',
+      testConn: function () { self.toast('连接正常 · 312 ms'); }, fetchModels: function () { self.toast('已获取 ' + curP.models.length + ' 个模型'); }, curModels: curModels,
+      pTabs: pTabDefs.map(function (t) { return { label: t[1], on: st.ptab === t[0] ? 'on' : '', pick: function () { self.setState({ ptab: t[0] }); } }; }),
+      pDesc: pDescs[st.ptab], pText: st.prompts[st.ptab],
+      onPrompt: function (e) { var p = Object.assign({}, self.state.prompts); p[self.state.ptab] = e.target.value; self.setState({ prompts: p }); },
+      resetPrompt: function () { var p = Object.assign({}, self.state.prompts); p[self.state.ptab] = self.defaults[self.state.ptab]; self.setState({ prompts: p }); self.toast('已恢复默认提示词'); },
+      gkeys: gkeys, lkeys: lkeys, resetKeys: function () { self.setState({ rec: null }); self.toast('已恢复默认快捷键'); },
+      hintOn: hint.on, hintAria: hint.aria, toggleHint: hint.toggle,
+      barShotOn: st.btab === 'shot' ? 'on' : '', barPinOn: st.btab === 'pin' ? 'on' : '', barShot: function () { self.setState({ btab: 'shot' }); }, barPin: function () { self.setState({ btab: 'pin' }); },
+      barItems: barItems, barPrev: barPrev, barMore: barMore, dragEnd: function () { self.setState({ dragI: -1, overI: -1 }); },
+      resetBar: function () { setBar(self.clone(self.barDefaults[self.state.btab])); self.toast('已恢复默认工具条'); },
+      fmts: fmts, q: st.q, qText: st.fmt === 'png' ? '无损' : st.q + '%', qDisabled: st.fmt === 'png', qNote: st.fmt === 'png' ? 'PNG 是无损格式，不需要调质量' : '数值越低文件越小',
+      onQ: function (e) { self.setState({ q: Number(e.target.value) }); },
+      tpl: st.tpl, onTpl: function (e) { self.setState({ tpl: e.target.value }); }, tplPreview: tplPreview,
+      openDir: function () { self.toast('会在资源管理器中打开 D:\\Pictures\\SnapMind'); }, browse: function () { self.toast('会打开选择文件夹窗口'); },
+      saveOwn: st.saveMode === 'own' ? 'on' : '', saveSys: st.saveMode === 'sys' ? 'on' : '', saveQuick: st.saveMode === 'quick' ? 'on' : '',
+      setSaveOwn: function () { self.setState({ saveMode: 'own' }); }, setSaveSys: function () { self.setState({ saveMode: 'sys' }); }, setSaveQuick: function () { self.setState({ saveMode: 'quick' }); },
+      askOn: ask.on, askAria: ask.aria, toggleAsk: ask.toggle,
+      recMp4: st.recFmt === 'mp4' ? 'on' : '', recGif: st.recFmt === 'gif' ? 'on' : '', setMp4: function () { self.setState({ recFmt: 'mp4' }); }, setGif: function () { self.setState({ recFmt: 'gif' }); },
+      audioOn: audio.on, audioAria: audio.aria, toggleAudio: audio.toggle, autoOcrOn: autoOcr.on, autoOcrAria: autoOcr.aria, toggleAutoOcr: autoOcr.toggle,
+      histMax: st.histMax, onHistMax: function (e) { self.setState({ histMax: e.target.value }); },
+      histMB: st.histMB, onHistMB: function (e) { self.setState({ histMB: e.target.value }); },
+      histModes: [['none', '不限制'], ['count', '按条数'], ['size', '按空间']].map(function (m) { return { label: m[1], on: st.histMode === m[0] ? 'on' : '', pick: function () { self.setState({ histMode: m[0] }); } }; }),
+      histNote: st.histMode === 'none' ? '全部保留，需要时手动清理' : st.histMode === 'count' ? '贴图和翻译各自按条数计算' : '按磁盘占用计算，最省心',
+      histByCount: st.histMode === 'count', histBySize: st.histMode === 'size',
+      limitText: st.histMode === 'size' ? '/ 上限 ' + fmtMB(Number(st.histMB) || 0) : st.histMode === 'count' ? '/ 每类最多 ' + st.histMax + ' 条' : '/ 不限制',
+      totalSize: fmtMB(tot),
+      pinPct: st.histMode === 'size' ? Math.min(100, Math.round(pinMB / (Number(st.histMB) || 1) * 100)) : (tot ? Math.round(pinMB / tot * 100) : 0),
+      trPct: st.histMode === 'size' ? Math.max(1, Math.round(trMB / (Number(st.histMB) || 1) * 100)) : (tot ? Math.max(2, Math.round(trMB / tot * 100)) : 0),
+      pinCount: pinCount, trCount: trCount, pinSize: fmtMB(pinMB), trSize: fmtMB(trMB),
+      openHistDir: function () { self.toast('会打开 %APPDATA%\\SnapMind\\history'); },
+      hPinOn: st.htab === 'pin' ? 'on' : '', hTrOn: st.htab === 'tr' ? 'on' : '', hPin: function () { self.setState({ htab: 'pin' }); }, hTr: function () { self.setState({ htab: 'tr' }); },
+      hPh: st.htab === 'pin' ? '搜索贴图（按识别出的文字）' : '搜索原文或译文', hq: st.hq, onHq: function (e) { self.setState({ hq: e.target.value }); },
+      clearHist: function () { if (self.state.htab === 'pin') self.setState({ pins: [] }); else self.setState({ trs: [] }); self.toast('已清空'); },
+      pins: pins, trs: trs, hShowPin: hPinShow, hShowTr: hTrShow, hEmpty: !hPinShow && !hTrShow,
+      prefs: prefs, accents: accents, ballOn: ball.on, ballAria: ball.aria, toggleBall: ball.toggle,
+      openConfDir: function () { self.toast('会打开 %APPDATA%\\SnapMind'); }, copyPath: function () { self.toast('路径已复制'); },
+      expParts: expParts, expCount: expCount, expKeyOn: expKey.on, expKeyAria: expKey.aria, toggleExpKey: expKey.toggle,
+      keyExpNote: st.expKey ? '会用你设置的密码加密，导入时需要输入同一个密码' : '默认不导出，导入后需要重新填写 Key',
+      doExport: function () { self.toast('已导出 SnapMind-config-20261122.json'); }, doImport: function () { self.toast('会打开选择文件窗口；导入前已自动备份当前配置'); },
+      bakOn: bak.on, bakAria: bak.aria, toggleBak: bak.toggle,
+      backups: [['今天 10:20', '修改提示词前自动备份'], ['昨天 22:15', '导入配置前自动备份'], ['11月19日 09:00', '每周自动备份']].map(function (b) { return { time: b[0], reason: b[1], restore: function () { self.toast('已恢复到 ' + b[0] + ' 的配置'); } }; }),
+      resetAll: function () { self.toast('已恢复默认设置（已先自动备份）'); },
+      checkUpdate: function () { self.toast('已是最新版本'); },
+      hasToast: !!st.toast, toast: st.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>贴图窗口原型</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.light{--bg:#E6EBF2;--wall:#C7D2E1;--glass:rgba(255,255,255,.88);--sunken:#EEF2F7;--text:#0F172A;--text2:#475569;--text3:#64748B;--line:rgba(15,23,42,.08);--line2:rgba(15,23,42,.14);--hover:rgba(15,23,42,.06);--seg-on:#FFFFFF;--seg-sh:0 1px 2px rgba(15,23,42,.12);--field:#FFFFFF;--elev:0 0 0 1px rgba(15,23,42,.06),0 12px 32px rgba(15,23,42,.16);--chip:rgba(15,23,42,.8);--chip-text:#FFFFFF;--accent:#2563EB;--on-accent:#FFFFFF;--accent-soft:rgba(37,99,235,.12);--pin-sh:0 0 0 1px rgba(15,23,42,.1),0 14px 36px rgba(15,23,42,.25)}
+.dark{--bg:#0E1219;--wall:#1A2232;--glass:rgba(30,37,48,.9);--sunken:rgba(0,0,0,.25);--text:#E8ECF2;--text2:#9BA6B5;--text3:#8B95A3;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);--hover:rgba(255,255,255,.08);--seg-on:rgba(255,255,255,.1);--seg-sh:inset 0 1px 0 rgba(255,255,255,.06);--field:rgba(255,255,255,.04);--elev:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.07),0 16px 40px rgba(0,0,0,.5);--chip:rgba(20,25,33,.92);--chip-text:#E8ECF2;--accent:#60A5FA;--on-accent:#0B1220;--accent-soft:rgba(96,165,250,.16);--pin-sh:0 0 0 1px rgba(255,255,255,.1),0 16px 40px rgba(0,0,0,.6)}
+.theme{transition:background-color .3s,color .3s}
+.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ib{width:28px;height:28px;border:0;background:transparent;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;padding:0;transition:background .15s,color .15s,transform .1s;flex:none}
+.ib:hover{background:var(--hover);color:var(--text)}
+.ib:active{transform:scale(.9)}
+.ib.on{background:var(--accent-soft);color:var(--accent)}
+.sep{width:1px;height:16px;background:var(--line2);margin:0 3px;flex:none}
+.seg-wrap{display:flex;background:var(--sunken);border-radius:7px;padding:2px;flex:none}
+.seg{border:0;background:transparent;font:inherit;font-size:12px;padding:3px 9px;border-radius:5px;color:var(--text2);cursor:pointer}
+.seg.on{background:var(--seg-on);color:var(--text);box-shadow:var(--seg-sh)}
+.gb{height:30px;padding:0 11px;border-radius:7px;border:1px solid var(--line2);background:var(--field);font:inherit;font-size:12.5px;color:var(--text);display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:background .15s,transform .1s;flex:none}
+.gb:hover{background:var(--hover)}
+.gb:active{transform:scale(.96)}
+.pb{height:30px;padding:0 11px;border:0;border-radius:7px;font:inherit;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:var(--accent);color:var(--on-accent);flex:none}
+.pb:active{transform:scale(.95)}
+.glass{background:var(--glass);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);box-shadow:var(--elev)}
+.pin{position:absolute;transform-origin:top left;transition:opacity .2s,transform .12s cubic-bezier(.2,0,0,1);animation:pinIn .22s cubic-bezier(.2,.9,.3,1.15) both}
+@keyframes pinIn{from{opacity:0;transform:scale(.94)}to{opacity:1}}
+.pin .ptools{opacity:0;visibility:hidden;transform:translateY(4px);transition:opacity .16s ease .45s,transform .18s ease .45s,visibility 0s linear .62s}
+.pin:hover .ptools,.pin.keep .ptools,.pin .ptools:hover,.pin .ptools:focus-within{opacity:1;visibility:visible;transform:none;transition:opacity .15s,transform .18s cubic-bezier(.2,.9,.3,1.15),visibility 0s}
+.pin .pzoom{opacity:0;transition:opacity .15s}
+.pin:hover .pzoom,.pin.zooming .pzoom{opacity:1}
+.pin:hover .pframe,.pin.keep .pframe{box-shadow:0 0 0 2px var(--accent),var(--pin-sh)}
+.txt{user-select:none;-webkit-user-select:none}
+.ready .txt{user-select:text;-webkit-user-select:text;cursor:text}
+.txt::selection{background:rgba(37,99,235,.28)}
+.fade{animation:fade .16s cubic-bezier(0,0,.2,1) both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.pop{animation:pop .18s cubic-bezier(.2,.9,.3,1.15) both}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(4px)}to{opacity:1;transform:none}}
+.mi{display:flex;align-items:center;gap:10px;width:100%;height:30px;padding:0 10px;border:0;background:transparent;border-radius:6px;font:inherit;font-size:13px;color:var(--text);cursor:pointer;text-align:left}
+.mi:hover{background:var(--hover)}
+.mi kbd{margin-left:auto;font:inherit;font-size:11px;color:var(--text3)}
+.spin{width:11px;height:11px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.field{width:100%;box-sizing:border-box;border-radius:7px;border:1px solid var(--line2);background:var(--field);color:var(--text);font:inherit;font-size:13px;line-height:20px;padding:7px 10px;resize:none}
+.field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.code{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:19px;background:var(--sunken)}
+.hk{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:5px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:600;white-space:nowrap;box-sizing:border-box}
+input[type=range]{accent-color:var(--accent);width:140px}
+</style>
+</helmet>
+<div class="theme {{mode}}" style="width:1200px;height:740px;box-sizing:border-box;padding:28px 48px 40px;background:var(--bg);font-family:Inter,'Noto Sans SC',sans-serif;color:var(--text);display:flex;flex-direction:column;gap:16px;overflow:hidden">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">
+      <h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700">贴图窗口 · 可操作原型 v2</h1>
+      <p style="margin:0;font-size:13px;line-height:20px;color:var(--text2)">点一下贴图就能用键盘。悬停显示工具条，移开后延迟约半秒才隐藏，从贴图移到工具条不会丢；拖空白处移动，拖文字直接选中；滚轮缩放，Ctrl+滚轮调透明度。</p>
+    </div>
+    <sc-if value="{{through}}" hint-placeholder-val="{{ false }}"><button type="button" class="gb" onClick="{{toggleThrough}}">取消穿透</button></sc-if>
+    <sc-if value="{{closed}}" hint-placeholder-val="{{ false }}"><button type="button" class="gb" onClick="{{restore}}">从历史恢复贴图</button></sc-if>
+    <div class="seg-wrap"><button type="button" class="seg {{lightOn}}" onClick="{{setLight}}">浅色</button><button type="button" class="seg {{darkOn}}" onClick="{{setDark}}">深夜</button></div>
+  </div>
+
+  <div data-scene="1" onMouseMove="{{onMove}}" onMouseUp="{{onUp}}" onMouseLeave="{{onUp}}" style="position:relative;flex:1;border-radius:16px;overflow:hidden;background:var(--wall);transition:background-color .3s">
+    <input class="kb" readonly aria-label="贴图快捷键" onKeyDown="{{onKey}}" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0">
+    <div style="position:absolute;left:36px;top:34px;width:300px;height:180px;border-radius:10px;background:var(--glass);opacity:.5"></div>
+    <div style="position:absolute;right:40px;bottom:36px;width:260px;height:150px;border-radius:10px;background:var(--glass);opacity:.5"></div>
+
+    <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
+      <div class="pin {{pinCls}}" style="left:{{x}}px;top:{{y}}px;width:520px;opacity:{{opacity}};transform:scale({{scale}});pointer-events:{{pe}}" onMouseDown="{{onDown}}" onWheel="{{onWheel}}" onDoubleClick="{{close}}">
+        <div class="pframe" style="position:relative;width:520px;height:262px;border-radius:2px;background:#FFFFFF;box-shadow:var(--pin-sh);overflow:hidden;cursor:move;transition:box-shadow .15s">
+          <sc-if value="{{showOriginal}}" hint-placeholder-val="{{ true }}">
+            <div class="fade" style="position:absolute;inset:0;padding:24px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+              <span class="txt" data-ocr="1" style="font-size:22px;line-height:30px;font-weight:700;color:#0F172A;align-self:flex-start">Designing for Multilingual Readers</span>
+              <span class="txt" data-ocr="1" style="font-size:15px;line-height:24px;color:#334155">Large language models can now translate text while keeping formatting, terminology, and code intact. Pair them with fast on-device OCR, and any pixel on your screen becomes something you can read.</span>
+              <span class="txt" data-ocr="1" style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:20px;color:#0F172A;background:#F1F5F9;border-radius:6px;padding:8px 12px;align-self:flex-start">const text = await ocr.recognize(image);</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{overlay}}" hint-placeholder-val="{{ false }}">
+            <div class="fade" style="position:absolute;inset:0;padding:24px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
+              <span class="txt" data-ocr="1" style="font-size:22px;line-height:30px;font-weight:700;color:#0F172A;align-self:flex-start">为多语言读者而设计</span>
+              <span class="txt" data-ocr="1" style="font-size:15px;line-height:24px;color:#334155">大语言模型如今可以在翻译文本的同时，完整保留格式、术语和代码。再配上快速的本地 OCR，屏幕上的任何像素都能变成可阅读的文字。</span>
+              <span class="txt" data-ocr="1" style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:20px;color:#0F172A;background:#F1F5F9;border-radius:6px;padding:8px 12px;align-self:flex-start">const text = await ocr.recognize(image);</span>
+            </div>
+          </sc-if>
+          <span class="pzoom" style="position:absolute;left:8px;top:8px;font-size:11px;line-height:16px;padding:3px 8px;border-radius:6px;background:var(--chip);color:var(--chip-text);pointer-events:none">{{zoomText}} · 不透明度 {{opVal}}%</span>
+          <span style="position:absolute;right:8px;top:8px;display:flex;align-items:center;gap:6px;font-size:11px;line-height:16px;padding:3px 8px;border-radius:6px;background:var(--chip);color:var(--chip-text);pointer-events:none">
+            <sc-if value="{{ocrRunning}}" hint-placeholder-val="{{ false }}"><span class="spin"></span>识别文字中…</sc-if>
+            <sc-if value="{{ocrReady}}" hint-placeholder-val="{{ true }}"><svg class="ic" style="width:12px;height:12px;stroke-width:2.6" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>{{statusText}}</sc-if>
+          </span>
+        </div>
+
+        <div class="ptools" style="position:absolute;right:0;top:262px;padding-top:8px" onMouseDown="{{stop}}">
+          <div class="glass" style="display:flex;align-items:center;gap:1px;padding:4px;border-radius:10px">
+            <button type="button" class="ib {{overlayOn}}" title="翻译（原位覆盖）  Ctrl+Q" aria-label="翻译" onClick="{{toggleOverlay}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h9M7.5 3v2M5 5c.5 3.5 3 6.5 6.5 8M10 5c-.8 3.8-3 6.8-6.5 8.5M13 21l4-10 4 10M14.5 17.5h5"></path></svg></button>
+            <button type="button" class="ib" title="识别文字  Shift+C" aria-label="识别文字" onClick="{{ocr}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5"></path></svg></button>
+            <button type="button" class="ib" title="识别为 Markdown  Shift+Alt+R" aria-label="识别为 Markdown" onClick="{{md}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1zM6.5 15V9l2.5 3 2.5-3v6M16.5 9v6M14.5 13l2 2 2-2"></path></svg></button>
+            <button type="button" class="ib" title="标注  空格" aria-label="标注" onClick="{{annotate}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.5-1L19 8.5 15.5 5 5 15.5z"></path></svg></button>
+            <span class="sep"></span>
+            <button type="button" class="ib" title="保存  Ctrl+S" aria-label="保存" onClick="{{saveAs}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14"></path></svg></button>
+            <button type="button" class="ib" title="复制  Ctrl+C" aria-label="复制" onClick="{{copyImg}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 9h7.5A1.5 1.5 0 0120 10.5v8a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 019 18.5V11a2 2 0 012-2zM15 9V5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15H9"></path></svg></button>
+            <button type="button" class="ib {{menuOn}}" title="更多" aria-label="更多" onClick="{{toggleMenu}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h.01M12 12h.01M18 12h.01"></path></svg></button>
+            <button type="button" class="ib" title="关闭  Esc / 双击" aria-label="关闭" onClick="{{close}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+          </div>
+          <sc-if value="{{menu}}" hint-placeholder-val="{{ false }}">
+            <div class="glass pop" style="position:absolute;right:0;top:50px;width:230px;padding:5px;border-radius:12px;display:flex;flex-direction:column">
+              <button type="button" class="mi" onClick="{{latex}}">公式识别 → LaTeX</button>
+              <button type="button" class="mi" onClick="{{table}}">表格识别</button>
+              <div style="height:1px;background:var(--line);margin:4px 6px"></div>
+              <div style="display:flex;align-items:center;gap:8px;padding:4px 10px;font-size:12px;color:var(--text2)">不透明度<input type="range" min="20" max="100" value="{{opVal}}" onChange="{{onOpacity}}" aria-label="不透明度"></div>
+              <button type="button" class="mi" onClick="{{toggleThrough}}">鼠标穿透<kbd>Ctrl+Shift+X</kbd></button>
+              <button type="button" class="mi" onClick="{{resetZoom}}">缩放到 100%<kbd>Ctrl+0</kbd></button>
+              <button type="button" class="mi" onClick="{{customize}}">自定义工具条…</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{hasCard}}" hint-placeholder-val="{{ false }}">
+      <section class="glass pop" style="position:absolute;left:{{cardX}}px;top:{{cardY}}px;width:360px;box-sizing:border-box;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;padding:3px 8px;border-radius:6px;background:var(--sunken);color:var(--text2);font-weight:500">{{cardChip}}</span>
+          <span style="flex:1"></span>
+          <sc-if value="{{isOcr}}" hint-placeholder-val="{{ false }}"><div class="seg-wrap"><button type="button" class="seg {{paraOn}}" onClick="{{ocrPara}}">按段落</button><button type="button" class="seg {{lineOn}}" onClick="{{ocrLine}}">按行</button></div></sc-if>
+          <button type="button" class="ib" aria-label="关闭" onClick="{{closeCard}}"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+        <textarea class="field {{cardCode}}" aria-label="识别结果" style="height:200px" value="{{cardText}}" onChange="{{onCardEdit}}"></textarea>
+        <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;color:var(--text3);flex:1">{{cardMeta}}</span><button type="button" class="gb" onClick="{{cardTranslate}}">翻译</button><button type="button" class="pb" onClick="{{cardCopy}}">复制</button></div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{showHints}}" hint-placeholder-val="{{ true }}">
+      <div class="fade" style="position:absolute;left:16px;bottom:16px;display:flex;flex-direction:column;gap:5px;padding:10px 12px;border-radius:10px;background:var(--chip);color:var(--chip-text);pointer-events:none">
+        <sc-for list="{{hints}}" as="h" hint-placeholder-count="8"><div style="display:flex;align-items:center;gap:10px;font-size:12px;line-height:20px"><span style="display:flex;min-width:92px;justify-content:flex-end"><span class="hk">{{h.k}}</span></span><span>{{h.label}}</span></div></sc-for>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);padding-top:3px;border-top:1px solid rgba(255,255,255,.12)">H 隐藏提示（与截图共用设置）</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{through}}" hint-placeholder-val="{{ false }}">
+      <div class="fade" style="position:absolute;left:0;right:0;top:16px;display:flex;justify-content:center;pointer-events:none"><span style="font-size:12px;line-height:18px;padding:5px 12px;border-radius:999px;background:var(--chip);color:var(--chip-text)">鼠标穿透中 · 贴图不再响应点击 · Ctrl+Shift+X 取消</span></div>
+    </sc-if>
+    <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;top:16px;display:flex;justify-content:center;pointer-events:none">
+        <div class="glass pop" style="display:flex;align-items:center;gap:10px;height:38px;padding:0 16px 0 12px;border-radius:12px;font-size:13px">
+          <span style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:13px;height:13px;stroke-width:2.4" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+          {{toast}}
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"mode":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1200,"height":740}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var hidden = false;
+    try { hidden = window.localStorage.getItem('snapmind.hintsHidden') === '1'; } catch (x) { hidden = false; }
+    this.text = {
+      para: 'Designing for Multilingual Readers\n\nLarge language models can now translate text while keeping formatting, terminology, and code intact. Pair them with fast on-device OCR, and any pixel on your screen becomes something you can read.\n\nconst text = await ocr.recognize(image);',
+      line: 'Designing for Multilingual Readers\nLarge language models can now translate text while keeping formatting,\nterminology, and code intact. Pair them with fast on-device OCR, and any\npixel on your screen becomes something you can read.\nconst text = await ocr.recognize(image);',
+      md: '## Designing for Multilingual Readers\n\nLarge language models can now translate text while keeping formatting, terminology, and code intact. Pair them with fast on-device OCR, and any pixel on your screen becomes something you can read.\n\n```js\nconst text = await ocr.recognize(image);\n```',
+      latex: '% 贴图中没有识别到公式'
+    };
+    this.state = {
+      mode: props && props.mode === 'dark' ? 'dark' : 'light',
+      x: 120, y: 90, scale: 1, op: 100, ocr: 'running', overlay: false,
+      menu: false, through: false, closed: false, drag: null, toast: null, zooming: false,
+      card: null, cardText: '', ocrMode: 'para', hintsHidden: hidden
+    };
+    this.tt = null; this.zt = null; this.ot = null;
+    var self = this;
+    this.onDown = function (e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      var host = e.currentTarget.closest ? e.currentTarget.closest('[data-scene]') : null;
+      var kb = host && host.querySelector ? host.querySelector('.kb') : null;
+      if (kb) { try { kb.focus({ preventScroll: true }); } catch (x) { kb.focus(); } }
+      var t = e.target;
+      if (self.state.ocr === 'ready' && t && t.closest && t.closest('[data-ocr]')) return;
+      var r = e.currentTarget.getBoundingClientRect();
+      var k = r.width / (520 * self.state.scale); if (!isFinite(k) || k <= 0) k = 1;
+      self.setState({ drag: { sx: e.clientX, sy: e.clientY, ox: self.state.x, oy: self.state.y, k: k }, menu: false });
+      e.preventDefault();
+    };
+    this.onMove = function (e) { var d = self.state.drag; if (!d) return; self.setState({ x: Math.round(d.ox + (e.clientX - d.sx) / d.k), y: Math.round(d.oy + (e.clientY - d.sy) / d.k) }); };
+    this.onUp = function () { if (self.state.drag) self.setState({ drag: null }); };
+    this.onWheel = function (e) {
+      if (e.ctrlKey) { self.setState({ op: Math.max(20, Math.min(100, self.state.op + (e.deltaY < 0 ? 10 : -10))), zooming: true }); }
+      else { var s = Math.max(0.5, Math.min(2, Math.round((self.state.scale + (e.deltaY < 0 ? 0.1 : -0.1)) * 10) / 10)); self.setState({ scale: s, zooming: true }); }
+      if (self.zt) clearTimeout(self.zt);
+      self.zt = setTimeout(function () { self.setState({ zooming: false }); }, 900);
+    };
+    this.stop = function (e) { e.stopPropagation(); };
+    this.onKey = function (e) { self.key(e); };
+  }
+  componentDidMount() { this.startOcr(); }
+  componentDidUpdate(prev) { if (prev.mode !== this.props.mode && this.props.mode) this.setState({ mode: this.props.mode === 'dark' ? 'dark' : 'light' }); }
+  componentWillUnmount() { [this.tt, this.zt, this.ot].forEach(function (t) { if (t) clearTimeout(t); }); }
+  startOcr() { var self = this; if (this.ot) clearTimeout(this.ot); this.setState({ ocr: 'running' }); this.ot = setTimeout(function () { self.setState({ ocr: 'ready' }); }, 900); }
+  toast(msg) { var self = this; if (this.tt) clearTimeout(this.tt); this.setState({ toast: msg, menu: false }); this.tt = setTimeout(function () { self.setState({ toast: null }); }, 1800); }
+  openCard(kind) {
+    var st = this.state;
+    if (st.ocr !== 'ready') { this.toast('还在识别，请稍等'); return; }
+    var txt = kind === 'ocr' ? this.text[st.ocrMode] : this.text[kind];
+    this.setState({ card: kind, cardText: txt, menu: false });
+  }
+  key(e) {
+    var st = this.state, c = e.code || '', k = e.key, ctrl = e.ctrlKey || e.metaKey, sh = e.shiftKey, alt = e.altKey, done = true;
+    if (k === 'Escape') { if (st.card) this.setState({ card: null }); else if (st.menu) this.setState({ menu: false }); else this.setState({ closed: true }); }
+    else if (ctrl && sh && c === 'KeyX') this.setState({ through: !st.through });
+    else if (ctrl && c === 'KeyC') this.toast('图片已复制 · PNG');
+    else if (ctrl && c === 'KeyS') this.toast('打开保存窗口（与截图编辑态相同）');
+    else if (ctrl && c === 'KeyQ') this.setState({ overlay: !st.overlay });
+    else if (ctrl && c === 'Digit0') this.setState({ scale: 1 });
+    else if (sh && alt && c === 'KeyR') this.openCard('md');
+    else if (sh && c === 'KeyC') this.openCard('ocr');
+    else if (ctrl || alt) done = false;
+    else if (c === 'Space') this.toast('进入标注 · 工具和截图编辑态一致');
+    else if (c === 'KeyH') { var h = !st.hintsHidden; try { window.localStorage.setItem('snapmind.hintsHidden', h ? '1' : '0'); } catch (x) {} this.setState({ hintsHidden: h }); }
+    else done = false;
+    if (done) e.preventDefault();
+  }
+  renderVals() {
+    var self = this, st = this.state, open = !st.closed, keep = st.menu || !!st.card;
+    var cardX = Math.min(st.x + 520 * st.scale + 16, 1104 - 372), cardY = Math.max(12, Math.min(st.y, 596 - 300));
+    var titles = { ocr: '识别结果 · 3 段 5 行', md: 'Markdown · 可直接修改', latex: '公式 → LaTeX', table: '表格识别' };
+    var metas = { ocr: '本地 OCR · ' + st.cardText.length + ' 字', md: 'Obsidian 风格 · 代码块保留', latex: '没有识别到公式', table: '没有识别到表格' };
+    return {
+      mode: st.mode, lightOn: st.mode === 'light' ? 'on' : '', darkOn: st.mode === 'dark' ? 'on' : '',
+      setLight: function () { self.setState({ mode: 'light' }); }, setDark: function () { self.setState({ mode: 'dark' }); },
+      onMove: this.onMove, onUp: this.onUp, onDown: this.onDown, onWheel: this.onWheel, stop: this.stop, onKey: this.onKey,
+      open: open, closed: st.closed,
+      pinCls: (st.ocr === 'ready' ? 'ready ' : '') + (keep ? 'keep ' : '') + (st.zooming ? 'zooming' : ''),
+      x: st.x, y: st.y, scale: st.scale, opacity: st.through ? Math.min(st.op, 60) / 100 : st.op / 100, pe: st.through ? 'none' : 'auto',
+      showOriginal: !st.overlay, overlay: st.overlay, overlayOn: st.overlay ? 'on' : '',
+      toggleOverlay: function () { self.setState({ overlay: !self.state.overlay, menu: false }); },
+      opVal: st.op, onOpacity: function (e) { self.setState({ op: Number(e.target.value) }); },
+      menuOn: st.menu ? 'on' : '', menu: st.menu, toggleMenu: function () { self.setState({ menu: !self.state.menu }); },
+      ocr: function () { self.openCard('ocr'); }, md: function () { self.openCard('md'); },
+      latex: function () { self.openCard('latex'); }, table: function () { self.toast('贴图中没有识别到表格'); },
+      annotate: function () { self.toast('进入标注 · 工具和截图编辑态一致'); },
+      copyImg: function () { self.toast('图片已复制 · PNG'); }, saveAs: function () { self.toast('打开保存窗口（与截图编辑态相同）'); },
+      customize: function () { self.toast('在 设置 → 工具栏 里排序或隐藏按钮'); },
+      resetZoom: function () { self.setState({ scale: 1, menu: false }); },
+      through: st.through, toggleThrough: function () { self.setState({ through: !self.state.through, menu: false }); },
+      close: function () { self.setState({ closed: true, menu: false, card: null }); },
+      restore: function () { self.setState({ closed: false, x: 120, y: 90, scale: 1, overlay: false, through: false, op: 100 }); self.startOcr(); },
+      zoomText: Math.round(st.scale * 100) + '%',
+      ocrRunning: st.ocr === 'running', ocrReady: st.ocr === 'ready', statusText: st.overlay ? '译文覆盖中' : '已识别 · 可选中文字',
+      hasCard: !!st.card && open, cardX: cardX, cardY: cardY, cardChip: st.card ? titles[st.card] : '', isOcr: st.card === 'ocr',
+      cardCode: st.card === 'md' || st.card === 'latex' ? 'code' : '', cardText: st.cardText, onCardEdit: function (e) { self.setState({ cardText: e.target.value }); },
+      cardMeta: st.card ? metas[st.card] : '',
+      paraOn: st.ocrMode === 'para' ? 'on' : '', lineOn: st.ocrMode === 'line' ? 'on' : '',
+      ocrPara: function () { self.setState({ ocrMode: 'para', cardText: self.text.para }); }, ocrLine: function () { self.setState({ ocrMode: 'line', cardText: self.text.line }); },
+      closeCard: function () { self.setState({ card: null }); },
+      cardCopy: function () { self.setState({ card: null }); self.toast('已复制 · 贴图保留在屏幕上'); },
+      cardTranslate: function () { self.setState({ card: null, overlay: true }); },
+      showHints: !st.hintsHidden && open,
+      hints: [{ k: '拖动', label: '移动贴图' }, { k: '滚轮', label: '缩放' }, { k: 'Ctrl+滚轮', label: '不透明度' }, { k: 'Ctrl+Q', label: '翻译 / 原文' }, { k: 'Shift+C', label: '识别文字' }, { k: 'Shift+Alt+R', label: '识别为 Markdown' }, { k: '空格', label: '标注' }, { k: 'Ctrl+C', label: '复制' }, { k: 'Ctrl+S', label: '保存…' }, { k: 'Esc / 双击', label: '关闭（进历史）' }],
+      hasToast: !!st.toast, toast: st.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>云母 深夜版</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ib{width:34px;height:34px;border:0;background:transparent;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:#C3CCD8;cursor:pointer;padding:0;transition:background .15s,transform .12s}
+.ib:hover{background:rgba(255,255,255,.08)}
+.ib:active{transform:scale(.9)}
+.sep{width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 4px;flex:none}
+.seg{border:0;background:transparent;font:inherit;font-size:12px;padding:4px 10px;border-radius:6px;color:#9BA6B5;cursor:pointer}
+.gb{height:32px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);font:inherit;font-size:13px;color:#E8ECF2;display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:background .15s,transform .12s}
+.gb:hover{background:rgba(255,255,255,.1)}
+.gb:active{transform:scale(.96)}
+.pb{height:34px;padding:0 12px 0 10px;border:0;border-radius:8px;font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin-left:2px;transition:filter .15s,transform .12s}
+.pb:hover{filter:brightness(1.1)}
+.pb:active{transform:scale(.95)}
+.kbd{font-size:11px;padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#C3CCD8}
+</style>
+</helmet>
+<div style="width:1280px;height:860px;box-sizing:border-box;padding:48px;background:#0E1219;font-family:Inter,'Noto Sans SC',sans-serif;color:#E8ECF2;display:flex;flex-direction:column;gap:28px;overflow:hidden">
+
+<header style="display:flex;justify-content:space-between;align-items:flex-end">
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="width:28px;height:28px;border-radius:8px;background:{{accent}};color:#0B1220;display:inline-flex;align-items:center;justify-content:center">
+        <svg class="ic" style="width:16px;height:16px;stroke-width:2.2" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"></path></svg>
+      </span>
+      <span style="font-size:13px;color:#9BA6B5;letter-spacing:.12em;font-weight:600">MICA · NIGHT</span>
+    </div>
+    <h1 style="margin:0;font-size:40px;line-height:48px;font-weight:700;letter-spacing:-.01em">云母 · 深夜</h1>
+    <p style="margin:0;font-size:15px;color:#9BA6B5">同一套结构，深色毛玻璃，夜里不刺眼，跟随系统自动切换</p>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+    <div style="display:flex;gap:14px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:30px;height:30px;border-radius:50%;background:#0E1219;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)"></span><span style="font-size:11px;color:#9BA6B5">#0E1219</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:30px;height:30px;border-radius:50%;background:#1C222C;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)"></span><span style="font-size:11px;color:#9BA6B5">#1C222C</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:30px;height:30px;border-radius:50%;background:#E8ECF2"></span><span style="font-size:11px;color:#9BA6B5">#E8ECF2</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:30px;height:30px;border-radius:50%;background:#9BA6B5"></span><span style="font-size:11px;color:#9BA6B5">#9BA6B5</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span style="width:30px;height:30px;border-radius:50%;background:{{accent}}"></span><span style="font-size:11px;color:#9BA6B5">强调色</span></div>
+    </div>
+    <span style="font-size:12px;color:#9BA6B5">Inter · Noto Sans SC　|　圆角 8–14 · 深色毛玻璃 · 顶部 1px 高光</span>
+  </div>
+</header>
+
+<div style="display:flex;gap:40px;flex:1;min-height:0">
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#9BA6B5;height:18px">截图编辑态 <span class="kbd">Shift+F1</span></div>
+    <div style="position:relative;width:760px;height:600px;border-radius:16px;overflow:hidden;background:#1A2232">
+      <div style="position:absolute;left:40px;top:40px;width:680px;height:520px;background:#161B22;border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 14px 36px rgba(0,0,0,.45)"></div>
+      <div style="position:absolute;left:40px;top:40px;width:680px;height:36px;box-sizing:border-box;padding:0 14px;border-bottom:1px solid #262D38;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#8B95A3">
+        <span>blog.example.com / multilingual</span>
+        <span style="display:flex;gap:18px"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1"></rect></svg><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></span>
+      </div>
+      <h2 style="position:absolute;left:80px;top:100px;width:600px;margin:0;font-size:26px;line-height:34px;font-weight:700;color:#E6EDF3">Designing for Multilingual Readers</h2>
+      <p style="position:absolute;left:80px;top:156px;width:600px;margin:0;font-size:16px;line-height:26px;color:#AEB8C4">Translation is not just about swapping words. A good translation keeps intent, tone, and the small details that make a text feel native.</p>
+      <p style="position:absolute;left:80px;top:236px;width:600px;margin:0;font-size:16px;line-height:26px;color:#AEB8C4">Large language models can now translate text while keeping formatting, terminology, and code intact.</p>
+      <p style="position:absolute;left:80px;top:316px;width:600px;margin:0;font-size:16px;line-height:26px;color:#AEB8C4">Pair them with fast on-device OCR, and any pixel on your screen becomes something you can read, search, and copy.</p>
+      <p style="position:absolute;left:80px;top:396px;width:600px;margin:0;font-size:16px;line-height:26px;color:#AEB8C4">Recognition stays on your machine, and only the text you choose is ever sent out for translation.</p>
+
+      <div style="position:absolute;left:68px;top:224px;width:624px;height:76px;box-sizing:border-box;border:1.5px solid {{accent}};border-radius:2px;box-shadow:0 0 0 2000px rgba(3,6,12,.6)">
+        <span style="position:absolute;left:-5px;top:-5px;width:8px;height:8px;border-radius:50%;background:#0E1219;border:1.5px solid {{accent}}"></span>
+        <span style="position:absolute;right:-5px;top:-5px;width:8px;height:8px;border-radius:50%;background:#0E1219;border:1.5px solid {{accent}}"></span>
+        <span style="position:absolute;left:-5px;bottom:-5px;width:8px;height:8px;border-radius:50%;background:#0E1219;border:1.5px solid {{accent}}"></span>
+        <span style="position:absolute;right:-5px;bottom:-5px;width:8px;height:8px;border-radius:50%;background:#0E1219;border:1.5px solid {{accent}}"></span>
+      </div>
+      <span style="position:absolute;left:68px;top:194px;font-size:12px;line-height:18px;padding:3px 8px;border-radius:6px;background:rgba(28,34,44,.85);color:#E8ECF2;box-shadow:0 0 0 1px rgba(255,255,255,.08);backdrop-filter:blur(8px)">624 × 76</span>
+
+      <div style="position:absolute;right:68px;top:312px;display:flex;align-items:center;gap:2px;padding:6px;border-radius:12px;background:rgba(32,39,50,.82);backdrop-filter:blur(20px) saturate(1.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.07),0 14px 36px rgba(0,0,0,.5)">
+        <button type="button" class="ib" aria-label="矩形" style="background:{{accentSoft}};color:{{accent}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"></rect></svg></button>
+        <button type="button" class="ib" aria-label="椭圆"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="12" rx="8" ry="6.5"></ellipse></svg></button>
+        <button type="button" class="ib" aria-label="箭头"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L19 5M10 5h9v9"></path></svg></button>
+        <button type="button" class="ib" aria-label="画笔"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.5-1L19 8.5 15.5 5 5 15.5z"></path></svg></button>
+        <button type="button" class="ib" aria-label="文字"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M12 6v13M9 19h6"></path></svg></button>
+        <button type="button" class="ib" aria-label="马赛克"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M4 12h16M12 4v16"></path><path d="M4 4h8v8H4zM12 12h8v8h-8z" style="fill:currentColor;opacity:.3;stroke:none"></path></svg></button>
+        <button type="button" class="ib" aria-label="序号"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M10.5 9.5L12.5 8v8"></path></svg></button>
+        <span class="sep"></span>
+        <button type="button" class="ib" aria-label="OCR 识别"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5"></path></svg></button>
+        <button type="button" class="ib" aria-label="贴到屏幕"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z"></path></svg></button>
+        <button type="button" class="ib" aria-label="保存"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 20h14"></path></svg></button>
+        <button type="button" class="ib" aria-label="复制"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 9V5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15H9"></path></svg></button>
+        <button type="button" class="pb" style="background:{{accent}};color:#0B1220"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h9M7.5 3v2M5 5c.5 3.5 3 6.5 6.5 8M10 5c-.8 3.8-3 6.8-6.5 8.5M13 21l4-10 4 10M14.5 17.5h5"></path></svg>翻译</button>
+        <span class="sep"></span>
+        <button type="button" class="ib" aria-label="退出"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <span style="position:absolute;right:68px;top:368px;font-size:12px;line-height:18px;padding:4px 10px;border-radius:8px;background:rgba(28,34,44,.8);color:#C3CCD8;box-shadow:0 0 0 1px rgba(255,255,255,.06);backdrop-filter:blur(8px)">Ctrl+T 翻译 · Ctrl+P 贴图 · Enter 复制 · Esc 退出</span>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:12px;flex:1;min-width:0">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#9BA6B5;height:18px">翻译卡片 <span class="kbd">Ctrl+Shift+O</span></div>
+    <section style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:14px;background:rgba(30,37,48,.78);backdrop-filter:blur(24px) saturate(1.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.07),0 16px 40px rgba(0,0,0,.45)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,.06);color:#C3CCD8;font-weight:500">EN → 中文</span>
+        <span style="flex:1"></span>
+        <div style="display:flex;background:rgba(0,0,0,.25);border-radius:8px;padding:2px">
+          <button type="button" class="seg" style="background:rgba(255,255,255,.1);color:#E8ECF2;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)">卡片</button>
+          <button type="button" class="seg">覆盖</button>
+        </div>
+        <button type="button" class="ib" aria-label="固定" style="width:30px;height:30px"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z"></path></svg></button>
+        <button type="button" class="ib" aria-label="关闭" style="width:30px;height:30px"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:11px;color:#8B95A3;letter-spacing:.06em">原文</span>
+        <p style="margin:0;font-size:13px;line-height:20px;color:#9BA6B5">Large language models can now translate text while keeping formatting, terminology, and code intact.</p>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,.07)"></div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:11px;color:#8B95A3;letter-spacing:.06em">译文</span>
+        <p style="margin:0;font-size:17px;line-height:28px;color:#F1F4F8;font-weight:500">大语言模型如今可以在翻译文本的同时，完整保留格式、术语和代码。</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;padding-top:4px">
+        <span style="font-size:12px;color:#8B95A3;flex:1">本地 OCR → 大模型 · 0.8 s</span>
+        <button type="button" class="gb"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M15 9V5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15H9"></path></svg>复制</button>
+        <button type="button" class="gb"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z"></path></svg>贴图</button>
+        <button type="button" class="ib" aria-label="重新翻译" style="width:32px;height:32px"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 11-2.2-5.3M19.5 4.5v4h-4"></path></svg></button>
+      </div>
+    </section>
+
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#9BA6B5;height:18px;margin-top:6px">划词卡片 <span class="kbd">Ctrl+Alt+D</span></div>
+    <section style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:14px;background:rgba(30,37,48,.78);backdrop-filter:blur(24px);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.07),0 16px 40px rgba(0,0,0,.45)">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <span style="font-size:18px;font-weight:600">terminology</span>
+        <span style="font-size:13px;color:#8B95A3">/ˌtɜːrmɪˈnɒlədʒi/</span>
+        <span style="flex:1"></span>
+        <button type="button" class="ib" aria-label="固定" style="width:28px;height:28px;align-self:center"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v5M8.5 3h7l-1 6 3.5 4H6l3.5-4z"></path></svg></button>
+      </div>
+      <p style="margin:0;font-size:15px;line-height:22px"><span style="color:#8B95A3">n.</span> 术语；专门用语</p>
+      <p style="margin:0;font-size:12px;line-height:18px;color:#8B95A3">keep terminology intact → 保持术语不变</p>
+    </section>
+
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#9BA6B5;height:18px;margin-top:6px">OCR 完成提示 · 悬浮球</div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 8px 0 14px;border-radius:12px;background:rgba(30,37,48,.88);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.07),0 10px 28px rgba(0,0,0,.45);font-size:13px">
+        <span style="width:20px;height:20px;border-radius:50%;background:{{accent}};color:#0B1220;display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:13px;height:13px;stroke-width:2.4" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+        已复制 96 字
+        <button type="button" class="gb" style="height:30px;border:0;color:{{accent}};background:transparent">编辑</button>
+      </div>
+      <button type="button" aria-label="悬浮球" style="width:52px;height:52px;border-radius:50%;border:0;background:rgba(30,37,48,.9);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(255,255,255,.08),0 10px 28px rgba(0,0,0,.5);display:inline-flex;align-items:center;justify-content:center;color:{{accent}};cursor:pointer">
+        <svg class="ic" style="width:24px;height:24px" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5"></path></svg>
+      </button>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#60A5FA","options":["#60A5FA","#38BDF8","#A78BFA","#34D399"]},"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+  soft(hex, a) {
+    var h = String(hex).replace('#', '');
+    if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+    var n = parseInt(h, 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+  renderVals() {
+    var accent = this.props.accent ?? '#60A5FA';
+    return { accent: accent, accentSoft: this.soft(accent, 0.16) };
+  }
+}
+</script>
+</body>
+</html>

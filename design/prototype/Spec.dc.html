@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>云母设计规范</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Sans+SC:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.light{--bg:#E6EBF2;--wall:#C7D2E1;--glass:rgba(255,255,255,.82);--glass2:rgba(255,255,255,.92);--solid:#FFFFFF;--card:rgba(255,255,255,.72);--card-ring:0 0 0 1px rgba(15,23,42,.06);--sunken:#EEF2F7;--text:#0F172A;--text2:#475569;--text3:#64748B;--line:rgba(15,23,42,.08);--line2:rgba(15,23,42,.14);--hover:rgba(15,23,42,.06);--elev:0 0 0 1px rgba(15,23,42,.06),0 12px 32px rgba(15,23,42,.14);--elev-sm:0 0 0 1px rgba(15,23,42,.06),0 4px 12px rgba(15,23,42,.08);--seg-on:#FFFFFF;--seg-sh:0 1px 2px rgba(15,23,42,.12);--field:#FFFFFF;--chip:rgba(15,23,42,.72);--chip-text:#FFFFFF;--accent:#2563EB;--on-accent:#FFFFFF;--accent-soft:rgba(37,99,235,.12)}
+.dark{--bg:#0E1219;--wall:#1A2232;--glass:rgba(30,37,48,.80);--glass2:rgba(30,37,48,.92);--solid:#1C222C;--card:rgba(255,255,255,.04);--card-ring:0 0 0 1px rgba(255,255,255,.06);--sunken:rgba(0,0,0,.25);--text:#E8ECF2;--text2:#9BA6B5;--text3:#8B95A3;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);--hover:rgba(255,255,255,.08);--elev:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.07),0 16px 40px rgba(0,0,0,.45);--elev-sm:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(255,255,255,.07),0 6px 16px rgba(0,0,0,.35);--seg-on:rgba(255,255,255,.1);--seg-sh:inset 0 1px 0 rgba(255,255,255,.06);--field:rgba(255,255,255,.04);--chip:rgba(28,34,44,.9);--chip-text:#E8ECF2;--accent:#60A5FA;--on-accent:#0B1220;--accent-soft:rgba(96,165,250,.16)}
+.ic{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.mono{font-family:'JetBrains Mono',monospace}
+.sect{background:#FFFFFF;border-radius:16px;padding:28px 32px;box-shadow:0 0 0 1px rgba(15,23,42,.06),0 4px 12px rgba(15,23,42,.06);display:flex;flex-direction:column;gap:18px}
+.sect h2{margin:0;font-size:20px;line-height:28px;font-weight:700;color:#0F172A}
+.sect h2 small{font-size:13px;font-weight:400;color:#475569;margin-left:10px}
+.th{font-size:12px;color:#64748B;font-weight:500}
+.ib{width:34px;height:34px;border:0;background:transparent;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;padding:0;transition:background .15s cubic-bezier(.2,0,0,1),transform .1s}
+.ib:hover{background:var(--hover);color:var(--text)}
+.ib:active{transform:scale(.92)}
+.ib.on{background:var(--accent-soft);color:var(--accent)}
+.gb{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:var(--glass2);font:inherit;font-size:13px;color:var(--text);display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:background .15s,transform .1s}
+.gb:hover{background:var(--hover)}
+.gb:active{transform:scale(.96)}
+.pb{height:34px;padding:0 14px;border:0;border-radius:8px;font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:var(--accent);color:var(--on-accent);transition:filter .15s,transform .1s}
+.pb:hover{filter:brightness(1.08)}
+.pb:active{transform:scale(.95)}
+.pb:disabled,.gb:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
+.seg-wrap{display:flex;background:var(--sunken);border-radius:8px;padding:2px}
+.seg{border:0;background:transparent;font:inherit;font-size:12px;padding:5px 12px;border-radius:6px;color:var(--text2);cursor:pointer}
+.seg.on{background:var(--seg-on);color:var(--text);box-shadow:var(--seg-sh)}
+.sw{width:40px;height:22px;border-radius:999px;background:var(--line2);position:relative;border:0;cursor:pointer;padding:0;flex:none}
+.sw::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .22s cubic-bezier(.2,.9,.3,1.2)}
+.sw.on{background:var(--accent)}
+.sw.on::after{transform:translateX(18px)}
+.field{height:34px;box-sizing:border-box;border-radius:8px;border:1px solid var(--line2);background:var(--field);color:var(--text);font:inherit;font-size:13px;padding:0 10px;width:180px}
+.field.focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.k{font-size:11px;padding:2px 6px;border-radius:5px;background:var(--sunken);border:1px solid var(--line2);color:var(--text)}
+.mcard{border-radius:12px;background:#F8FAFC;box-shadow:0 0 0 1px rgba(15,23,42,.06);padding:14px;display:flex;flex-direction:column;gap:8px;cursor:default}
+.track{position:relative;height:28px;border-radius:8px;background:#EEF2F7;overflow:hidden}
+.dot{position:absolute;left:6px;top:6px;width:16px;height:16px;border-radius:5px;background:#2563EB}
+.mcard:hover .dot{transform:translateX(176px)}
+</style>
+</helmet>
+<div style="width:1280px;height:2800px;box-sizing:border-box;padding:64px;background:#E6EBF2;font-family:Inter,'Noto Sans SC',sans-serif;color:#0F172A;display:flex;flex-direction:column;gap:32px">
+
+  <header style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:13px;color:#475569;letter-spacing:.12em;font-weight:600">MICA · DESIGN TOKENS v0.1</span>
+      <h1 style="margin:0;font-size:40px;line-height:48px;font-weight:700">云母设计规范</h1>
+      <p style="margin:0;font-size:15px;line-height:24px;color:#475569;max-width:720px">浅色和深夜共用同一套结构，只替换令牌。组件只引用令牌，不写死任何颜色、圆角或投影。</p>
+    </div>
+    <div style="display:flex;gap:8px">
+      <span style="font-size:12px;padding:6px 12px;border-radius:999px;background:#FFFFFF;box-shadow:0 0 0 1px rgba(15,23,42,.08)">浅色 light</span>
+      <span style="font-size:12px;padding:6px 12px;border-radius:999px;background:#0E1219;color:#E8ECF2">深夜 dark</span>
+    </div>
+  </header>
+
+  <section class="sect">
+    <h2>1　颜色令牌<small>半透明令牌叠在对应底色上展示</small></h2>
+    <div style="display:grid;grid-template-columns:120px 150px 230px 230px minmax(0,1fr);column-gap:16px;padding:0 0 8px;border-bottom:1px solid rgba(15,23,42,.08)">
+      <span class="th">名称</span><span class="th">令牌</span><span class="th">浅色</span><span class="th">深夜</span><span class="th">用途</span>
+    </div>
+    <sc-for list="{{colors}}" as="c" hint-placeholder-count="14">
+      <div style="display:grid;grid-template-columns:120px 150px 230px 230px minmax(0,1fr);column-gap:16px;align-items:center;min-height:40px;border-bottom:1px solid rgba(15,23,42,.05)">
+        <span style="font-size:14px;font-weight:500">{{c.name}}</span>
+        <span class="mono" style="font-size:12px;color:#475569">--{{c.key}}</span>
+        <span style="display:flex;align-items:center;gap:10px"><span style="width:44px;height:28px;border-radius:7px;background:#E6EBF2;box-shadow:inset 0 0 0 1px rgba(15,23,42,.1);display:inline-flex;align-items:center;justify-content:center"><span style="width:28px;height:18px;border-radius:5px;background:{{c.light}};box-shadow:inset 0 0 0 1px rgba(15,23,42,.08)"></span></span><span class="mono" style="font-size:11px;color:#475569">{{c.light}}</span></span>
+        <span style="display:flex;align-items:center;gap:10px"><span style="width:44px;height:28px;border-radius:7px;background:#0E1219;display:inline-flex;align-items:center;justify-content:center"><span style="width:28px;height:18px;border-radius:5px;background:{{c.dark}};box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)"></span></span><span class="mono" style="font-size:11px;color:#475569">{{c.dark}}</span></span>
+        <span style="font-size:13px;line-height:20px;color:#475569">{{c.use}}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <section class="sect">
+    <h2>2　字体<small>Inter（拉丁）+ Noto Sans SC（中文），系统缺字时回退微软雅黑</small></h2>
+    <div style="display:flex;flex-direction:column">
+      <sc-for list="{{types}}" as="t" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:120px 170px minmax(0,1fr);column-gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid rgba(15,23,42,.05)">
+          <span style="font-size:14px;font-weight:500">{{t.name}}</span>
+          <span class="mono" style="font-size:12px;color:#475569">{{t.spec}}</span>
+          <span style="font-size:{{t.size}}px;line-height:{{t.lh}}px;font-weight:{{t.w}};letter-spacing:{{t.ls}};color:{{t.color}}">{{t.sample}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section class="sect">
+    <h2>3　形状与层次<small>圆角随尺寸增大；深色下投影看不清，改用顶部 1px 高光勾边</small></h2>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px">
+      <sc-for list="{{radii}}" as="r" hint-placeholder-count="6">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <span style="height:72px;border-radius:{{r.r}}px;background:#EEF2F7;box-shadow:inset 0 0 0 1.5px #2563EB"></span>
+          <span class="mono" style="font-size:12px;font-weight:500">{{r.label}}</span>
+          <span style="font-size:12px;line-height:18px;color:#475569">{{r.use}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+      <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+        <div class="{{m.cls}}" style="position:relative;border-radius:14px;background:var(--wall);padding:24px;overflow:hidden;display:flex;gap:16px;align-items:flex-end;min-height:190px">
+          <span style="position:absolute;left:40px;top:28px;width:120px;height:120px;border-radius:50%;background:var(--accent);opacity:.55"></span>
+          <span style="position:absolute;right:60px;top:20px;font-size:44px;font-weight:700;color:var(--text);opacity:.35">Aa 文字</span>
+          <div style="position:relative;flex:1;height:96px;border-radius:12px;background:var(--card);box-shadow:var(--card-ring);padding:12px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px;color:var(--text)"><b style="font-size:13px">表面</b><span style="font-size:11px;color:var(--text2)">设置卡片 · 无投影</span></div>
+          <div style="position:relative;flex:1;height:110px;border-radius:12px;background:var(--glass);backdrop-filter:blur(20px) saturate(1.4);box-shadow:var(--elev-sm);padding:12px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px;color:var(--text)"><b style="font-size:13px">浮层 1</b><span style="font-size:11px;color:var(--text2)">工具条 · 提示 · 模糊 20</span></div>
+          <div style="position:relative;flex:1;height:126px;border-radius:14px;background:var(--glass);backdrop-filter:blur(24px) saturate(1.4);box-shadow:var(--elev);padding:12px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px;color:var(--text)"><b style="font-size:13px">浮层 2</b><span style="font-size:11px;color:var(--text2)">卡片 · 菜单 · 模糊 24</span></div>
+          <span style="position:absolute;left:24px;top:16px;font-size:12px;font-weight:600;color:var(--text)">{{m.name}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section class="sect">
+    <h2>4　动效<small>把鼠标移到卡片上，方块会按对应曲线移动</small></h2>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+      <sc-for list="{{motions}}" as="m" hint-placeholder-count="8">
+        <div class="mcard">
+          <div style="display:flex;align-items:baseline;justify-content:space-between"><b style="font-size:14px">{{m.name}}</b><span class="mono" style="font-size:12px;color:#2563EB">{{m.dur}}</span></div>
+          <svg viewBox="0 0 140 80" style="width:100%;height:72px" aria-hidden="true"><path d="M10 70H130M10 10V70" style="fill:none;stroke:rgba(15,23,42,.12);stroke-width:1"></path><path d="M10 10H130" style="fill:none;stroke:rgba(15,23,42,.08);stroke-width:1;stroke-dasharray:3 3"></path><path d="{{m.path}}" style="fill:none;stroke:#2563EB;stroke-width:2;stroke-linecap:round"></path></svg>
+          <span class="mono" style="font-size:10px;color:#64748B">{{m.curve}}</span>
+          <div class="track"><span class="dot" style="transition:transform {{m.ms}}ms {{m.css}}"></span></div>
+          <span style="font-size:12px;line-height:18px;color:#475569">{{m.use}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:20px;color:#475569">原则：出现比消失慢一点（180 / 120 ms）；跟随鼠标的东西（选区、拖动贴图）不加缓动，逐帧跟手；设置里选「减弱动效」时，只保留淡入淡出。</p>
+  </section>
+
+  <section class="sect">
+    <h2>5　组件<small>同一份标记，分别套用两份令牌</small></h2>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+      <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+        <div class="{{m.cls}}" style="border-radius:14px;background:var(--bg);padding:24px;display:flex;flex-direction:column;gap:18px;color:var(--text)">
+          <span style="font-size:12px;font-weight:600;color:var(--text2)">{{m.name}}</span>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button type="button" class="pb"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h9M7.5 3v2M5 5c.5 3.5 3 6.5 6.5 8M10 5c-.8 3.8-3 6.8-6.5 8.5M13 21l4-10 4 10M14.5 17.5h5"></path></svg>翻译</button>
+            <button type="button" class="gb">复制</button>
+            <button type="button" class="pb" disabled>禁用</button>
+            <button type="button" class="ib" aria-label="矩形"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z"></path></svg></button>
+            <button type="button" class="ib on" aria-label="箭头"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L19 5M10 5h9v9"></path></svg></button>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <div class="seg-wrap"><button type="button" class="seg on">卡片</button><button type="button" class="seg">覆盖</button></div>
+            <button type="button" class="sw on" role="switch" aria-checked="true" aria-label="开"></button>
+            <button type="button" class="sw" role="switch" aria-checked="false" aria-label="关"></button>
+            <span class="k">Ctrl+Shift+O</span>
+            <span style="font-size:12px;padding:4px 8px;border-radius:6px;background:var(--sunken);color:var(--text2);font-weight:500">EN → 中文</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <input class="field" aria-label="普通输入框" value="SnapMind_{yyyyMMdd}" readonly>
+            <input class="field focus" aria-label="聚焦输入框" value="聚焦状态" readonly>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 14px 0 10px;border-radius:12px;background:var(--glass);box-shadow:var(--elev);font-size:13px">
+              <span style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:inline-flex;align-items:center;justify-content:center"><svg class="ic" style="width:13px;height:13px;stroke-width:2.4" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>已复制 96 字
+            </div>
+            <span style="font-size:12px;line-height:18px;padding:3px 8px;border-radius:6px;background:var(--chip);color:var(--chip-text)">624 × 76</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2800}}'>
+class Component extends DCLogic {
+  curve(x1, y1, x2, y2) {
+    var X = function (v) { return (10 + v * 120).toFixed(1); };
+    var Y = function (v) { return (70 - v * 60).toFixed(1); };
+    return 'M10 70C' + X(x1) + ' ' + Y(y1) + ' ' + X(x2) + ' ' + Y(y2) + ' 130 10';
+  }
+  renderVals() {
+    var self = this;
+    var colors = [
+      { name: '底色', key: 'bg', light: '#E6EBF2', dark: '#0E1219', use: '窗口外的背景、设置窗口底' },
+      { name: '桌面', key: 'wall', light: '#C7D2E1', dark: '#1A2232', use: '原型里的桌面壁纸，仅用于演示' },
+      { name: '玻璃', key: 'glass', light: 'rgba(255,255,255,.82)', dark: 'rgba(30,37,48,.80)', use: '卡片、工具条、提示，配合 20–24px 模糊' },
+      { name: '实心表面', key: 'solid', light: '#FFFFFF', dark: '#1C222C', use: '不需要透明的面板、控制点' },
+      { name: '设置卡片', key: 'card', light: 'rgba(255,255,255,.72)', dark: 'rgba(255,255,255,.04)', use: '设置页里的分组卡片' },
+      { name: '凹陷', key: 'sunken', light: '#EEF2F7', dark: 'rgba(0,0,0,.25)', use: '分段控件底、标签、代码块' },
+      { name: '主文字', key: 'text', light: '#0F172A', dark: '#E8ECF2', use: '译文、标题、正文' },
+      { name: '次要文字', key: 'text2', light: '#475569', dark: '#9BA6B5', use: '原文、说明文字' },
+      { name: '弱文字', key: 'text3', light: '#64748B', dark: '#8B95A3', use: '标签、元信息、耗时' },
+      { name: '描边', key: 'line', light: 'rgba(15,23,42,.08)', dark: 'rgba(255,255,255,.07)', use: '分割线、面板外描边' },
+      { name: '悬停', key: 'hover', light: 'rgba(15,23,42,.06)', dark: 'rgba(255,255,255,.08)', use: '按钮、列表项悬停底色' },
+      { name: '强调', key: 'accent', light: '#2563EB', dark: '#60A5FA', use: '主按钮、选区边框、选中态' },
+      { name: '强调上文字', key: 'on-accent', light: '#FFFFFF', dark: '#0B1220', use: '主按钮上的文字和图标' },
+      { name: '强调浅底', key: 'accent-soft', light: 'rgba(37,99,235,.12)', dark: 'rgba(96,165,250,.16)', use: '选中的工具、聚焦光圈、标签' },
+      { name: '遮罩', key: 'scrim', light: 'rgba(15,23,42,.45)', dark: 'rgba(3,6,12,.60)', use: '截图时选区外的区域' }
+    ];
+    var types = [
+      { name: '页面标题', spec: '26 / 36 · 600', size: 26, lh: 36, w: 600, ls: '0', color: '#0F172A', sample: '识别与翻译' },
+      { name: '译文', spec: '17 / 28 · 500', size: 17, lh: 28, w: 500, ls: '0', color: '#0F172A', sample: '大语言模型如今可以在翻译文本的同时，完整保留格式、术语和代码。' },
+      { name: '正文', spec: '14 / 20 · 500', size: 14, lh: 20, w: 500, ls: '0', color: '#0F172A', sample: '贴出后自动识别文字' },
+      { name: '原文', spec: '13 / 20 · 400', size: 13, lh: 20, w: 400, ls: '0', color: '#475569', sample: 'Large language models can now translate text while keeping formatting intact.' },
+      { name: '说明', spec: '12 / 18 · 400', size: 12, lh: 18, w: 400, ls: '0', color: '#475569', sample: '本地 OCR → 大模型 · 0.8 s' },
+      { name: '小标签', spec: '11 / 16 · 500 · 字距 .06em', size: 11, lh: 16, w: 500, ls: '.06em', color: '#64748B', sample: '原文　译文' }
+    ];
+    var radii = [
+      { r: 6, label: '6 px', use: '标签、尺寸提示' },
+      { r: 8, label: '8 px', use: '按钮、输入框、分段控件' },
+      { r: 12, label: '12 px', use: '工具条、菜单、设置卡片' },
+      { r: 14, label: '14 px', use: '翻译卡片、划词卡片' },
+      { r: 16, label: '16 px', use: '窗口' },
+      { r: 999, label: '全圆', use: '开关、悬浮球' }
+    ];
+    var md = [
+      { name: '出现', dur: '180 ms', ms: 180, c: [0.2, 0.9, 0.3, 1.15], use: '卡片、工具条、菜单：缩放 0.96→1，淡入，上移 4px' },
+      { name: '消失', dur: '120 ms', ms: 120, c: [0.4, 0, 1, 1], use: '淡出并缩到 0.98，比出现更快' },
+      { name: '悬停', dur: '150 ms', ms: 150, c: [0.2, 0, 0, 1], use: '按钮、列表项的底色变化' },
+      { name: '按压', dur: '100 ms', ms: 100, c: [0.3, 0, 0.5, 1], use: '图标缩到 0.9，按钮缩到 0.95，松手回弹' },
+      { name: '开关', dur: '220 ms', ms: 220, c: [0.2, 0.9, 0.3, 1.2], use: '滑块带一点过冲' },
+      { name: '遮罩', dur: '120 ms', ms: 120, c: [0, 0, 0.2, 1], use: '按下截图键后遮罩淡入' },
+      { name: '吸附', dur: '120 ms', ms: 120, c: [0.2, 0, 0, 1], use: '悬停时自动吸附段落、窗口的高亮框' },
+      { name: '明暗切换', dur: '300 ms', ms: 300, c: [0.25, 0.1, 0.25, 1], use: '浅色和深夜之间的颜色过渡' }
+    ];
+    var motions = md.map(function (m) {
+      var c = m.c;
+      return { name: m.name, dur: m.dur, ms: m.ms, use: m.use, path: self.curve(c[0], c[1], c[2], c[3]), curve: 'cubic-bezier(' + c.join(', ') + ')', css: 'cubic-bezier(' + c.join(',') + ')' };
+    });
+    return {
+      colors: colors, types: types, radii: radii, motions: motions,
+      modes: [{ cls: 'light', name: '浅色' }, { cls: 'dark', name: '深夜' }]
+    };
+  }
+}
+</script>
+</body>
+</html>
