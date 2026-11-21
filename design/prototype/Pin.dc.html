@@ -53,12 +53,26 @@ body{margin:0}
 .code{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:19px;background:var(--sunken)}
 .hk{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:5px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:600;white-space:nowrap;box-sizing:border-box}
 input[type=range]{accent-color:var(--accent);width:140px}
+.chev{width:12px;height:28px;border:0;background:transparent;border-radius:5px;color:var(--text3);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.chev:hover{background:var(--hover);color:var(--text)}
+.tg{display:flex;align-items:center;flex:none}
+.cdot{width:20px;height:20px;border-radius:50%;border:0;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);transition:transform .15s cubic-bezier(.2,.9,.3,1.2)}
+.cdot:hover{transform:scale(1.12)}
+.cdot.on{box-shadow:0 0 0 2px var(--glass),0 0 0 4px var(--accent)}
+.sdot{width:26px;height:26px;border-radius:7px;border:0;background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.sdot:hover{background:var(--hover)}
+.sdot.on{background:var(--accent-soft)}
+.ann-mosaic{background-image:repeating-conic-gradient(rgba(127,127,127,.35) 0 25%,rgba(127,127,127,.12) 0 50%);background-size:10px 10px;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.ann-blur{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(127,127,127,.08)}
+.ann-text{position:absolute;border:1px dashed transparent;background:transparent;font:inherit;font-weight:600;padding:2px 4px;outline:none}
+.ann-text:focus,.ann-text:hover{border-color:currentColor}
+.pin.annot .pframe{box-shadow:0 0 0 2px var(--accent),var(--pin-sh)}
 </style>
 </helmet>
 <div class="theme {{mode}}" style="width:1200px;height:740px;box-sizing:border-box;padding:28px 48px 40px;background:var(--bg);font-family:Inter,'Noto Sans SC',sans-serif;color:var(--text);display:flex;flex-direction:column;gap:16px;overflow:hidden">
   <div style="display:flex;align-items:center;gap:12px">
     <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">
-      <h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700">贴图窗口 · 可操作原型 v2</h1>
+      <h1 style="margin:0;font-size:22px;line-height:30px;font-weight:700">贴图窗口 · 可操作原型 v3</h1>
       <p style="margin:0;font-size:13px;line-height:20px;color:var(--text2)">点一下贴图就能用键盘。悬停显示工具条，移开后延迟约半秒才隐藏，从贴图移到工具条不会丢；拖空白处移动，拖文字直接选中；滚轮缩放，Ctrl+滚轮调透明度。</p>
     </div>
     <sc-if value="{{through}}" hint-placeholder-val="{{ false }}"><button type="button" class="gb" onClick="{{toggleThrough}}">取消穿透</button></sc-if>
@@ -72,8 +86,8 @@ input[type=range]{accent-color:var(--accent);width:140px}
     <div style="position:absolute;right:40px;bottom:36px;width:260px;height:150px;border-radius:10px;background:var(--glass);opacity:.5"></div>
 
     <sc-if value="{{open}}" hint-placeholder-val="{{ true }}">
-      <div class="pin {{pinCls}}" style="left:{{x}}px;top:{{y}}px;width:520px;opacity:{{opacity}};transform:scale({{scale}});pointer-events:{{pe}}" onMouseDown="{{onDown}}" onWheel="{{onWheel}}" onDoubleClick="{{close}}">
-        <div class="pframe" style="position:relative;width:520px;height:262px;border-radius:2px;background:#FFFFFF;box-shadow:var(--pin-sh);overflow:hidden;cursor:move;transition:box-shadow .15s">
+      <div class="pin {{pinCls}}" style="left:{{x}}px;top:{{y}}px;width:520px;opacity:{{opacity}};transform:scale({{scale}});pointer-events:{{pe}}" onMouseDown="{{onDown}}" onWheel="{{onWheel}}" onDoubleClick="{{dblClose}}">
+        <div class="pframe" style="position:relative;width:520px;height:262px;border-radius:2px;background:#FFFFFF;box-shadow:var(--pin-sh);overflow:hidden;cursor:{{frameCursor}};transition:box-shadow .15s">
           <sc-if value="{{showOriginal}}" hint-placeholder-val="{{ true }}">
             <div class="fade" style="position:absolute;inset:0;padding:24px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px">
               <span class="txt" data-ocr="1" style="font-size:22px;line-height:30px;font-weight:700;color:#0F172A;align-self:flex-start">Designing for Multilingual Readers</span>
@@ -88,6 +102,13 @@ input[type=range]{accent-color:var(--accent);width:140px}
               <span class="txt" data-ocr="1" style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:20px;color:#0F172A;background:#F1F5F9;border-radius:6px;padding:8px 12px;align-self:flex-start">const text = await ocr.recognize(image);</span>
             </div>
           </sc-if>
+          <sc-for list="{{anns}}" as="a" hint-placeholder-count="0">
+            <sc-if value="{{a.isBox}}" hint-placeholder-val="{{ false }}"><div class="{{a.cls}}" style="position:absolute;left:{{a.x}}px;top:{{a.y}}px;width:{{a.w}}px;height:{{a.h}}px;box-sizing:border-box;border:{{a.bw}}px solid {{a.color}};border-radius:{{a.radius}};pointer-events:none"></div></sc-if>
+            <sc-if value="{{a.isLine}}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:{{a.x}}px;top:{{a.y}}px;width:{{a.len}}px;height:{{a.size}}px;margin-top:{{a.mt}}px;background:{{a.color}};border-radius:{{a.size}}px;transform:rotate({{a.ang}}deg);transform-origin:0 50%;pointer-events:none"><sc-if value="{{a.arrow}}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:{{a.hx}}px;top:50%;width:{{a.hs}}px;height:{{a.hs}}px;margin-top:{{a.hmt}}px;background:{{a.color}};clip-path:polygon(0 0,100% 50%,0 100%)"></span></sc-if></div></sc-if>
+            <sc-if value="{{a.isPen}}" hint-placeholder-val="{{ false }}"><svg style="position:absolute;left:0;top:0;width:520px;height:262px;pointer-events:none;overflow:visible" viewBox="0 0 520 262" aria-hidden="true"><path d="{{a.d}}" style="fill:none;stroke:{{a.color}};stroke-width:{{a.sw}};stroke-linecap:round;stroke-linejoin:round;opacity:{{a.op}}"></path></svg></sc-if>
+            <sc-if value="{{a.isNum}}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:{{a.x}}px;top:{{a.y}}px;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:{{a.color}};color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);pointer-events:none">{{a.n}}</span></sc-if>
+            <sc-if value="{{a.isText}}" hint-placeholder-val="{{ false }}"><input class="ann-text" aria-label="标注文字" value="{{a.text}}" onChange="{{a.onText}}" style="left:{{a.x}}px;top:{{a.y}}px;width:{{a.tw}}px;color:{{a.color}};font-size:{{a.fs}}px"></sc-if>
+          </sc-for>
           <span class="pzoom" style="position:absolute;left:8px;top:8px;font-size:11px;line-height:16px;padding:3px 8px;border-radius:6px;background:var(--chip);color:var(--chip-text);pointer-events:none">{{zoomText}} · 不透明度 {{opVal}}%</span>
           <span style="position:absolute;right:8px;top:8px;display:flex;align-items:center;gap:6px;font-size:11px;line-height:16px;padding:3px 8px;border-radius:6px;background:var(--chip);color:var(--chip-text);pointer-events:none">
             <sc-if value="{{ocrRunning}}" hint-placeholder-val="{{ false }}"><span class="spin"></span>识别文字中…</sc-if>
@@ -96,6 +117,7 @@ input[type=range]{accent-color:var(--accent);width:140px}
         </div>
 
         <div class="ptools" style="position:absolute;right:0;top:262px;padding-top:8px" onMouseDown="{{stop}}">
+          <sc-if value="{{notAnnot}}" hint-placeholder-val="{{ true }}">
           <div class="glass" style="display:flex;align-items:center;gap:1px;padding:4px;border-radius:10px">
             <button type="button" class="ib {{overlayOn}}" title="翻译（原位覆盖）  Ctrl+Q" aria-label="翻译" onClick="{{toggleOverlay}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h9M7.5 3v2M5 5c.5 3.5 3 6.5 6.5 8M10 5c-.8 3.8-3 6.8-6.5 8.5M13 21l4-10 4 10M14.5 17.5h5"></path></svg></button>
             <button type="button" class="ib" title="识别文字  Shift+C" aria-label="识别文字" onClick="{{ocr}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5"></path></svg></button>
@@ -107,6 +129,28 @@ input[type=range]{accent-color:var(--accent);width:140px}
             <button type="button" class="ib {{menuOn}}" title="更多" aria-label="更多" onClick="{{toggleMenu}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h.01M12 12h.01M18 12h.01"></path></svg></button>
             <button type="button" class="ib" title="关闭  Esc / 双击" aria-label="关闭" onClick="{{close}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
           </div>
+          </sc-if>
+          <sc-if value="{{annot}}" hint-placeholder-val="{{ false }}">
+            <div class="glass pop" style="display:flex;align-items:center;gap:1px;padding:4px;border-radius:10px;white-space:nowrap">
+              <sc-for list="{{tools}}" as="t" hint-placeholder-count="7">
+                <span class="tg">
+                  <button type="button" class="ib {{t.on}}" title="{{t.title}}" aria-label="{{t.label}}" onClick="{{t.pick}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{t.d}}"></path></svg></button>
+                  <sc-if value="{{t.hasChev}}" hint-placeholder-val="{{ false }}"><button type="button" class="chev" aria-label="{{t.chevLabel}}" onClick="{{t.openProps}}"><svg class="ic" style="width:9px;height:9px;stroke-width:2.6" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></sc-if>
+                </span>
+              </sc-for>
+              <button type="button" class="ib" title="撤销  Ctrl+Z" aria-label="撤销" onClick="{{undo}}" disabled="{{noUndo}}" style="opacity:{{undoOp}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"></path></svg></button>
+              <span class="sep"></span>
+              <button type="button" class="ib" title="复制（含标注）  Ctrl+C" aria-label="复制" onClick="{{copyImg}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 9h7.5A1.5 1.5 0 0120 10.5v8a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 019 18.5V11a2 2 0 012-2zM15 9V5.5A1.5 1.5 0 0013.5 4h-8A1.5 1.5 0 004 5.5v8A1.5 1.5 0 005.5 15H9"></path></svg></button>
+              <button type="button" class="pb" style="height:28px;margin-left:2px" title="完成标注  空格 / Esc" onClick="{{exitAnnot}}">完成</button>
+            </div>
+            <sc-if value="{{showProps}}" hint-placeholder-val="{{ false }}">
+              <div class="glass pop" style="position:absolute;left:{{propX}}px;top:50px;display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;min-width:200px">
+                <sc-if value="{{propHasSub}}" hint-placeholder-val="{{ false }}"><div class="seg-wrap" style="align-self:flex-start"><sc-for list="{{propSubs}}" as="s" hint-placeholder-count="2"><button type="button" class="seg {{s.on}}" onClick="{{s.pick}}">{{s.label}}</button></sc-for></div></sc-if>
+                <div style="display:flex;gap:10px;align-items:center"><sc-for list="{{propColors}}" as="c" hint-placeholder-count="6"><button type="button" class="cdot {{c.on}}" style="background:{{c.color}}" aria-label="{{c.label}}" onClick="{{c.pick}}"></button></sc-for></div>
+                <div style="display:flex;gap:4px;align-items:center"><span style="font-size:12px;color:var(--text3);margin-right:6px">粗细</span><sc-for list="{{propSizes}}" as="s" hint-placeholder-count="3"><button type="button" class="sdot {{s.on}}" aria-label="{{s.label}}" onClick="{{s.pick}}"><span style="width:{{s.d}}px;height:{{s.d}}px;border-radius:50%;background:var(--text)"></span></button></sc-for></div>
+              </div>
+            </sc-if>
+          </sc-if>
           <sc-if value="{{menu}}" hint-placeholder-val="{{ false }}">
             <div class="glass pop" style="position:absolute;right:0;top:50px;width:230px;padding:5px;border-radius:12px;display:flex;flex-direction:column">
               <button type="button" class="mi" onClick="{{latex}}">公式识别 → LaTeX</button>
@@ -172,9 +216,22 @@ class Component extends DCLogic {
       mode: props && props.mode === 'dark' ? 'dark' : 'light',
       x: 120, y: 90, scale: 1, op: 100, ocr: 'running', overlay: false,
       menu: false, through: false, closed: false, drag: null, toast: null, zooming: false,
-      card: null, cardText: '', ocrMode: 'para', hintsHidden: hidden
+      card: null, cardText: '', ocrMode: 'para', hintsHidden: hidden,
+      annot: false, tool: 0, lastTool: 0, opts: [0, 1, 2, 3, 4, 5, 6].map(function () { return { sub: 0, c: 0, s: 1 }; }),
+      propOpen: -1, anns: [], draft: null, seq: 1, origin: null
     };
     this.tt = null; this.zt = null; this.ot = null;
+    this.toolDefs = [
+      { label: '矩形', key: '1', d: 'M6 5h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z', subs: ['矩形', '椭圆'] },
+      { label: '画笔', key: '2', d: 'M4 20l4.5-1L19 8.5 15.5 5 5 15.5z', subs: ['画笔', '荧光笔'] },
+      { label: '箭头', key: '3', d: 'M5 19L19 5M10 5h9v9', subs: ['箭头', '直线'] },
+      { label: '文字', key: '4', d: 'M5 6h14M12 6v13M9 19h6', subs: null },
+      { label: '序号', key: '5', d: 'M12 3.5a8.5 8.5 0 110 17 8.5 8.5 0 010-17zM10.5 9.5L12.5 8v8', subs: null },
+      { label: '马赛克', key: '6', d: 'M6 4h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2zM4 12h16M12 4v16', subs: ['马赛克', '模糊'] },
+      { label: '橡皮擦', key: '7', d: 'M8 20h12M5.5 15.5l9-9a2 2 0 012.8 0l1.2 1.2a2 2 0 010 2.8L11 18H8z', subs: null, noChev: true }
+    ];
+    this.colors = [['#EF4444', '红'], ['#F59E0B', '黄'], ['#22C55E', '绿'], ['#2563EB', '蓝'], ['#FFFFFF', '白'], ['#0F172A', '黑']];
+    this.sizes = [2, 4, 6];
     var self = this;
     this.onDown = function (e) {
       if (e.button !== undefined && e.button !== 0) return;
@@ -182,14 +239,28 @@ class Component extends DCLogic {
       var kb = host && host.querySelector ? host.querySelector('.kb') : null;
       if (kb) { try { kb.focus({ preventScroll: true }); } catch (x) { kb.focus(); } }
       var t = e.target;
+      if (self.state.annot) { if (t && t.classList && t.classList.contains('ann-text')) return; self.startDraw(e); return; }
       if (self.state.ocr === 'ready' && t && t.closest && t.closest('[data-ocr]')) return;
       var r = e.currentTarget.getBoundingClientRect();
       var k = r.width / (520 * self.state.scale); if (!isFinite(k) || k <= 0) k = 1;
       self.setState({ drag: { sx: e.clientX, sy: e.clientY, ox: self.state.x, oy: self.state.y, k: k }, menu: false });
       e.preventDefault();
     };
-    this.onMove = function (e) { var d = self.state.drag; if (!d) return; self.setState({ x: Math.round(d.ox + (e.clientX - d.sx) / d.k), y: Math.round(d.oy + (e.clientY - d.sy) / d.k) }); };
-    this.onUp = function () { if (self.state.drag) self.setState({ drag: null }); };
+    this.onMove = function (e) {
+      var st = self.state;
+      if (st.draft && st.origin) {
+        var o = st.origin, x = Math.max(0, Math.min(520, Math.round((e.clientX - o.left) / o.k))), y = Math.max(0, Math.min(262, Math.round((e.clientY - o.top) / o.k)));
+        var d0 = Object.assign({}, st.draft, { x2: x, y2: y });
+        if (d0.type === 'pen' || d0.type === 'marker') { var lp = d0.pts[d0.pts.length - 1]; if (Math.abs(lp[0] - x) + Math.abs(lp[1] - y) > 2) d0.pts = d0.pts.concat([[x, y]]); }
+        self.setState({ draft: d0 }); return;
+      }
+      var d = st.drag; if (!d) return; self.setState({ x: Math.round(d.ox + (e.clientX - d.sx) / d.k), y: Math.round(d.oy + (e.clientY - d.sy) / d.k) });
+    };
+    this.onUp = function () {
+      var st = self.state;
+      if (st.draft) { var d = st.draft, ok = Math.abs(d.x2 - d.x1) > 3 || Math.abs(d.y2 - d.y1) > 3 || d.pts.length > 2; self.setState({ draft: null, origin: null, anns: ok ? st.anns.concat([d]) : st.anns }); return; }
+      if (st.drag) self.setState({ drag: null });
+    };
     this.onWheel = function (e) {
       if (e.ctrlKey) { self.setState({ op: Math.max(20, Math.min(100, self.state.op + (e.deltaY < 0 ? 10 : -10))), zooming: true }); }
       else { var s = Math.max(0.5, Math.min(2, Math.round((self.state.scale + (e.deltaY < 0 ? 0.1 : -0.1)) * 10) / 10)); self.setState({ scale: s, zooming: true }); }
@@ -212,7 +283,11 @@ class Component extends DCLogic {
   }
   key(e) {
     var st = this.state, c = e.code || '', k = e.key, ctrl = e.ctrlKey || e.metaKey, sh = e.shiftKey, alt = e.altKey, done = true;
-    if (k === 'Escape') { if (st.card) this.setState({ card: null }); else if (st.menu) this.setState({ menu: false }); else this.setState({ closed: true }); }
+    if (k === 'Escape' && st.propOpen >= 0) this.setState({ propOpen: -1 });
+    else if (k === 'Escape' && st.annot) this.setState({ annot: false, propOpen: -1 });
+    else if (st.annot && /^Digit[1-7]$/.test(c) && !ctrl && !alt) this.pickTool(Number(c.slice(5)) - 1);
+    else if (ctrl && c === 'KeyZ') this.undo();
+    else if (k === 'Escape') { if (st.card) this.setState({ card: null }); else if (st.menu) this.setState({ menu: false }); else this.setState({ closed: true }); }
     else if (ctrl && sh && c === 'KeyX') this.setState({ through: !st.through });
     else if (ctrl && c === 'KeyC') this.toast('图片已复制 · PNG');
     else if (ctrl && c === 'KeyS') this.toast('打开保存窗口（与截图编辑态相同）');
@@ -221,13 +296,52 @@ class Component extends DCLogic {
     else if (sh && alt && c === 'KeyR') this.openCard('md');
     else if (sh && c === 'KeyC') this.openCard('ocr');
     else if (ctrl || alt) done = false;
-    else if (c === 'Space') this.toast('进入标注 · 工具和截图编辑态一致');
+    else if (c === 'Space') this.toggleAnnot();
     else if (c === 'KeyH') { var h = !st.hintsHidden; try { window.localStorage.setItem('snapmind.hintsHidden', h ? '1' : '0'); } catch (x) {} this.setState({ hintsHidden: h }); }
     else done = false;
     if (done) e.preventDefault();
   }
+  toggleAnnot() { var st = this.state; this.setState({ annot: !st.annot, propOpen: -1, menu: false, card: null }); }
+  pickTool(i) { this.setState({ tool: i, lastTool: i, propOpen: -1 }); }
+  undo() { var a = this.state.anns; if (a.length) this.setState({ anns: a.slice(0, -1) }); }
+  opt(i) { var o = this.state.opts[i]; return { sub: o.sub, color: this.colors[o.c][0], size: this.sizes[o.s] }; }
+  startDraw(e) {
+    var st = this.state, r = e.currentTarget.getBoundingClientRect(), k = r.width / 520;
+    if (!isFinite(k) || k <= 0) k = 1;
+    var p = { x: Math.round((e.clientX - r.left) / k), y: Math.round((e.clientY - r.top) / k) };
+    if (p.y > 262) return;
+    e.preventDefault();
+    var o = this.opt(st.tool), id = st.seq;
+    if (st.tool === 3) { this.setState({ anns: st.anns.concat([{ id: id, type: 'text', x: p.x - 6, y: p.y - 14, text: '输入文字', color: o.color, size: o.size }]), seq: id + 1, propOpen: -1 }); return; }
+    if (st.tool === 4) { var n = st.anns.filter(function (a) { return a.type === 'num'; }).length + 1; this.setState({ anns: st.anns.concat([{ id: id, type: 'num', x: p.x, y: p.y, n: n, color: o.color }]), seq: id + 1, propOpen: -1 }); return; }
+    if (st.tool === 6) { var anns = st.anns.slice(); for (var i = anns.length - 1; i >= 0; i--) { if (this.annHit(anns[i], p)) { anns.splice(i, 1); break; } } this.setState({ anns: anns, propOpen: -1 }); return; }
+    var types = [['rect', 'ellipse'], ['pen', 'marker'], ['arrow', 'line'], null, null, ['mosaic', 'blur']];
+    this.setState({ draft: { id: id, type: types[st.tool][o.sub], x1: p.x, y1: p.y, x2: p.x, y2: p.y, pts: [[p.x, p.y]], color: o.color, size: o.size }, origin: { left: r.left, top: r.top, k: k }, seq: id + 1, propOpen: -1 });
+  }
+  annHit(a, p) {
+    var m = 8, x1, y1, x2, y2;
+    if (a.type === 'num') return Math.abs(p.x - a.x) < 14 && Math.abs(p.y - a.y) < 14;
+    if (a.type === 'text') { x1 = a.x; y1 = a.y; x2 = a.x + a.text.length * 16; y2 = a.y + 30; }
+    else if (a.type === 'pen' || a.type === 'marker') { var xs = a.pts.map(function (q) { return q[0]; }), ys = a.pts.map(function (q) { return q[1]; }); x1 = Math.min.apply(null, xs); x2 = Math.max.apply(null, xs); y1 = Math.min.apply(null, ys); y2 = Math.max.apply(null, ys); }
+    else { x1 = Math.min(a.x1, a.x2); x2 = Math.max(a.x1, a.x2); y1 = Math.min(a.y1, a.y2); y2 = Math.max(a.y1, a.y2); }
+    return p.x >= x1 - m && p.x <= x2 + m && p.y >= y1 - m && p.y <= y2 + m;
+  }
+  annView(a) {
+    var self = this, v = { isBox: false, isLine: false, isPen: false, isNum: false, isText: false, color: a.color };
+    if (a.type === 'rect' || a.type === 'ellipse' || a.type === 'mosaic' || a.type === 'blur') { v.isBox = true; v.x = Math.min(a.x1, a.x2); v.y = Math.min(a.y1, a.y2); v.w = Math.abs(a.x2 - a.x1); v.h = Math.abs(a.y2 - a.y1); v.bw = (a.type === 'rect' || a.type === 'ellipse') ? a.size : 0; v.radius = a.type === 'ellipse' ? '50%' : '3px'; v.cls = a.type === 'mosaic' ? 'ann-mosaic' : a.type === 'blur' ? 'ann-blur' : ''; }
+    else if (a.type === 'arrow' || a.type === 'line') { var dx = a.x2 - a.x1, dy = a.y2 - a.y1, len = Math.sqrt(dx * dx + dy * dy), hs = 10 + a.size * 2; v.isLine = true; v.x = a.x1; v.y = a.y1; v.size = a.size; v.mt = -a.size / 2; v.ang = Math.atan2(dy, dx) * 180 / Math.PI; v.arrow = a.type === 'arrow'; v.len = v.arrow ? Math.max(0, len - hs * 0.6) : len; v.hs = hs; v.hx = v.len - hs * 0.4; v.hmt = -hs / 2; }
+    else if (a.type === 'pen' || a.type === 'marker') { v.isPen = true; v.d = 'M' + a.pts.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L'); v.sw = a.type === 'marker' ? a.size * 4 + 6 : a.size; v.op = a.type === 'marker' ? 0.4 : 1; }
+    else if (a.type === 'num') { v.isNum = true; v.x = a.x; v.y = a.y; v.n = a.n; }
+    else if (a.type === 'text') { v.isText = true; v.x = a.x; v.y = a.y; v.text = a.text; v.fs = 12 + a.size * 2; v.tw = Math.max(60, a.text.length * (12 + a.size * 2) + 16); v.onText = function (e) { var val = e.target.value; self.setState({ anns: self.state.anns.map(function (q) { return q.id === a.id ? Object.assign({}, q, { text: val }) : q; }) }); }; }
+    return v;
+  }
   renderVals() {
-    var self = this, st = this.state, open = !st.closed, keep = st.menu || !!st.card;
+    var self = this, st = this.state, open = !st.closed, keep = st.menu || !!st.card || st.annot;
+    var tools = this.toolDefs.map(function (t, i) { return { label: t.label, title: t.label + '  ' + t.key, d: t.d, on: st.tool === i ? 'on' : '', hasChev: !t.noChev, chevLabel: t.label + '样式', pick: function () { self.pickTool(i); }, openProps: function () { self.setState({ propOpen: st.propOpen === i ? -1 : i, tool: i, lastTool: i }); } }; });
+    var propX = 4; for (var pi = 0; pi < st.propOpen; pi++) propX += (this.toolDefs[pi].noChev ? 28 : 40) + 1;
+    var po = st.propOpen >= 0 ? st.opts[st.propOpen] : null, pdef = st.propOpen >= 0 ? this.toolDefs[st.propOpen] : null;
+    var setOpt = function (key, val) { self.setState({ opts: st.opts.map(function (o, j) { if (j !== st.propOpen) return o; var n = Object.assign({}, o); n[key] = val; return n; }) }); };
+    var annList = st.anns.concat(st.draft ? [st.draft] : []).map(function (a) { return self.annView(a); });
     var cardX = Math.min(st.x + 520 * st.scale + 16, 1104 - 372), cardY = Math.max(12, Math.min(st.y, 596 - 300));
     var titles = { ocr: '识别结果 · 3 段 5 行', md: 'Markdown · 可直接修改', latex: '公式 → LaTeX', table: '表格识别' };
     var metas = { ocr: '本地 OCR · ' + st.cardText.length + ' 字', md: 'Obsidian 风格 · 代码块保留', latex: '没有识别到公式', table: '没有识别到表格' };
@@ -236,7 +350,14 @@ class Component extends DCLogic {
       setLight: function () { self.setState({ mode: 'light' }); }, setDark: function () { self.setState({ mode: 'dark' }); },
       onMove: this.onMove, onUp: this.onUp, onDown: this.onDown, onWheel: this.onWheel, stop: this.stop, onKey: this.onKey,
       open: open, closed: st.closed,
-      pinCls: (st.ocr === 'ready' ? 'ready ' : '') + (keep ? 'keep ' : '') + (st.zooming ? 'zooming' : ''),
+      pinCls: (st.ocr === 'ready' && !st.annot ? 'ready ' : '') + (keep ? 'keep ' : '') + (st.annot ? 'annot ' : '') + (st.zooming ? 'zooming' : ''),
+      annot: st.annot, notAnnot: !st.annot, frameCursor: st.annot ? (st.tool === 6 ? 'cell' : 'crosshair') : 'move',
+      tools: tools, anns: annList, exitAnnot: function () { self.setState({ annot: false, propOpen: -1 }); },
+      undo: function () { self.undo(); }, noUndo: st.anns.length === 0, undoOp: st.anns.length ? 1 : 0.4,
+      showProps: st.annot && st.propOpen >= 0, propX: propX, propHasSub: !!(pdef && pdef.subs),
+      propSubs: pdef && pdef.subs ? pdef.subs.map(function (s, j) { return { label: s, on: po.sub === j ? 'on' : '', pick: function () { setOpt('sub', j); } }; }) : [],
+      propColors: this.colors.map(function (cc, j) { return { color: cc[0], label: cc[1], on: po && po.c === j ? 'on' : '', pick: function () { setOpt('c', j); } }; }),
+      propSizes: this.sizes.map(function (s, j) { return { d: 4 + j * 4, label: ['细', '中', '粗'][j], on: po && po.s === j ? 'on' : '', pick: function () { setOpt('s', j); } }; }),
       x: st.x, y: st.y, scale: st.scale, opacity: st.through ? Math.min(st.op, 60) / 100 : st.op / 100, pe: st.through ? 'none' : 'auto',
       showOriginal: !st.overlay, overlay: st.overlay, overlayOn: st.overlay ? 'on' : '',
       toggleOverlay: function () { self.setState({ overlay: !self.state.overlay, menu: false }); },
@@ -244,8 +365,9 @@ class Component extends DCLogic {
       menuOn: st.menu ? 'on' : '', menu: st.menu, toggleMenu: function () { self.setState({ menu: !self.state.menu }); },
       ocr: function () { self.openCard('ocr'); }, md: function () { self.openCard('md'); },
       latex: function () { self.openCard('latex'); }, table: function () { self.toast('贴图中没有识别到表格'); },
-      annotate: function () { self.toast('进入标注 · 工具和截图编辑态一致'); },
-      copyImg: function () { self.toast('图片已复制 · PNG'); }, saveAs: function () { self.toast('打开保存窗口（与截图编辑态相同）'); },
+      annotate: function () { self.toggleAnnot(); },
+      dblClose: function () { if (!self.state.annot) self.setState({ closed: true, menu: false, card: null }); },
+      copyImg: function () { self.toast(self.state.anns.length ? '图片（含标注）已复制 · PNG' : '图片已复制 · PNG'); }, saveAs: function () { self.toast('打开保存窗口（与截图编辑态相同）'); },
       customize: function () { self.toast('在 设置 → 工具栏 里排序或隐藏按钮'); },
       resetZoom: function () { self.setState({ scale: 1, menu: false }); },
       through: st.through, toggleThrough: function () { self.setState({ through: !self.state.through, menu: false }); },
@@ -262,7 +384,7 @@ class Component extends DCLogic {
       cardCopy: function () { self.setState({ card: null }); self.toast('已复制 · 贴图保留在屏幕上'); },
       cardTranslate: function () { self.setState({ card: null, overlay: true }); },
       showHints: !st.hintsHidden && open,
-      hints: [{ k: '拖动', label: '移动贴图' }, { k: '滚轮', label: '缩放' }, { k: 'Ctrl+滚轮', label: '不透明度' }, { k: 'Ctrl+Q', label: '翻译 / 原文' }, { k: 'Shift+C', label: '识别文字' }, { k: 'Shift+Alt+R', label: '识别为 Markdown' }, { k: '空格', label: '标注' }, { k: 'Ctrl+C', label: '复制' }, { k: 'Ctrl+S', label: '保存…' }, { k: 'Esc / 双击', label: '关闭（进历史）' }],
+      hints: st.annot ? [{ k: '拖动', label: '绘制' + this.toolDefs[st.tool].label }, { k: '1 – 7', label: '切换标注工具' }, { k: 'Ctrl+Z', label: '撤销' }, { k: 'Ctrl+C', label: '复制（含标注）' }, { k: '空格 / Esc', label: '完成标注' }] : [{ k: '拖动', label: '移动贴图' }, { k: '滚轮', label: '缩放' }, { k: 'Ctrl+滚轮', label: '不透明度' }, { k: 'Ctrl+Q', label: '翻译 / 原文' }, { k: 'Shift+C', label: '识别文字' }, { k: 'Shift+Alt+R', label: '识别为 Markdown' }, { k: '空格', label: '标注' }, { k: 'Ctrl+C', label: '复制' }, { k: 'Ctrl+S', label: '保存…' }, { k: 'Esc / 双击', label: '关闭（进历史）' }],
       hasToast: !!st.toast, toast: st.toast || ''
     };
   }
