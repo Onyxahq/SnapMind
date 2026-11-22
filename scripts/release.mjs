@@ -9,6 +9,10 @@
 //   --no-install   只打包，不安装
 //   --launch       安装后从开始菜单快捷方式启动，确认能运行
 //
+// 自动更新（M11.3）：找到更新签名私钥时（环境变量 TAURI_SIGNING_PRIVATE_KEY，或
+// ~/.tauri/snapmind-updater.key），顺带生成签名（.sig）和 latest.json，供 `pnpm publish-release` 上传。
+// 私钥只放在本机、不进仓库；公钥写在 src-tauri/tauri.conf.json 的 plugins.updater.pubkey。
+//
 // 版本号规则见 docs/进度.md「决策记录 · M0.5」。
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -21,6 +25,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CARGO_TOML = join(ROOT, 'Cargo.toml');
 const PACKAGE_JSON = join(ROOT, 'package.json');
 const SIZE_BUDGET_MB = 25; // 编程计划 §6：安装包 ≤ 25 MB（不含模型）
+const TAURI_CONF = join(ROOT, 'src-tauri', 'tauri.conf.json');
+/** 更新包放在这个仓库的 Releases 上（和 tauri.conf.json 里的 endpoints 一致）。 */
+export const RELEASE_REPO = 'SheZioTor/SnapMind';
+export const KEY_FILE = join(homedir(), '.tauri', 'snapmind-updater.key');
 const isWin = process.platform === 'win32';
 
 // ---------------------------------------------------------------- 版本号
@@ -53,6 +61,31 @@ export function writeVersion(toml, pkgText, version) {
   const pkg = JSON.parse(pkgText);
   pkg.version = version;
   return { toml: nextToml, pkg: JSON.stringify(pkg, null, 2) + '\n' };
+}
+
+// ---------------------------------------------------------------- 更新清单
+
+export const setupName = (version) => `SnapMind_${version}_x64-setup.exe`;
+
+/** 更新源 latest.json 的内容（tauri-plugin-updater 的静态清单格式）。 */
+export function updaterManifest({ version, signature, notes = '', date, repo = RELEASE_REPO }) {
+  return {
+    version,
+    notes,
+    pub_date: date.toISOString(),
+    platforms: {
+      'windows-x86_64': {
+        signature: signature.trim(),
+        url: `https://github.com/${repo}/releases/download/v${version}/${setupName(version)}`,
+      },
+    },
+  };
+}
+
+/** 更新签名私钥：环境变量优先，其次本机的密钥文件。没有时返回 null（只打普通安装包）。 */
+function signingKey() {
+  if (process.env.TAURI_SIGNING_PRIVATE_KEY) return process.env.TAURI_SIGNING_PRIVATE_KEY;
+  return existsSync(KEY_FILE) ? readFileSync(KEY_FILE, 'utf8').trim() : null;
 }
 
 // ---------------------------------------------------------------- 步骤
@@ -131,12 +164,35 @@ function main(argv) {
     run('cargo', ['test', '--workspace', '--quiet']);
     run('pnpm', ['test']);
   }
-  run('pnpm', ['tauri', 'build']);
+  const key = signingKey();
+  const pubkey = JSON.parse(readFileSync(TAURI_CONF, 'utf8')).plugins?.updater?.pubkey ?? '';
+  if (key && !pubkey.trim()) throw new Error('有更新签名私钥，但 tauri.conf.json 里的 plugins.updater.pubkey 是空的');
+  if (key) {
+    console.log('找到更新签名私钥：生成签名和 latest.json');
+    const env = {
+      ...process.env,
+      TAURI_SIGNING_PRIVATE_KEY: key,
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? '',
+    };
+    // 用文件传配置覆盖，避开 cmd 对 JSON 引号的转义
+    const extra = join(ROOT, 'target', 'updater.conf.json');
+    writeFileSync(extra, JSON.stringify({ bundle: { createUpdaterArtifacts: true } }));
+    run('pnpm', ['tauri', 'build', '--config', extra], { env });
+  } else {
+    run('pnpm', ['tauri', 'build']);
+  }
 
   if (!isWin) return console.log('\n非 Windows 平台：打包完成，跳过安装。');
 
-  const setup = join(ROOT, 'target', 'release', 'bundle', 'nsis', `SnapMind_${version}_x64-setup.exe`);
+  const nsis = join(ROOT, 'target', 'release', 'bundle', 'nsis');
+  const setup = join(nsis, setupName(version));
   if (!existsSync(setup)) throw new Error(`找不到安装包 ${setup}`);
+  if (key) {
+    const sig = readFileSync(`${setup}.sig`, 'utf8');
+    const manifest = updaterManifest({ version, signature: sig, date: new Date() });
+    writeFileSync(join(nsis, 'latest.json'), JSON.stringify(manifest, null, 2) + '\n');
+    console.log(`  更新清单：${join(nsis, 'latest.json')}`);
+  }
   const mb = statSync(setup).size / 1024 / 1024;
   console.log(`\n安装包：${setup}（${mb.toFixed(2)} MB）`);
   if (mb > SIZE_BUDGET_MB) console.warn(`⚠ 超出 ${SIZE_BUDGET_MB} MB 预算`);

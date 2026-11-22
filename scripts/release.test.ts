@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { bumpVersion, readVersion, writeVersion } from './release.mjs';
+import { bumpVersion, readVersion, updaterManifest, writeVersion } from './release.mjs';
+import { notesFromSubject } from './publish.mjs';
 
 const TOML = `[workspace]
 members = ["a"]
@@ -30,5 +31,30 @@ describe('release 版本号', () => {
     expect(readVersion(out.toml)).toBe('0.1.5');
     expect(out.toml).toContain('serde = { version = "1" }');
     expect(JSON.parse(out.pkg).version).toBe('0.1.5');
+  });
+});
+
+describe('更新清单 latest.json', () => {
+  it('指向这个版本在 Releases 上的安装包，签名去掉首尾空白', () => {
+    const m = updaterManifest({ version: '1.2.3', signature: 'c2ln\n', notes: '修复', date: new Date(Date.UTC(2026, 10, 23, 1, 2, 3)) });
+    expect(m).toEqual({
+      version: '1.2.3',
+      notes: '修复',
+      pub_date: '2026-11-23T01:02:03.000Z',
+      platforms: {
+        'windows-x86_64': {
+          signature: 'c2ln',
+          url: 'https://github.com/SheZioTor/SnapMind/releases/download/v1.2.3/SnapMind_1.2.3_x64-setup.exe',
+        },
+      },
+    });
+  });
+});
+
+describe('发布说明', () => {
+  it('去掉 conventional commit 前缀', () => {
+    expect(notesFromSubject('feat(M11.3): 自动更新')).toBe('自动更新');
+    expect(notesFromSubject('fix: 修复贴图')).toBe('修复贴图');
+    expect(notesFromSubject('普通标题')).toBe('普通标题');
   });
 });

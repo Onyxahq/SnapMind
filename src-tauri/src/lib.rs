@@ -22,6 +22,7 @@ mod selcard;
 mod xlsx;
 mod translate;
 mod tray;
+mod update;
 mod wm;
 
 use snapmind_core::config::{ConfigStore, LoadOutcome};
@@ -55,6 +56,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(overlay::CaptureState::default())
         .manage(pin::PinState::default())
         .manage(pintools::ToolsState::default())
@@ -66,6 +68,7 @@ pub fn run() {
         .manage(record::RecordState::default())
         .manage(hotkeys::HotkeyState::default())
         .manage(ball::BallState::default())
+        .manage(update::UpdateState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .register_uri_scheme_protocol(history::PROTOCOL, |ctx, req| history::serve(ctx.app_handle(), &req))
         .setup(|app| {
@@ -100,6 +103,7 @@ pub fn run() {
                 let h = handle.clone();
                 std::thread::spawn(move || pin::restore(&h));
             }
+            update::spawn_auto(handle);
             // 第一次运行（刚建好配置）：打开新手引导；之后手动打开时显示设置
             if matches!(outcome, LoadOutcome::Created) {
                 wm::show_settings(handle, Some("welcome"));
@@ -236,6 +240,9 @@ pub fn run() {
             export::open_folder,
             commands::ui_log,
             applog::log_open,
+            update::update_status,
+            update::update_check,
+            update::update_install,
             commands::prompt_defaults,
             commands::languages,
             providers::provider_catalog,

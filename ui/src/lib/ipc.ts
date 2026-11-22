@@ -32,6 +32,8 @@ export interface Config {
   backup: { auto: boolean };
   /** 悬浮球：默认关闭；pos 是上次贴靠的位置（窗口中心，物理像素） */
   ball: { enabled: boolean; pos: [number, number] | null };
+  /** 自动更新（M11.3）：后台每天检查一次 */
+  update: { autoCheck: boolean };
 }
 
 /** 历史记录保留方式：不限制 / 每类最多 maxCount 条 / 合计最多 maxMb MB（贴图优先清理）。 */
@@ -177,6 +179,7 @@ export const DEFAULT_CONFIG: Config = {
   history: { mode: 'size', maxCount: 500, maxMb: 1024 },
   backup: { auto: true },
   ball: { enabled: false, pos: null },
+  update: { autoCheck: true },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -1136,6 +1139,79 @@ export async function onSettingsGoto(cb: (page: string) => void): Promise<() => 
 export async function autostartSet(on: boolean): Promise<boolean> {
   if (!inTauri()) return (fakeAutostart = on);
   return invoke('autostart_set', { on });
+}
+
+// ---- 自动更新（M11.3，见 src-tauri/src/update.rs）----
+
+export type UpdatePhase = 'idle' | 'checking' | 'latest' | 'available' | 'downloading' | 'installing' | 'error';
+
+export interface UpdateStatus {
+  /** 这个构建有没有配置更新源（签名公钥） */
+  configured: boolean;
+  phase: UpdatePhase;
+  current: string;
+  version: string | null;
+  notes: string | null;
+  received: number;
+  total: number;
+  error: string | null;
+  checkedAt: number | null;
+}
+
+let fakeUpdate: UpdateStatus = {
+  configured: true,
+  phase: 'idle',
+  current: 'dev',
+  version: null,
+  notes: null,
+  received: 0,
+  total: 0,
+  error: null,
+  checkedAt: null,
+};
+const fakeUpdateListeners = new Set<(s: UpdateStatus) => void>();
+function setFakeUpdate(patch: Partial<UpdateStatus>) {
+  fakeUpdate = { ...fakeUpdate, ...patch };
+  fakeUpdateListeners.forEach((f) => f(fakeUpdate));
+}
+
+export async function updateStatus(): Promise<UpdateStatus> {
+  if (!inTauri()) return fakeUpdate;
+  return invoke('update_status');
+}
+
+/** 检查一次更新（浏览器开发页：假装有新版本）。 */
+export async function updateCheck(): Promise<UpdateStatus> {
+  if (!inTauri()) {
+    setFakeUpdate({ phase: 'checking', error: null });
+    await new Promise((r) => setTimeout(r, 700));
+    setFakeUpdate({ phase: 'available', version: '9.9.9', notes: '新增：自动更新。\n修复：若干问题。', checkedAt: Date.now() });
+    return fakeUpdate;
+  }
+  return invoke('update_check');
+}
+
+/** 下载并安装；成功时程序退出、由安装程序接手。进度通过 onUpdate 推来。 */
+export async function updateInstall(): Promise<void> {
+  if (!inTauri()) {
+    const total = 9_700_000;
+    setFakeUpdate({ phase: 'downloading', received: 0, total });
+    for (let i = 1; i <= 20; i++) {
+      await new Promise((r) => setTimeout(r, 80));
+      setFakeUpdate({ received: (total * i) / 20 });
+    }
+    setFakeUpdate({ phase: 'installing' });
+    return;
+  }
+  return invoke('update_install');
+}
+
+export async function onUpdate(cb: (s: UpdateStatus) => void): Promise<() => void> {
+  if (!inTauri()) {
+    fakeUpdateListeners.add(cb);
+    return () => fakeUpdateListeners.delete(cb);
+  }
+  return listen<UpdateStatus>('update:state', (e) => cb(e.payload));
 }
 
 /** 打开日志文件夹（M11.2）。 */

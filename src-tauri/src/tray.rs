@@ -15,6 +15,7 @@ mod id {
     pub const AUTOSTART: &str = "autostart";
     pub const QUIT: &str = "quit";
     pub const UNTHROUGH: &str = "unthrough";
+    pub const UPDATE: &str = "update";
 }
 
 /// 托盘里需要随状态变化的菜单项。
@@ -27,6 +28,9 @@ pub struct TrayItems<R: Runtime> {
     pub pin: MenuItem<R>,
     /// 「开机自启」：设置页改了也要同步勾选状态
     pub autostart: CheckMenuItem<R>,
+    /// 整个菜单：有新版本时在最上面插入「更新到 x.y.z…」
+    pub menu: Menu<R>,
+    pub update: std::sync::Mutex<Option<MenuItem<R>>>,
 }
 
 /// 菜单里显示的快捷键（没设置时不显示）。
@@ -58,6 +62,33 @@ pub fn set_autostart<R: Runtime>(app: &AppHandle<R>, on: bool) -> bool {
     now
 }
 
+/// 有新版本：托盘菜单最上面显示「更新到 x.y.z…」（点了打开「关于」页），提示文字也带上。
+pub fn set_update<R: Runtime>(app: &AppHandle<R>, version: Option<&str>) {
+    let Some(items) = app.try_state::<TrayItems<R>>() else { return };
+    let mut cur = items.update.lock().expect("托盘锁");
+    match (version, cur.as_ref()) {
+        (Some(v), Some(item)) => {
+            let _ = item.set_text(format!("更新到 {v}…"));
+        }
+        (Some(v), None) => {
+            if let Ok(item) = MenuItem::with_id(app, id::UPDATE, format!("更新到 {v}…"), true, None::<&str>) {
+                if items.menu.insert(&item, 0).is_ok() {
+                    *cur = Some(item);
+                }
+            }
+        }
+        (None, Some(item)) => {
+            let _ = items.menu.remove(item);
+            *cur = None;
+        }
+        (None, None) => {}
+    }
+    if let Some(tray) = app.tray_by_id("main") {
+        let tip = version.map_or("SnapMind".to_string(), |v| format!("SnapMind · 有新版本 {v}"));
+        let _ = tray.set_tooltip(Some(tip));
+    }
+}
+
 /// 有没有贴图处于鼠标穿透状态，更新托盘菜单。
 pub fn sync_through<R: Runtime>(app: &AppHandle<R>, any: bool) {
     if let Some(items) = app.try_state::<TrayItems<R>>() {
@@ -81,7 +112,14 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         app,
         &[&capture, &pin, &unthrough, &sep()?, &settings, &autostart, &sep()?, &quit],
     )?;
-    app.manage(TrayItems { unthrough, capture, pin, autostart: autostart.clone() });
+    app.manage(TrayItems {
+        unthrough,
+        capture,
+        pin,
+        autostart: autostart.clone(),
+        menu: menu.clone(),
+        update: std::sync::Mutex::new(None),
+    });
     let mut builder = TrayIconBuilder::with_id("main")
         .tooltip("SnapMind")
         .menu(&menu)
@@ -90,6 +128,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             id::CAPTURE => actions::capture(app),
             id::PIN => actions::pin_clipboard(app),
             id::SETTINGS => wm::show_settings(app, None),
+            id::UPDATE => wm::show_settings(app, Some("about")),
             id::UNTHROUGH => crate::pin::clear_through(app),
             id::AUTOSTART => {
                 let on = autostart_enabled(app);

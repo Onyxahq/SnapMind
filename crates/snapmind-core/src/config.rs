@@ -50,6 +50,8 @@ pub struct Config {
     pub backup: BackupConfig,
     /// 悬浮球（需求第 11 节：可选，默认关闭）
     pub ball: BallConfig,
+    /// 自动更新（M11.3）
+    pub update: UpdateConfig,
 }
 
 impl Default for Config {
@@ -70,6 +72,7 @@ impl Default for Config {
             history: HistoryConfig::default(),
             backup: BackupConfig::default(),
             ball: BallConfig::default(),
+            update: UpdateConfig::default(),
         }
     }
 }
@@ -353,6 +356,20 @@ pub struct BackupConfig {
 impl Default for BackupConfig {
     fn default() -> Self {
         Self { auto: true }
+    }
+}
+
+/// 自动更新：开着时启动后和之后每天在后台检查一次，有新版本时在托盘菜单和「关于」页提示，
+/// 由用户点了才下载安装。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct UpdateConfig {
+    pub auto_check: bool,
+}
+
+impl Default for UpdateConfig {
+    fn default() -> Self {
+        Self { auto_check: true }
     }
 }
 
@@ -743,7 +760,8 @@ mod tests {
                 },
                 "history": { "mode": "size", "maxCount": 500, "maxMb": 1024 },
                 "backup": { "auto": true },
-                "ball": { "enabled": false, "pos": null }
+                "ball": { "enabled": false, "pos": null },
+                "update": { "autoCheck": true }
             })
         );
     }
