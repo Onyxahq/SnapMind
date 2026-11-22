@@ -1,8 +1,11 @@
 <script lang="ts">
-  // 截图工具条：标注工具 + 撤销 | 贴图、保存 | 退出、复制（需求 3.6，按钮 30px、内边距 4px）。
-  // 标注工具按钮与样式面板和贴图工具条共用（$lib/annot）。
+  // 截图工具条（需求 3.6，按钮 30px、内边距 4px）：按钮的顺序、隐藏、收进「⋯ 更多」都读配置
+  // （config.toolbar.capture，设置 → 工具栏）；退出、复制固定在最右边。标注工具和撤销之间、
+  // 和动作按钮之间自动加分隔。标注工具按钮与样式面板和贴图工具条共用（$lib/annot）。
   import type { Rect } from '$lib/geometry';
-  import { placeToolbar, type ToolbarAction as Action } from '$lib/toolbar';
+  import { CAPTURE_ITEMS, asAction, placeToolbar, visibleBar, type BarItem, type ToolbarAction as Action } from '$lib/toolbar';
+  import { config } from '$lib/config.svelte';
+  import { openSettings } from '$lib/ipc';
   import { TOOL_INFO, type Tool, type ToolOpts } from '$lib/annotate';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Icon from '$lib/ui/Icon.svelte';
@@ -35,12 +38,19 @@
     onundo: () => void;
   } = $props();
 
-  /** 「更多」菜单（需求 3.6：公式识别、表格识别收在这里） */
+  /** 「更多」菜单 */
   let moreOpen = $state(false);
-  const MORE = [
-    { a: 'formula', icon: 'formula', label: '公式识别' },
-    { a: 'table', icon: 'table', label: '表格识别' },
-  ] as const;
+  const bar = $derived(visibleBar(config.value.toolbar.capture, CAPTURE_ITEMS));
+  /** 标注工具和撤销算一组，其余是动作：组和组之间加分隔 */
+  const group = (i: BarItem) => (i.kind === 'action' ? 'action' : 'annot');
+  const tip = (i: BarItem) => (i.key ? `${i.label}  ${i.key}` : i.label);
+
+  function pickMore(i: BarItem) {
+    moreOpen = false;
+    if (i.kind === 'tool') ontool(i.id as Tool);
+    else if (i.kind === 'undo') onundo();
+    else onaction(asAction(i.id));
+  }
   let moreAnchor = $state<HTMLSpanElement>();
   let width = $state(420);
   let height = $state(38);
@@ -65,20 +75,20 @@
   bind:clientHeight={height}
   onpointerdown={(e) => e.stopPropagation()}
 >
-  <ToolButtons {tool} {canUndo} bind:propsOpen {ontool} {onundo} onanchor={(x) => (popLeft = x)} />
-  <span class="sep" aria-hidden="true"></span>
-  <IconButton icon="long" label="长截图  L" onclick={() => onaction('long')} />
-  <IconButton icon="video" label="录屏  R" onclick={() => onaction('record')} />
-  <IconButton icon="scan" label="识别文字  Shift+C" onclick={() => onaction('ocr')} />
-  <IconButton icon="markdown" label="识别为 Markdown  Shift+Alt+R" onclick={() => onaction('markdown')} />
-  <IconButton icon="translate" label="翻译  Ctrl+Q" onclick={() => onaction('translate')} />
-  <span class="sep" aria-hidden="true"></span>
+  {#each bar.main as it, i (it.id)}
+    {#if i > 0 && group(bar.main[i - 1]) !== group(it)}<span class="sep" aria-hidden="true"></span>{/if}
+    {#if it.kind === 'tool'}
+      <ToolButtons tools={[it.id as Tool]} undo={false} {tool} {canUndo} bind:propsOpen {ontool} {onundo} onanchor={(x) => (popLeft = x)} />
+    {:else if it.kind === 'undo'}
+      <IconButton icon="undo" label={tip(it)} disabled={!canUndo} onclick={onundo} />
+    {:else}
+      <IconButton icon={it.icon} label={tip(it)} onclick={() => onaction(asAction(it.id))} />
+    {/if}
+  {/each}
+  {#if bar.main.length}<span class="sep" aria-hidden="true"></span>{/if}
   <span class="anchor" bind:this={moreAnchor}>
     <IconButton icon="more" label="更多" on={moreOpen} onclick={() => (moreOpen = !moreOpen)} />
   </span>
-  <span class="sep" aria-hidden="true"></span>
-  <IconButton icon="pin" label="贴图  Ctrl+T" onclick={() => onaction('pin')} />
-  <IconButton icon="download" label="保存…  Ctrl+S" onclick={() => onaction('save')} />
   <span class="sep" aria-hidden="true"></span>
   <IconButton icon="close" label="退出  Esc" onclick={() => onaction('exit')} />
   <button type="button" class="copy" title="复制  Ctrl+C / Enter" aria-label="复制" onclick={() => onaction('copy')}>
@@ -87,18 +97,23 @@
 
   {#if moreOpen}
     <div class="more" class:up={popUp} style:left="{moreAnchor?.offsetLeft ?? 0}px" role="menu" aria-label="更多" in:popIn out:popOut>
-      {#each MORE as m (m.a)}
-        <button
-          type="button"
-          role="menuitem"
-          onclick={() => {
-            moreOpen = false;
-            onaction(m.a);
-          }}
-        >
-          <Icon name={m.icon} size={16} />{m.label}
+      {#each bar.more as m (m.id)}
+        <button type="button" role="menuitem" disabled={m.kind === 'undo' && !canUndo} onclick={() => pickMore(m)}>
+          <Icon name={m.icon} size={16} /><span class="ml">{m.label}</span>{#if m.key}<kbd>{m.key}</kbd>{/if}
         </button>
       {/each}
+      {#if bar.more.length}<span class="msep" aria-hidden="true"></span>{/if}
+      <button
+        type="button"
+        role="menuitem"
+        class="custom"
+        onclick={() => {
+          moreOpen = false;
+          openSettings('bar');
+        }}
+      >
+        <span class="ml">自定义工具条…</span>
+      </button>
     </div>
   {/if}
   {#if propsOpen && tool && TOOL_INFO[tool].props}
@@ -175,7 +190,7 @@
     background: var(--glass2);
     backdrop-filter: var(--blur-2);
     box-shadow: var(--elev);
-    min-width: 140px;
+    min-width: 180px;
   }
   .more.up { top: auto; bottom: calc(100% + 6px); }
   .more button {
@@ -194,6 +209,11 @@
     transition: background var(--d-hover) var(--ease-hover);
   }
   .more button:hover { background: var(--hover); }
+  .more button:disabled { opacity: .45; cursor: default; }
+  .more .ml { flex: 1; text-align: left; }
+  .more kbd { font: 11px/18px var(--font-mono, Consolas, monospace); color: var(--text3); }
+  .more .custom { color: var(--text2); }
+  .msep { height: 1px; margin: 4px 6px; background: var(--line2); }
   .props {
     position: absolute;
     top: calc(100% + 6px);

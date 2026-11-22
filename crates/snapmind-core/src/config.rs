@@ -42,6 +42,8 @@ pub struct Config {
     pub record: RecordConfig,
     /// 全局快捷键（需求第 2 节；设置里录制新组合键）
     pub hotkeys: HotkeysConfig,
+    /// 截图和贴图工具条的按钮顺序、隐藏、收进「更多」（需求 3.6、第 9 节）
+    pub toolbar: ToolbarConfig,
 }
 
 impl Default for Config {
@@ -58,6 +60,7 @@ impl Default for Config {
             translation: TranslationConfig::default(),
             record: RecordConfig::default(),
             hotkeys: HotkeysConfig::default(),
+            toolbar: ToolbarConfig::default(),
         }
     }
 }
@@ -309,6 +312,38 @@ pub enum SameLang {
     Second,
     /// 不翻译，原样给出
     Skip,
+}
+
+/// 一条工具条的布局：按钮 id 的顺序（其中 `more` 是分隔线，它后面的按钮收进「⋯ 更多」）和隐藏的按钮。
+/// 界面按这里排；不认识的 id 忽略，新版本新加的按钮自动出现在分隔线前面。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ToolbarLayout {
+    pub order: Vec<String>,
+    pub hidden: Vec<String>,
+}
+
+fn layout(ids: &[&str]) -> ToolbarLayout {
+    ToolbarLayout { order: ids.iter().map(|s| s.to_string()).collect(), hidden: Vec::new() }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ToolbarConfig {
+    pub capture: ToolbarLayout,
+    pub pin: ToolbarLayout,
+}
+
+impl Default for ToolbarConfig {
+    fn default() -> Self {
+        Self {
+            capture: layout(&[
+                "rect", "pen", "arrow", "text", "number", "mosaic", "eraser", "undo", "long", "record", "ocr",
+                "markdown", "translate", "pin", "save", "more", "formula", "table",
+            ]),
+            pin: layout(&["annotate", "save", "copy", "more", "through", "zoom100"]),
+        }
+    }
 }
 
 /// 全局快捷键。写法和 Tauri 一样（如 `Shift+F1`、`Ctrl+Alt+D`），空字符串表示不用。
@@ -616,6 +651,14 @@ mod tests {
                     "selection": "Ctrl+Alt+D",
                     "captureTranslate": "Ctrl+Shift+O",
                     "captureRecognize": "Ctrl+Shift+S"
+                },
+                "toolbar": {
+                    "capture": {
+                        "order": ["rect", "pen", "arrow", "text", "number", "mosaic", "eraser", "undo", "long", "record",
+                                  "ocr", "markdown", "translate", "pin", "save", "more", "formula", "table"],
+                        "hidden": []
+                    },
+                    "pin": { "order": ["annotate", "save", "copy", "more", "through", "zoom100"], "hidden": [] }
                 }
             })
         );

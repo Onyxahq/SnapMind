@@ -1,10 +1,12 @@
 <script lang="ts">
   // 贴图工具条（需求第 6 节）：所有贴图共用的一个窗口，由 Rust 摆到当前悬停的贴图下方（放不下时在上方）。
   // 顶部（或底部）留 8px 透明连接区，鼠标从贴图移过来不会丢；悬停 / 菜单打开 / 标注期间一直显示。
-  // 普通模式：标注、保存、复制、更多、关闭（翻译、识别文字、Markdown 随对应任务加入）。
+  // 普通模式：按钮的顺序、隐藏、收进「更多」读配置（config.toolbar.pin，设置 → 工具栏）；
+  // 关闭固定在最右边，不透明度滑块固定在「更多」里。
   // 标注模式（M3.3）：与截图相同的标注工具（共用组件）+ 撤销 | 复制、完成；样式面板排在工具条旁边。
   import { onMount } from 'svelte';
   import {
+    openSettings,
     onAnnotState,
     onToolsTarget,
     sendPinAction,
@@ -21,6 +23,12 @@
   import ToolButtons from '$lib/annot/ToolButtons.svelte';
   import ToolProps from '$lib/annot/ToolProps.svelte';
   import { popIn, popOut } from '$lib/motion';
+  import { config } from '$lib/config.svelte';
+  import { PIN_ITEMS, visibleBar, type BarItem } from '$lib/toolbar';
+  import Icon from '$lib/ui/Icon.svelte';
+
+  const bar = $derived(visibleBar(config.value.toolbar.pin, PIN_ITEMS));
+  const tip = (i: BarItem) => (i.key ? `${i.label}  ${i.key}` : i.label);
 
   let target = $state<ToolsTarget | null>(null);
   /** 各贴图的标注状态（贴图主动推送） */
@@ -109,9 +117,9 @@
       {/if}
     {:else}
       <div class="bar">
-        <IconButton icon="pen" label="标注  空格" onclick={() => act('annotate')} />
-        <IconButton icon="download" label="保存…  Ctrl+S" onclick={() => act('save')} />
-        <IconButton icon="copy" label="复制  Ctrl+C" onclick={() => act('copy')} />
+        {#each bar.main as it (it.id)}
+          <IconButton icon={it.icon} label={tip(it)} onclick={() => act(it.id as PinActionMsg['action'])} />
+        {/each}
         <IconButton icon="more" label="更多" on={menuOpen} onclick={() => setMenu(!menuOpen)} />
         <span class="sep" aria-hidden="true"></span>
         <IconButton icon="close" label="关闭  Esc" onclick={() => act('close')} />
@@ -131,11 +139,22 @@
             />
             <span class="num">{opacity}%</span>
           </label>
-          <button type="button" class="row" role="menuitem" onclick={() => act('through')}>
-            鼠标穿透<kbd>Ctrl+Shift+X</kbd>
-          </button>
-          <button type="button" class="row" role="menuitem" onclick={() => act('zoom100')}>
-            缩放到 100%<kbd>Ctrl+0</kbd>
+          {#each bar.more as it (it.id)}
+            <button type="button" class="row" role="menuitem" onclick={() => act(it.id as PinActionMsg['action'])}>
+              <Icon name={it.icon} size={15} /><span class="ml">{it.label}</span>{#if it.key}<kbd>{it.key}</kbd>{/if}
+            </button>
+          {/each}
+          <span class="msep" aria-hidden="true"></span>
+          <button
+            type="button"
+            class="row dim"
+            role="menuitem"
+            onclick={() => {
+              setMenu(false);
+              openSettings('bar');
+            }}
+          >
+            <span class="ml">自定义工具条…</span>
           </button>
         </div>
       {/if}
@@ -225,6 +244,9 @@
   }
   .row:hover { background: var(--hover); }
   .row kbd { margin-left: auto; font: inherit; font-size: 11px; color: var(--text3); }
+  .row .ml { flex: 1; }
+  .row.dim { color: var(--text2); }
+  .msep { height: 1px; margin: 4px 6px; background: var(--line2); }
   .slider { cursor: default; color: var(--text2); }
   .slider:hover { background: transparent; }
   .slider input { flex: 1; accent-color: var(--accent); min-width: 0; }

@@ -7,6 +7,8 @@
   import Icon, { type IconName } from '$lib/ui/Icon.svelte';
 
   let {
+    tools = READY_TOOLS,
+    undo = true,
     tool,
     canUndo,
     propsOpen = $bindable(false),
@@ -14,6 +16,10 @@
     onundo,
     onanchor,
   }: {
+    /** 显示哪些工具、按什么顺序（截图工具条按配置逐个放；默认全部） */
+    tools?: Tool[];
+    /** 是否在后面放撤销按钮 */
+    undo?: boolean;
     tool: Tool | null;
     canUndo: boolean;
     propsOpen?: boolean;
@@ -48,7 +54,7 @@
   }
 </script>
 
-{#each READY_TOOLS as t (t)}
+{#each tools as t (t)}
   {@const info = TOOL_INFO[t]}
   {@const key = TOOLS.indexOf(t) + 1}
   <span class="tool" class:on={tool === t}>
@@ -69,7 +75,9 @@
     {/if}
   </span>
 {/each}
-<IconButton icon="undo" label="撤销  Ctrl+Z" disabled={!canUndo} onclick={onundo} />
+{#if undo}
+  <IconButton icon="undo" label="撤销  Ctrl+Z" disabled={!canUndo} onclick={onundo} />
+{/if}
 
 <style>
   .tool {

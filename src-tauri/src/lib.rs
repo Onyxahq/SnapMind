@@ -128,6 +128,7 @@ pub fn run() {
             commands::config_update,
             commands::config_path,
             commands::autostart_get,
+            commands::settings_open,
             commands::autostart_set,
             hotkeys::hotkeys_status,
             hotkeys::hotkeys_suspend,

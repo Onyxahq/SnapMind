@@ -1,6 +1,8 @@
 <script lang="ts">
   // 设置窗口（需求第 9 节、M10.1）：左边导航十页，右边当前页。上次停在哪一页下次还打开哪一页。
+  import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
+  import { onSettingsGoto } from '$lib/ipc';
   import ToastHost from '$lib/ui/ToastHost.svelte';
   import PageRecognize from './PageRecognize.svelte';
   import Providers from './Providers.svelte';
@@ -41,6 +43,16 @@
 
   let page = $state<PageId>(load());
   let scroller = $state<HTMLElement>();
+
+  // 工具条「更多 → 自定义工具条…」等入口：打开设置并跳到指定页
+  onMount(() => {
+    const off = onSettingsGoto((p) => {
+      if (PAGES.some((x) => x.id === p)) go(p as PageId);
+    });
+    return () => {
+      off.then((f) => f());
+    };
+  });
 
   function go(id: PageId) {
     if (id === page) return;

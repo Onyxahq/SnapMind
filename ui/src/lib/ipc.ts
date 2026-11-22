@@ -26,6 +26,13 @@ export interface Config {
   translation: TranslationConfig;
   record: RecordConfig;
   hotkeys: HotkeysConfig;
+  toolbar: { capture: ToolbarLayout; pin: ToolbarLayout };
+}
+
+/** 一条工具条的布局：order 里的 'more' 是分隔线，后面的按钮收进「⋯ 更多」；hidden 是隐藏的按钮。 */
+export interface ToolbarLayout {
+  order: string[];
+  hidden: string[];
 }
 
 /** 全局快捷键：Tauri 写法（如 Shift+F1），空字符串表示不用。 */
@@ -147,6 +154,13 @@ export const DEFAULT_CONFIG: Config = {
     selection: 'Ctrl+Alt+D',
     captureTranslate: 'Ctrl+Shift+O',
     captureRecognize: 'Ctrl+Shift+S',
+  },
+  toolbar: {
+    capture: {
+      order: ['rect', 'pen', 'arrow', 'text', 'number', 'mosaic', 'eraser', 'undo', 'long', 'record', 'ocr', 'markdown', 'translate', 'pin', 'save', 'more', 'formula', 'table'],
+      hidden: [],
+    },
+    pin: { order: ['annotate', 'save', 'copy', 'more', 'through', 'zoom100'], hidden: [] },
   },
 };
 
@@ -912,6 +926,18 @@ let fakeAutostart = true;
 export async function autostartGet(): Promise<boolean> {
   if (!inTauri()) return fakeAutostart;
   return invoke('autostart_get');
+}
+
+/** 打开设置窗口并跳到某一页（如工具条「更多」里的「自定义工具条…」→ 'bar'）。 */
+export async function openSettings(page?: string): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('settings_open', { page: page ?? null });
+}
+
+/** 设置窗口收到「跳到某一页」。 */
+export async function onSettingsGoto(cb: (page: string) => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  return listen<string>('settings:goto', (e) => cb(e.payload));
 }
 
 /** 设置开机自启，返回实际状态。 */
