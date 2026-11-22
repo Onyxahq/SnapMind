@@ -9,6 +9,7 @@
   let {
     sel,
     card,
+    bilingual = false,
     onsrc,
     ondst,
     onretranslate,
@@ -18,6 +19,8 @@
   }: {
     sel: Rect;
     card: TranslateCard;
+    /** 复制 / 贴图时用双语对照 */
+    bilingual?: boolean;
     onsrc: (v: string) => void;
     ondst: (v: string) => void;
     onretranslate: () => void;
@@ -29,8 +32,8 @@
   let height = $state(320);
   const WIDTH = 380;
   const pos = $derived(placeCard(sel, { width: WIDTH, height }, { width: innerWidth, height: innerHeight }));
-  const busy = $derived(card.stage === 'recognize' || card.stage === 'translate');
-  const streamingSrc = $derived(card.stage === 'recognize');
+  const busy = $derived(card.stage === 'recognize' || card.stage === 'oneshot' || card.stage === 'translate');
+  const streamingSrc = $derived(card.stage === 'recognize' || card.stage === 'oneshot');
   const waitingDst = $derived(card.stage === 'translate' && !card.dst);
   const canAct = $derived(!busy && !!card.dst.trim());
 
@@ -108,8 +111,8 @@
       disabled={busy || !card.src.trim()}
       onclick={onretranslate}
     />
-    <Button disabled={!canAct} onclick={onpin}>贴图</Button>
-    <Button variant="primary" disabled={!canAct} onclick={oncopy}>复制译文</Button>
+    <Button disabled={!canAct} onclick={onpin} title={bilingual ? '把原文和译文对照贴到屏幕上' : '把译文贴到屏幕上'}>贴图</Button>
+    <Button variant="primary" disabled={!canAct} onclick={oncopy}>{bilingual ? '复制双语' : '复制译文'}</Button>
   </footer>
 </div>
 

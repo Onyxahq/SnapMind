@@ -16,6 +16,7 @@
   import Providers from './Providers.svelte';
   import Chains from './Chains.svelte';
   import Prompts from './Prompts.svelte';
+  import { parseGlossary } from '$lib/task';
   import { toast } from '$lib/ui/toast.svelte';
 
   let info = $state<AppInfo | null>(null);
@@ -112,6 +113,42 @@
         value={config.value.translation.targetLang}
         onchange={(e) => save({ translation: { targetLang: e.currentTarget.value } })}
       />
+    </Row>
+    <Row title="原文已是目标语言时" desc="能确定原文语言时才生效（中日韩、俄语、英语等）">
+      <Select
+        aria-label="原文已是目标语言时"
+        width="180px"
+        options={[
+          ...langs.filter((l) => l.code !== config.value.translation.targetLang).map((l) => ({ value: l.code, label: `翻译成 ${l.name}` })),
+          { value: 'skip', label: '不翻译' },
+        ]}
+        value={config.value.translation.sameLang === 'skip' ? 'skip' : config.value.translation.secondLang}
+        onchange={(e) => {
+          const v = e.currentTarget.value;
+          save({ translation: v === 'skip' ? { sameLang: 'skip' } : { sameLang: 'second', secondLang: v } });
+        }}
+      />
+    </Row>
+    <Row title="双语对照" desc="复制和贴图时，原文和译文按段落交替排列">
+      <Switch label="双语对照" checked={config.value.translation.bilingual} onchange={(bilingual) => save({ translation: { bilingual } })} />
+    </Row>
+    <Row title="保留格式" desc="换行、列表、代码块、Markdown 保持不变（大模型翻译时生效）">
+      <Switch label="保留格式" checked={config.value.translation.keepFormat} onchange={(keepFormat) => save({ translation: { keepFormat } })} />
+    </Row>
+    <Row title="自动判断专业术语" desc="由大模型识别专有名词和行业术语，保留原文或用通行译法，并在全文统一（大模型翻译时生效）">
+      <Switch label="自动判断专业术语" checked={config.value.translation.autoTerms} onchange={(autoTerms) => save({ translation: { autoTerms } })} />
+    </Row>
+    <Row title="不翻译列表" desc="这些词保持原样，用逗号或顿号分隔（大模型翻译时生效）">
+      <Field
+        width="240px"
+        aria-label="不翻译列表"
+        placeholder="例如：SnapMind、Rust"
+        value={config.value.translation.glossary.join('、')}
+        onchange={(e) => save({ translation: { glossary: parseGlossary(e.currentTarget.value) } })}
+      />
+    </Row>
+    <Row title="一步到位" desc="识别和翻译交给同一个视觉模型，看图直接给出原文和译文，只调用一次；需要在「备用链 · 一步到位」里加视觉模型">
+      <Switch label="一步到位" checked={config.value.translation.oneshot} onchange={(oneshot) => save({ translation: { oneshot } })} />
     </Row>
   </Card>
 

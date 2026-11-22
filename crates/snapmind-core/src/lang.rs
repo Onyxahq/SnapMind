@@ -40,9 +40,101 @@ pub fn lang_name(code: &str) -> String {
         .unwrap_or_else(|| c.to_string())
 }
 
+/// 语言「家族」：简繁中文算同一种，其余取主代码（`en-GB` → `en`）。
+pub fn family(code: &str) -> String {
+    let c = code.trim().to_ascii_lowercase();
+    c.split('-').next().unwrap_or("").to_string()
+}
+
+/// 粗略判断一段文字的语言，只在有把握时给出结果（用于「原文已是目标语言」）。
+///
+/// 按文字系统判断：有假名 → 日语，有谚文 → 韩语，以汉字为主 → 中文，西里尔字母 → 俄语，
+/// 阿拉伯字母 → 阿拉伯语，泰文 → 泰语；拉丁字母只认英语（常见虚词占比够高），
+/// 法语、德语等拉丁字母语言分不清，返回 None，宁可照常翻译也不误判。
+pub fn detect(text: &str) -> Option<&'static str> {
+    let (mut han, mut kana, mut hangul, mut latin, mut cyr, mut arabic, mut thai) = (0usize, 0, 0, 0, 0, 0, 0);
+    for ch in text.chars() {
+        match ch as u32 {
+            0x4E00..=0x9FFF | 0x3400..=0x4DBF => han += 1,
+            0x3040..=0x30FF => kana += 1,
+            0xAC00..=0xD7AF | 0x1100..=0x11FF => hangul += 1,
+            0x0041..=0x005A | 0x0061..=0x007A | 0x00C0..=0x024F => latin += 1,
+            0x0400..=0x04FF => cyr += 1,
+            0x0600..=0x06FF => arabic += 1,
+            0x0E00..=0x0E7F => thai += 1,
+            _ => {}
+        }
+    }
+    let total = han + kana + hangul + latin + cyr + arabic + thai;
+    if total < 2 {
+        return None;
+    }
+    let share = |n: usize| n * 100 / total;
+    if kana > 0 && share(kana + han) >= 50 {
+        return Some("ja");
+    }
+    if share(hangul) >= 40 {
+        return Some("ko");
+    }
+    if share(han) >= 50 {
+        return Some("zh");
+    }
+    if share(cyr) >= 50 {
+        return Some("ru");
+    }
+    if share(arabic) >= 50 {
+        return Some("ar");
+    }
+    if share(thai) >= 50 {
+        return Some("th");
+    }
+    if share(latin) >= 70 {
+        const EN: [&str; 24] = [
+            "the", "and", "of", "to", "is", "in", "that", "it", "for", "on", "with", "as", "are", "this", "be", "you", "was",
+            "not", "or", "by", "have", "from", "an", "can",
+        ];
+        let words: Vec<String> = text
+            .split(|c: char| !c.is_ascii_alphabetic())
+            .filter(|w| !w.is_empty())
+            .map(str::to_ascii_lowercase)
+            .collect();
+        if words.is_empty() {
+            return None;
+        }
+        let hits = words.iter().filter(|w| EN.contains(&w.as_str())).count();
+        // 短句里一个虚词也行；长文要占到一成以上
+        if (words.len() <= 6 && hits >= 1) || hits * 10 >= words.len() {
+            return Some("en");
+        }
+    }
+    None
+}
+
+/// 原文是不是已经是目标语言（只在检测有把握时返回 true）。
+pub fn is_same_language(text: &str, target: &str) -> bool {
+    detect(text).is_some_and(|d| d == family(target))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn detection() {
+        assert_eq!(detect("翻译不只是替换词语。"), Some("zh"));
+        assert_eq!(detect("設定を保存しました"), Some("ja"));
+        assert_eq!(detect("설정이 저장되었습니다"), Some("ko"));
+        assert_eq!(detect("Translation is not just about swapping words."), Some("en"));
+        assert_eq!(detect("Hello world"), None, "太短又没有虚词，不下结论");
+        assert_eq!(detect("La traduction n'est pas seulement un échange de mots."), None);
+        assert_eq!(detect("Привет, мир"), Some("ru"));
+        assert_eq!(detect("1234 !!"), None);
+        assert!(is_same_language("你好，世界", "zh-Hans"));
+        assert!(is_same_language("你好，世界", "zh-Hant"));
+        assert!(!is_same_language("Hello there, this is a test", "zh-Hans"));
+        assert!(is_same_language("This is a test of the system", "en"));
+        assert_eq!(family("en-GB"), "en");
+    }
 
     #[test]
     fn names() {

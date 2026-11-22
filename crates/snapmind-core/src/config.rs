@@ -295,16 +295,48 @@ impl PromptsConfig {
     }
 }
 
-/// 翻译偏好。语言用统一代码（见 [`crate::lang`]）。
+/// 原文已经是目标语言时怎么办。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SameLang {
+    /// 翻译成第二语言
+    Second,
+    /// 不翻译，原样给出
+    Skip,
+}
+
+/// 翻译偏好（需求第 8 节）。语言用统一代码（见 [`crate::lang`]）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct TranslationConfig {
     pub target_lang: String,
+    /// 原文已是目标语言时翻成的语言
+    pub second_lang: String,
+    pub same_lang: SameLang,
+    /// 复制 / 贴图时原文和译文按段落交替排列
+    pub bilingual: bool,
+    /// 保留换行、列表、代码块和 Markdown（只影响大模型提示词）
+    pub keep_format: bool,
+    /// 让大模型自动判断专业术语（只影响大模型提示词）
+    pub auto_terms: bool,
+    /// 不翻译列表：这些词保持原样（只影响大模型提示词）
+    pub glossary: Vec<String>,
+    /// 一步到位：识别和翻译交给同一个视觉模型，一次调用
+    pub oneshot: bool,
 }
 
 impl Default for TranslationConfig {
     fn default() -> Self {
-        Self { target_lang: "zh-Hans".into() }
+        Self {
+            target_lang: "zh-Hans".into(),
+            second_lang: "en".into(),
+            same_lang: SameLang::Second,
+            bilingual: true,
+            keep_format: true,
+            auto_terms: true,
+            glossary: Vec::new(),
+            oneshot: false,
+        }
     }
 }
 
@@ -504,7 +536,16 @@ mod tests {
                     "oneshot": []
                 },
                 "prompts": { "recognize": "", "translate": "", "oneshot": "", "markdown": "" },
-                "translation": { "targetLang": "zh-Hans" }
+                "translation": {
+                    "targetLang": "zh-Hans",
+                    "secondLang": "en",
+                    "sameLang": "second",
+                    "bilingual": true,
+                    "keepFormat": true,
+                    "autoTerms": true,
+                    "glossary": [],
+                    "oneshot": false
+                }
             })
         );
     }

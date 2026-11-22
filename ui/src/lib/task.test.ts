@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newCard, placeCard, reduce, stageLabel } from './task';
+import { bilingual, newCard, parseGlossary, placeCard, reduce, stageLabel } from './task';
 import { unionRect } from './geometry';
 import type { TaskEvent } from './ipc';
 
@@ -24,6 +24,14 @@ describe('task card', () => {
     expect(c).toMatchObject({ src: 'Hello', dst: '你好', stage: 'done', backend: 'DeepL' });
     expect(stageLabel(c)).toBe('翻译');
     expect(reduce(c, { ...ev('dst', 'x'), id: 'other' })).toBe(c);
+  });
+
+  it('bilingual text and glossary parsing', () => {
+    expect(bilingual('A\n\nB', '甲\n\n乙')).toBe('A\n甲\n\nB\n乙');
+    expect(bilingual('A\n\nB', '甲乙')).toBe('A\n\nB\n\n甲乙');
+    expect(bilingual('', '甲')).toBe('甲');
+    expect(parseGlossary(' Rust, Tauri、Rust ；\nSvelte ')).toEqual(['Rust', 'Tauri', 'Svelte']);
+    expect(stageLabel(reduce(newCard('a'), ev('stage', 'claude', 'oneshot')))).toBe('一步到位 · claude');
   });
 
   it('errors and labels', () => {

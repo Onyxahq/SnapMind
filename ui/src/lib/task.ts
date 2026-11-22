@@ -2,7 +2,7 @@
 import type { Rect } from './geometry';
 import type { TaskEvent } from './ipc';
 
-export type CardStage = 'recognize' | 'translate' | 'done' | 'error';
+export type CardStage = 'recognize' | 'oneshot' | 'translate' | 'done' | 'error';
 
 export interface TranslateCard {
   id: string;
@@ -47,6 +47,8 @@ export function stageLabel(c: TranslateCard): string {
   switch (c.stage) {
     case 'recognize':
       return `识别中${who}`;
+    case 'oneshot':
+      return `一步到位${who}`;
     case 'translate':
       return `翻译中${who}`;
     case 'done':
@@ -54,6 +56,23 @@ export function stageLabel(c: TranslateCard): string {
     case 'error':
       return '出错了';
   }
+}
+
+/**
+ * 双语对照：原文和译文按段落（空行分隔）交替排列；段落数对不上时，原文在前、译文在后。
+ */
+export function bilingual(src: string, dst: string): string {
+  const split = (s: string) => s.trim().split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const a = split(src);
+  const b = split(dst);
+  if (!a.length) return dst.trim();
+  if (a.length !== b.length) return `${src.trim()}\n\n${dst.trim()}`;
+  return a.map((p, i) => `${p}\n${b[i]}`).join('\n\n');
+}
+
+/** 不翻译列表：逗号、顿号、分号或换行分隔，去掉空白和重复。 */
+export function parseGlossary(text: string): string[] {
+  return [...new Set(text.split(/[,，、;；\n]/).map((s) => s.trim()).filter(Boolean))];
 }
 
 /**

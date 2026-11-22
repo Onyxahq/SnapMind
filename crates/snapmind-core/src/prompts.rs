@@ -28,7 +28,7 @@ pub fn default_prompt(kind: PromptKind) -> &'static str {
     match kind {
         PromptKind::Recognize => "识别图片中的全部文字，按阅读顺序输出。\n- 同一段落内的换行合并成一行，段落之间空一行\n- 保留列表、代码和表格的结构\n- 只输出识别结果，不要解释",
         PromptKind::Translate => "把下面的文字翻译成 {target_lang}。\n- 保持原有的段落、换行和 Markdown 格式\n- 自动判断专业术语和专有名词：保留原文，或使用该领域的通行译法，并在全文保持一致\n- 以下术语保持原样：{glossary}\n- 只输出译文\n\n{text}",
-        PromptKind::Oneshot => "识别图片中的全部文字，并翻译成 {target_lang}。\n- 原文按段落整理，段落之间空一行\n- 译文与原文的段落一一对应\n- 自动判断专业术语，以下术语保持原样：{glossary}\n- 按 JSON 输出：{\"source\": \"原文\", \"translation\": \"译文\"}",
+        PromptKind::Oneshot => "识别图片中的全部文字，并翻译成 {target_lang}。\n- 原文按段落整理，段落之间空一行\n- 译文与原文的段落一一对应\n- 自动判断专业术语和专有名词，并在全文保持一致\n- 以下术语保持原样：{glossary}\n- 只输出 JSON，不要解释：{\"source\": \"原文\", \"translation\": \"译文\"}",
         PromptKind::Markdown => "把图片内容整理成 Obsidian 风格的 Markdown：\n- 标题用 #，列表、引用、代码块保持原有结构\n- 表格用管道表格\n- 公式用 $…$ 和 $$…$$（LaTeX）\n- 上下标用 <sup></sup> 和 <sub></sub>，高亮用 ==文字==\n- 只输出 Markdown",
     }
 }
@@ -42,7 +42,16 @@ pub struct PromptVars<'a> {
     /// 不翻译的术语
     pub glossary: &'a [String],
     pub text: &'a str,
+    /// 关掉「自动判断专业术语」：删掉含 [`AUTO_TERMS_MARK`] 的行
+    pub no_auto_terms: bool,
+    /// 关掉「保留格式」：删掉含 [`KEEP_FORMAT_MARK`] 的行
+    pub no_keep_format: bool,
 }
+
+/// 默认提示词里「自动判断专业术语」那一行的标记文字。
+pub const AUTO_TERMS_MARK: &str = "自动判断专业术语";
+/// 默认提示词里「保留格式」那一行的标记文字。
+pub const KEEP_FORMAT_MARK: &str = "保持原有的段落";
 
 /// 用户的提示词为空（或全是空白）时用默认值。
 pub fn effective<'a>(custom: &'a str, kind: PromptKind) -> &'a str {
@@ -69,7 +78,10 @@ pub fn render(template: &str, kind: PromptKind, vars: &PromptVars) -> String {
     let mut lines = Vec::new();
     for line in template.split('\n') {
         // {text} 本身可能是多行，替换后不再参与按行删除
-        if values.iter().any(|(k, v)| v.is_empty() && line.contains(k)) {
+        if values.iter().any(|(k, v)| v.is_empty() && line.contains(k))
+            || (vars.no_auto_terms && line.contains(AUTO_TERMS_MARK))
+            || (vars.no_keep_format && line.contains(KEEP_FORMAT_MARK))
+        {
             continue;
         }
         let mut l = line.to_string();
@@ -85,6 +97,21 @@ pub fn render(template: &str, kind: PromptKind, vars: &PromptVars) -> String {
     out.trim().to_string()
 }
 
+/// 解析一步到位的输出：模型可能包上 ```json 代码块或在前后多说几句，
+/// 取第一个 `{` 到最后一个 `}` 之间的 JSON，读 `source` 和 `translation`。
+pub fn parse_oneshot(output: &str) -> Option<(String, String)> {
+    let start = output.find('{')?;
+    let end = output.rfind('}')?;
+    if end <= start {
+        return None;
+    }
+    let v: serde_json::Value = serde_json::from_str(&output[start..=end]).ok()?;
+    let get = |keys: &[&str]| keys.iter().find_map(|k| v.get(*k).and_then(|x| x.as_str())).map(|s| s.trim().to_string());
+    let source = get(&["source", "original", "text"])?;
+    let translation = get(&["translation", "translated", "target"])?;
+    (!translation.is_empty()).then_some((source, translation))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,7 +119,7 @@ mod tests {
     #[test]
     fn renders_defaults_and_drops_lines_with_empty_vars() {
         let g = vec!["Rust".to_string(), " Tauri ".to_string()];
-        let v = PromptVars { target_lang: "zh-Hans", source_lang: None, glossary: &g, text: "Hello\nWorld" };
+        let v = PromptVars { target_lang: "zh-Hans", source_lang: None, glossary: &g, text: "Hello\nWorld", ..Default::default() };
         let out = render(default_prompt(PromptKind::Translate), PromptKind::Translate, &v);
         assert!(out.starts_with("把下面的文字翻译成 简体中文。"));
         assert!(out.contains("以下术语保持原样：Rust、Tauri"));
@@ -116,10 +143,31 @@ mod tests {
 
     #[test]
     fn source_lang_and_missing_text_var() {
-        let v = PromptVars { target_lang: "zh-Hans", source_lang: Some("ja"), glossary: &[], text: "こんにちは" };
+        let v = PromptVars { target_lang: "zh-Hans", source_lang: Some("ja"), glossary: &[], text: "こんにちは", ..Default::default() };
         assert_eq!(render("从 {source_lang} 翻成 {target_lang}", PromptKind::Translate, &v), "从 日语 翻成 简体中文\n\nこんにちは");
         let auto = PromptVars { source_lang: Some("auto"), ..v.clone() };
         assert_eq!(render("原文是 {source_lang}\n翻成 {target_lang}：{text}", PromptKind::Translate, &auto), "翻成 简体中文：こんにちは");
+    }
+
+    #[test]
+    fn switches_drop_marked_lines() {
+        let v = PromptVars { target_lang: "zh-Hans", text: "x", no_auto_terms: true, no_keep_format: true, ..Default::default() };
+        let out = render(default_prompt(PromptKind::Translate), PromptKind::Translate, &v);
+        assert!(!out.contains(AUTO_TERMS_MARK) && !out.contains(KEEP_FORMAT_MARK), "{out}");
+        assert!(out.contains("只输出译文"));
+        let g = vec!["SnapMind".to_string()];
+        let one = render(default_prompt(PromptKind::Oneshot), PromptKind::Oneshot, &PromptVars { target_lang: "en", glossary: &g, no_auto_terms: true, ..Default::default() });
+        assert!(one.contains("以下术语保持原样：SnapMind") && !one.contains(AUTO_TERMS_MARK), "关掉术语判断不影响不翻译列表：{one}");
+    }
+
+    #[test]
+    fn oneshot_output_parsing() {
+        let fenced = "好的：\n```json\n{\"source\": \"Hello\", \"translation\": \"你好\"}\n```";
+        assert_eq!(parse_oneshot(fenced), Some(("Hello".into(), "你好".into())));
+        assert_eq!(parse_oneshot("{\"original\":\"a\",\"translated\":\" b \"}"), Some(("a".into(), "b".into())));
+        assert_eq!(parse_oneshot("{\"source\":\"a\",\"translation\":\"\"}"), None);
+        assert_eq!(parse_oneshot("not json"), None);
+        assert_eq!(parse_oneshot("} {"), None);
     }
 
     #[test]

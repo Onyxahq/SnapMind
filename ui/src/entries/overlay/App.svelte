@@ -62,7 +62,7 @@
   import { Annotator } from '$lib/annotator.svelte';
   import { devCapture, devChain } from './devFrame';
   import TranslateCard from './TranslateCard.svelte';
-  import { newCard, reduce, type TranslateCard as Card } from '$lib/task';
+  import { bilingual, newCard, reduce, type TranslateCard as Card } from '$lib/task';
 
   /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
   const CLICK_SLOP = 3;
@@ -377,17 +377,22 @@
     card = null;
   }
 
+  /** 要交出去的文字：译文，或按设置用双语对照。 */
+  function resultText(c: Card): string {
+    return config.value.translation.bilingual ? bilingual(c.src, c.dst) : c.dst.trim();
+  }
+
   /** 复制译文：交出结果，结束截图（不再询问未保存的标注）。 */
   async function copyTranslation() {
     if (!card) return;
-    await clipboardWriteText(card.dst.trim());
+    await clipboardWriteText(resultText(card));
     close();
   }
 
   /** 把译文贴成文字卡片，结束截图。 */
   function pinTranslation() {
     if (!card || !session || !sel) return;
-    const [i, r, text] = [session.index, sel, card.dst.trim()];
+    const [i, r, text] = [session.index, sel, resultText(card)];
     resetView();
     capturePinText(i, r, text).catch((e) => log('error', `贴译文失败：${e}`));
   }
@@ -689,6 +694,7 @@
     <TranslateCard
       sel={unionRect(selOnlyCss, showToolbar ? toolbarRect : null)}
       {card}
+      bilingual={config.value.translation.bilingual}
       onsrc={(v) => card && (card = { ...card, src: v })}
       ondst={(v) => card && (card = { ...card, dst: v })}
       onretranslate={retranslate}

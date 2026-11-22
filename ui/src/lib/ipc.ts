@@ -22,7 +22,20 @@ export interface Config {
   chains: ChainsConfig;
   /** 空字符串表示用默认提示词 */
   prompts: Record<PromptKind, string>;
-  translation: { targetLang: string };
+  translation: TranslationConfig;
+}
+
+export interface TranslationConfig {
+  targetLang: string;
+  secondLang: string;
+  /** 原文已是目标语言时：second 翻成第二语言，skip 不翻译 */
+  sameLang: 'second' | 'skip';
+  bilingual: boolean;
+  keepFormat: boolean;
+  autoTerms: boolean;
+  /** 不翻译列表 */
+  glossary: string[];
+  oneshot: boolean;
 }
 
 export type PromptKind = 'recognize' | 'translate' | 'oneshot' | 'markdown';
@@ -94,7 +107,16 @@ export const DEFAULT_CONFIG: Config = {
   mt: { microsoftRegion: '' },
   chains: { fallback: true, timeoutSecs: 8, translate: [], recognize: [{ type: 'localOcr' }], oneshot: [] },
   prompts: { recognize: '', translate: '', oneshot: '', markdown: '' },
-  translation: { targetLang: 'zh-Hans' },
+  translation: {
+    targetLang: 'zh-Hans',
+    secondLang: 'en',
+    sameLang: 'second',
+    bilingual: true,
+    keepFormat: true,
+    autoTerms: true,
+    glossary: [],
+    oneshot: false,
+  },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -605,7 +627,7 @@ export async function languages(): Promise<Lang[]> {
 export interface TaskEvent {
   id: string;
   kind: 'stage' | 'src' | 'src-reset' | 'dst' | 'dst-reset' | 'done' | 'error';
-  stage: 'recognize' | 'translate';
+  stage: 'recognize' | 'oneshot' | 'translate';
   text: string;
 }
 
