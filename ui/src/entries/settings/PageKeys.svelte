@@ -11,7 +11,7 @@
     type HotkeyStatus,
   } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';
-  import { displayKeys, record, sameKeys } from '$lib/hotkey';
+  import { GLOBAL_HOTKEYS, displayKeys, record, sameKeys } from '$lib/hotkey';
   import { toast } from '$lib/ui/toast.svelte';
   import Card from '$lib/ui/Card.svelte';
   import Row from '$lib/ui/Row.svelte';
@@ -19,13 +19,7 @@
   import Button from '$lib/ui/Button.svelte';
   import Head from './Head.svelte';
 
-  const GLOBAL: { action: HotkeyAction; name: string; desc: string }[] = [
-    { action: 'capture', name: '截图', desc: '进入截图编辑态' },
-    { action: 'pinClipboard', name: '贴图', desc: '把剪贴板里的图片或文字贴到屏幕上' },
-    { action: 'selection', name: '划词翻译', desc: '翻译当前选中的文字' },
-    { action: 'captureTranslate', name: '截图 OCR 后翻译', desc: '框选后直接出翻译卡片' },
-    { action: 'captureRecognize', name: '直接截图 OCR', desc: '框选后复制识别出的文字' },
-  ];
+  const GLOBAL = GLOBAL_HOTKEYS;
 
   const LOCAL: [string, string][] = [
     ['复制并结束', 'Ctrl+C / Enter'],

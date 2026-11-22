@@ -73,7 +73,7 @@ pub fn prewarm<R: Runtime>(app: &AppHandle<R>) {
                 snapmind_platform::window::make_tool_window(hwnd.0 as isize);
             }
         }
-        Err(e) => eprintln!("创建贴图工具条窗口失败：{e}"),
+        Err(e) => crate::log_warn!("创建贴图工具条窗口失败：{e}"),
     }
 }
 

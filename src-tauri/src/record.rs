@@ -147,7 +147,7 @@ pub fn record_start(
         match Loopback::open() {
             Ok(l) => Some(l),
             Err(e) => {
-                eprintln!("录屏：打不开系统声音，只录画面：{e}");
+                crate::log_warn!("录屏：打不开系统声音，只录画面：{e}");
                 None
             }
         }
@@ -198,7 +198,7 @@ pub fn record_start(
                                 break;
                             }
                         }
-                        Err(e) => eprintln!("录屏抓帧失败：{e}"),
+                        Err(e) => crate::log_warn!("录屏抓帧失败：{e}"),
                     }
                 }
                 next += interval;
@@ -321,7 +321,7 @@ pub fn stop_and_keep<R: Runtime>(app: &AppHandle<R>) {
         std::thread::spawn(move || {
             let (path, err) = finish(rec);
             if let Some(e) = err {
-                eprintln!("录屏收尾出错（{}）：{e}", path.display());
+                crate::log_warn!("录屏收尾出错（{}）：{e}", path.display());
             }
         });
     }
@@ -351,7 +351,7 @@ pub async fn record_stop(app: AppHandle, save: bool) -> Result<Option<String>, S
         return Err(format!("录屏保存失败：{e}"));
     }
     if let Err(e) = clipboard::set_file(&path) {
-        eprintln!("录屏文件放进剪贴板失败：{e}");
+        crate::log_warn!("录屏文件放进剪贴板失败：{e}");
     }
     Ok(Some(path.to_string_lossy().into_owned()))
 }

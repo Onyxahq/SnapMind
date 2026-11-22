@@ -31,7 +31,7 @@ pub fn show_settings<R: Runtime>(app: &AppHandle<R>, page: Option<&str>) {
     let page = page.map(str::to_string);
     std::thread::spawn(move || {
         if let Err(e) = build_settings(&app, page.as_deref()) {
-            eprintln!("打开设置窗口失败：{e}");
+            crate::log_warn!("打开设置窗口失败：{e}");
         }
     });
 }

@@ -126,7 +126,7 @@ pub fn apply<R: Runtime>(app: &AppHandle<R>, cfg: &HotkeysConfig) -> Vec<Status>
                     Status { action, keys, ok: true, error: None }
                 }
                 Err(e) => {
-                    eprintln!("注册快捷键 {keys} 失败：{e}");
+                    crate::log_warn!("注册快捷键 {keys} 失败：{e}");
                     Status { action, keys, ok: false, error: Some("已被其他程序占用".into()) }
                 }
             },

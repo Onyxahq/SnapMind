@@ -1,4 +1,14 @@
 // 快捷键的录制与显示（设置 → 快捷键）。存储用 Tauri 的写法：修饰键 + 主键，用 + 连接，如 Ctrl+Shift+O。
+import type { HotkeyAction } from './ipc';
+
+/** 全局快捷键（设置 → 快捷键、新手引导共用）。 */
+export const GLOBAL_HOTKEYS: { action: HotkeyAction; name: string; desc: string }[] = [
+  { action: 'capture', name: '截图', desc: '进入截图编辑态' },
+  { action: 'pinClipboard', name: '贴图', desc: '把剪贴板里的图片或文字贴到屏幕上' },
+  { action: 'selection', name: '划词翻译', desc: '翻译当前选中的文字' },
+  { action: 'captureTranslate', name: '截图 OCR 后翻译', desc: '框选后直接出翻译卡片' },
+  { action: 'captureRecognize', name: '直接截图 OCR', desc: '框选后复制识别出的文字' },
+];
 
 const MODS: ['ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey', string][] = [
   ['ctrlKey', 'Ctrl'],

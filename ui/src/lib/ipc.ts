@@ -1138,6 +1138,12 @@ export async function autostartSet(on: boolean): Promise<boolean> {
   return invoke('autostart_set', { on });
 }
 
+/** 打开日志文件夹（M11.2）。 */
+export async function logOpen(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('log_open');
+}
+
 // ---- 录屏（见 src-tauri/src/record.rs）----
 
 export interface RecordOptions {

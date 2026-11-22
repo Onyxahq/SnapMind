@@ -36,14 +36,14 @@ pub fn translate_selection<R: Runtime>(app: &AppHandle<R>) {
         let t0 = std::time::Instant::now();
         let cursor = app.cursor_position().map(|c| (c.x as i32, c.y as i32)).unwrap_or((0, 0));
         let Some((text, method)) = snapmind_platform::selection::read(true) else {
-            eprintln!("划词：没有取到选中的文字（{:.0} ms）", t0.elapsed().as_secs_f64() * 1e3);
+            crate::log_info!("划词：没有取到选中的文字（{:.0} ms）", t0.elapsed().as_secs_f64() * 1e3);
             return;
         };
         let method = match method {
             snapmind_platform::selection::Method::Automation => "automation",
             snapmind_platform::selection::Method::Copy => "copy",
         };
-        eprintln!("划词：{method} 取到 {} 字（{:.0} ms）", text.chars().count(), t0.elapsed().as_secs_f64() * 1e3);
+        crate::log_info!("划词：{method} 取到 {} 字（{:.0} ms）", text.chars().count(), t0.elapsed().as_secs_f64() * 1e3);
         let sel = SelectionText { text, method, cursor };
         let _ = app.emit(SELECTION_EVENT, sel.clone());
         crate::selcard::show(&app, sel);
@@ -70,6 +70,6 @@ pub fn pin_clipboard<R: Runtime>(app: &AppHandle<R>) {
         ClipContent::Empty => return,
     };
     if let Err(e) = result {
-        eprintln!("贴剪贴板失败：{e}");
+        crate::log_warn!("贴剪贴板失败：{e}");
     }
 }

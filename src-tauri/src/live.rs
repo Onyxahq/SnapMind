@@ -41,7 +41,7 @@ impl Live {
             let h = h.0 as isize;
             let _ = app.run_on_main_thread(move || {
                 if !snapmind_platform::window::exclude_from_capture(h, true) {
-                    eprintln!("系统不支持把遮罩排除在截屏之外（需要 Windows 10 2004 及以上）");
+                    crate::log_warn!("系统不支持把遮罩排除在截屏之外（需要 Windows 10 2004 及以上）");
                 }
             });
         }

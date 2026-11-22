@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use rusqlite::{params, Connection, OptionalExtension};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::export::{self, ImageFormat, RgbaImage};
 
@@ -29,7 +29,7 @@ pub enum HistoryError {
 }
 
 /// 贴图从哪里来。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PinSource {
     /// 截图里 Ctrl+T 贴出

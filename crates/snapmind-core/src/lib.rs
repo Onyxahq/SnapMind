@@ -2,6 +2,7 @@
 //!
 //! 这个 crate 不依赖 Tauri 和任何平台 API，全部逻辑都可以单元测试。
 
+pub mod applog;
 pub mod config;
 pub mod configfile;
 pub mod export;
@@ -9,6 +10,7 @@ pub mod gifenc;
 pub mod history;
 pub mod lang;
 pub mod prompts;
+pub mod session;
 pub mod stitch;
 
 /// 应用名，用于配置目录、窗口标题等。

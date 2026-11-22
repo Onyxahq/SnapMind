@@ -87,7 +87,7 @@ fn engine<R: Runtime>(app: &AppHandle<R>) -> Result<Arc<Ocr>, String> {
     }
     let t = Instant::now();
     let e = Arc::new(Ocr::load(&dir).map_err(|e| e.to_string())?);
-    eprintln!("本地 OCR 引擎加载 {:.0} ms", t.elapsed().as_secs_f64() * 1e3);
+    crate::log_info!("本地 OCR 引擎加载 {:.0} ms", t.elapsed().as_secs_f64() * 1e3);
     *slot = Some(e.clone());
     Ok(e)
 }
@@ -103,7 +103,7 @@ pub fn recognize<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Result<Vec<
     let (lines, t) = ocr
         .recognize(Image { width: img.width, height: img.height, rgba: &img.data })
         .map_err(|e| e.to_string())?;
-    eprintln!("本地 OCR：{}×{}，{} 行，{:.0} ms", img.width, img.height, lines.len(), t.total.as_secs_f64() * 1e3);
+    crate::log_info!("本地 OCR：{}×{}，{} 行，{:.0} ms", img.width, img.height, lines.len(), t.total.as_secs_f64() * 1e3);
     Ok(lines)
 }
 
@@ -136,7 +136,7 @@ pub fn recognize_table<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Resul
     let t = Instant::now();
     let s = model.structure(image).map_err(|e| e.to_string())?;
     let lines = recognize(app, img)?;
-    eprintln!("表格结构 {:.0} ms，{} 个单元格", t.elapsed().as_secs_f64() * 1e3, s.cells.len());
+    crate::log_info!("表格结构 {:.0} ms，{} 个单元格", t.elapsed().as_secs_f64() * 1e3, s.cells.len());
     Ok(snapmind_ocr::table::assemble(&s, &lines))
 }
 
@@ -320,7 +320,7 @@ pub async fn ocr_download(app: AppHandle, table: Option<bool>) -> Result<(), Str
         d.error = r.as_ref().err().cloned();
     }
     if let Err(e) = &r {
-        eprintln!("下载 OCR 模型失败：{e}");
+        crate::log_warn!("下载 OCR 模型失败：{e}");
     }
     let _ = app.emit(DOWNLOAD_EVENT, status(&app));
     r

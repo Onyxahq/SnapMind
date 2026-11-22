@@ -194,7 +194,7 @@ fn reconcile<R: Runtime>(app: &AppHandle<R>, mons: &[MonitorGeom]) -> Vec<Webvie
             None => match build_window(app, i) {
                 Ok(w) => w,
                 Err(e) => {
-                    eprintln!("创建遮罩窗口失败：{e}");
+                    crate::log_warn!("创建遮罩窗口失败：{e}");
                     continue;
                 }
             },
@@ -233,7 +233,7 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>, intent: Intent) {
     let windows = snap::top_level_windows(std::process::id());
     let frames: Vec<Option<Arc<Frame>>> = capture::capture_all(&rects)
         .into_iter()
-        .map(|r| r.map_err(|e| eprintln!("截屏失败：{e}")).ok().map(Arc::new))
+        .map(|r| r.map_err(|e| crate::log_warn!("截屏失败：{e}")).ok().map(Arc::new))
         .collect();
     let t_cap = t0.elapsed();
     if frames.iter().all(Option::is_none) {
@@ -274,7 +274,7 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>, intent: Intent) {
             let _ = w.set_focus();
         }
     }
-    eprintln!(
+    crate::log_info!(
         "[capture #{seq}] 抓屏 {:.1} ms，显示窗口 {:.1} ms（{} 个显示器）",
         t_cap.as_secs_f64() * 1e3,
         t0.elapsed().as_secs_f64() * 1e3,
@@ -339,7 +339,7 @@ pub fn ready<R: Runtime>(app: &AppHandle<R>, seq: u64, stage: &str, at: f64) -> 
     let all = *count == total;
     let ms = at - s.started?;
     if all {
-        eprintln!("[capture #{seq}] 按键 → {what} {ms:.1} ms");
+        crate::log_info!("[capture #{seq}] 按键 → {what} {ms:.1} ms");
     }
     Some(ms)
 }

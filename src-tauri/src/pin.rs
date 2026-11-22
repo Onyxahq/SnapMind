@@ -7,6 +7,8 @@
 //!   拖到不同缩放的显示器上被系统改了尺寸也不会错乱。
 //! - 鼠标穿透后窗口收不到按键，所以 `Ctrl+Shift+X` 注册为全局快捷键（有贴图时才注册）：
 //!   焦点在某张贴图上时让它穿透，否则取消所有贴图的穿透。
+//! - 崩溃恢复（M11.2）：开着的贴图在 `配置目录/session` 里留一份（图片 + 位置），关闭时删掉；
+//!   托盘退出时全部写进历史再清空。下次启动时还留着的，说明上次没正常退出，按原位置贴回来。
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -15,6 +17,7 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use snapmind_core::export::RgbaImage;
 use snapmind_core::history::{NewPin, PinSource};
+use snapmind_core::session::{PinMeta, Session};
 use snapmind_ocr::{layout, Line};
 use snapmind_platform::bmp::Frame;
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Runtime, WebviewUrl, WebviewWindowBuilder};
@@ -183,7 +186,90 @@ fn create_with<R: Runtime>(
         snapmind_platform::window::disable_transitions(hwnd.0 as isize);
     }
     ensure_shortcut(app);
+    remember(app, id);
+    // 截图贴图的图片在后台写一份；文字卡片按原文恢复，不用存图
+    if !is_text(app, id) {
+        save_image_later(app, id);
+    }
     Ok(id)
+}
+
+fn session<R: Runtime>(app: &AppHandle<R>) -> Option<Session> {
+    crate::state::config_dir(app).ok().map(|d| Session::new(&d.join("session")))
+}
+
+fn is_text<R: Runtime>(app: &AppHandle<R>, id: u32) -> bool {
+    app.state::<PinState>().pins.lock().expect("贴图锁").get(&id).is_some_and(|p| p.text.is_some())
+}
+
+/// 记下贴图的描述和当前窗口位置（新建、拖动、缩放后调用；文件很小，直接写）。
+pub fn remember<R: Runtime>(app: &AppHandle<R>, id: u32) {
+    let Some(win) = app.get_webview_window(&label(id)) else { return };
+    let (Ok(pos), Ok(size)) = (win.outer_position(), win.outer_size()) else { return };
+    let meta = {
+        let state = app.state::<PinState>();
+        let pins = state.pins.lock().expect("贴图锁");
+        let Some(p) = pins.get(&id) else { return };
+        PinMeta {
+            source: p.source,
+            text: p.text.clone(),
+            created_at: p.created_at,
+            rect: (pos.x, pos.y, size.width, size.height),
+            scale: win.scale_factor().unwrap_or(1.0),
+        }
+    };
+    if let Some(s) = session(app) {
+        if let Err(e) = s.save_meta(id, &meta) {
+            crate::log_warn!("记录贴图 {id} 失败：{e}");
+        }
+    }
+}
+
+/// 后台把贴图当前的样子（带标注）写一份。写完时贴图已经关了就删掉，免得留下残余。
+fn save_image_later<R: Runtime>(app: &AppHandle<R>, id: u32) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let (Some(img), Some(s)) = (image(&app, id), session(&app)) else { return };
+        if let Err(e) = s.save_image(id, &img) {
+            crate::log_warn!("记录贴图 {id} 的图片失败：{e}");
+        }
+        if !app.state::<PinState>().pins.lock().expect("贴图锁").contains_key(&id) {
+            s.remove(id);
+        }
+    });
+}
+
+/// 上次没正常退出时留下的贴图：按原来的位置和大小贴回来。启动时在后台线程调用。
+pub fn restore<R: Runtime>(app: &AppHandle<R>) {
+    let Some(s) = session(app) else { return };
+    let left = s.take_all();
+    if left.is_empty() {
+        return;
+    }
+    crate::log_info!("上次没有正常退出，恢复 {} 张贴图", left.len());
+    for l in left {
+        let m = l.meta;
+        let margin = (MARGIN_CSS * m.scale).round() as i32;
+        let at = (m.rect.0 + margin, m.rect.1 + margin);
+        let made = match (l.image, m.text) {
+            (None, Some(text)) => create_text(app, text, at, m.scale),
+            (Some(img), text) => create_with(app, img, text, m.source, at, m.scale),
+            (None, None) => continue,
+        };
+        match made {
+            Ok(id) => {
+                if let Some(p) = app.state::<PinState>().pins.lock().expect("贴图锁").get_mut(&id) {
+                    p.created_at = m.created_at;
+                }
+                // 缩放过的贴图恢复原来的大小（文字卡片排好版后会按卡片大小再定）
+                if let Some(win) = app.get_webview_window(&label(id)) {
+                    let _ = win.set_size(PhysicalSize::new(m.rect.2, m.rect.3));
+                }
+                remember(app, id);
+            }
+            Err(e) => crate::log_warn!("恢复贴图失败：{e}"),
+        }
+    }
 }
 
 /// 页面画好后显示窗口并给它焦点（避免透明窗口先闪一下空白）。
@@ -221,6 +307,9 @@ pub fn set_image<R: Runtime>(app: &AppHandle<R>, id: u32, image: RgbaImage) {
 pub fn set_annotations<R: Runtime>(app: &AppHandle<R>, id: u32, layer: Option<((u32, u32), RgbaImage)>) {
     if let Some(p) = app.state::<PinState>().pins.lock().expect("贴图锁").get_mut(&id) {
         p.annotations = layer.map(|(at, l)| (at, Arc::new(l)));
+    }
+    if !is_text(app, id) {
+        save_image_later(app, id);
     }
 }
 
@@ -359,28 +448,15 @@ pub fn close<R: Runtime>(app: &AppHandle<R>, id: u32) {
         let removed = pins.remove(&id);
         (removed, pins.is_empty(), pins.values().any(|p| p.through))
     };
+    if let Some(s) = session(app) {
+        s.remove(id);
+    }
     if let (Some(pin), Some(image)) = (removed, image) {
-        // 文字卡片排版前（1×1 占位图）就被关掉的不记
-        if image.width > 1 || image.height > 1 {
-            let app = app.clone();
-            std::thread::spawn(move || {
-                let state = app.state::<crate::state::AppState>();
-                let Some(history) = state.history.as_ref() else { return };
-                // 文字卡片记原文，截图贴图记自动识别出的文字（历史里可以按文字搜索）
-                let recognized = pin.ocr.as_ref().map(|l| layout::compose(l, &(0..l.len()).collect::<Vec<_>>(), false));
-                let rec = NewPin {
-                    image: &image,
-                    text: pin.text.as_deref().or(recognized.as_deref()).unwrap_or(""),
-                    source: pin.source,
-                    created_at: pin.created_at,
-                    closed_at: now_ms(),
-                };
-                if let Err(e) = history.add_pin(rec) {
-                    eprintln!("贴图写入历史失败：{e}");
-                }
-                crate::history::prune(&app);
-            });
-        }
+        let app = app.clone();
+        std::thread::spawn(move || {
+            record(&app, &pin, &image);
+            crate::history::prune(&app);
+        });
     }
     crate::tray::sync_through(app, any_through);
     crate::pintools::forget(app, id);
@@ -392,12 +468,49 @@ pub fn close<R: Runtime>(app: &AppHandle<R>, id: u32) {
     }
 }
 
+/// 关掉的贴图写进历史。文字卡片排版前（1×1 占位图）就被关掉的不记。
+fn record<R: Runtime>(app: &AppHandle<R>, pin: &Pin, image: &RgbaImage) {
+    if image.width <= 1 && image.height <= 1 {
+        return;
+    }
+    let state = app.state::<crate::state::AppState>();
+    let Some(history) = state.history.as_ref() else { return };
+    // 文字卡片记原文，截图贴图记自动识别出的文字（历史里可以按文字搜索）
+    let recognized = pin.ocr.as_ref().map(|l| layout::compose(l, &(0..l.len()).collect::<Vec<_>>(), false));
+    let rec = NewPin {
+        image,
+        text: pin.text.as_deref().or(recognized.as_deref()).unwrap_or(""),
+        source: pin.source,
+        created_at: pin.created_at,
+        closed_at: now_ms(),
+    };
+    if let Err(e) = history.add_pin(rec) {
+        crate::log_warn!("贴图写入历史失败：{e}");
+    }
+}
+
+/// 托盘退出：开着的贴图都当作关闭写进历史（同步写完再退出），然后清掉崩溃恢复用的那份。
+pub fn close_all_for_exit<R: Runtime>(app: &AppHandle<R>) {
+    let ids: Vec<u32> = app.state::<PinState>().pins.lock().expect("贴图锁").keys().copied().collect();
+    for id in ids {
+        let image = image(app, id);
+        let pin = app.state::<PinState>().pins.lock().expect("贴图锁").remove(&id);
+        if let (Some(pin), Some(image)) = (pin, image) {
+            record(app, &pin, &image);
+        }
+    }
+    crate::history::prune(app);
+    if let Some(s) = session(app) {
+        s.clear();
+    }
+}
+
 fn ensure_shortcut<R: Runtime>(app: &AppHandle<R>) {
     let gs = app.global_shortcut();
     if !gs.is_registered(THROUGH_SHORTCUT) {
         if let Err(e) = gs.register(THROUGH_SHORTCUT) {
             // 被别的程序占用：贴图窗口自己处理按键开启穿透，托盘菜单负责取消
-            eprintln!("注册穿透快捷键 {THROUGH_SHORTCUT} 失败（改由贴图窗口和托盘菜单处理）：{e}");
+            crate::log_warn!("注册穿透快捷键 {THROUGH_SHORTCUT} 失败（改由贴图窗口和托盘菜单处理）：{e}");
         }
     }
 }

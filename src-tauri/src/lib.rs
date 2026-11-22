@@ -1,5 +1,6 @@
 //! SnapMind 应用外壳：窗口管理、命令、托盘、事件。
 
+mod applog;
 mod actions;
 mod ball;
 mod commands;
@@ -69,15 +70,16 @@ pub fn run() {
         .register_uri_scheme_protocol(history::PROTOCOL, |ctx, req| history::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
+            applog::init(state::config_dir(handle)?.join("logs"));
             let (config, outcome) = ConfigStore::open(&state::config_dir(handle)?)?;
             if let LoadOutcome::Recovered { backup } = &outcome {
-                eprintln!("配置文件损坏，已备份到 {} 并恢复默认", backup.display());
+                crate::log_warn!("配置文件损坏，已备份到 {} 并恢复默认", backup.display());
             }
             state::apply_native_theme(handle, &config.get());
             let history = match snapmind_core::history::History::open(&state::history_dir(handle)?) {
                 Ok(h) => Some(h),
                 Err(e) => {
-                    eprintln!("打开历史记录失败：{e}");
+                    crate::log_warn!("打开历史记录失败：{e}");
                     None
                 }
             };
@@ -94,7 +96,14 @@ pub fn run() {
                 let h = handle.clone();
                 std::thread::spawn(move || configfile::weekly_backup(&h));
             }
-            if launch::mode(std::env::args()) == launch::LaunchMode::Interactive {
+            {
+                let h = handle.clone();
+                std::thread::spawn(move || pin::restore(&h));
+            }
+            // 第一次运行（刚建好配置）：打开新手引导；之后手动打开时显示设置
+            if matches!(outcome, LoadOutcome::Created) {
+                wm::show_settings(handle, Some("welcome"));
+            } else if launch::mode(std::env::args()) == launch::LaunchMode::Interactive {
                 wm::show_settings(handle, None);
             }
             Ok(())
@@ -112,10 +121,11 @@ pub fn run() {
                     ball::on_moved(window.app_handle());
                 }
             }
-            // 贴图移动或缩放：工具条跟着走
+            // 贴图移动或缩放：工具条跟着走，崩溃恢复用的位置也更新
             if let WindowEvent::Moved(_) | WindowEvent::Resized(_) = event {
                 if let Some(id) = pin::id_of(window.label()) {
                     pintools::follow(window.app_handle(), id);
+                    pin::remember(window.app_handle(), id);
                 }
             }
             // 常驻托盘：关闭窗口只是隐藏，退出走托盘菜单。
@@ -225,6 +235,7 @@ pub fn run() {
             xlsx::save_xlsx,
             export::open_folder,
             commands::ui_log,
+            applog::log_open,
             commands::prompt_defaults,
             commands::languages,
             providers::provider_catalog,

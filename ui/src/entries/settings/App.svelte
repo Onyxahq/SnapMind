@@ -14,6 +14,7 @@
   import PageAppearance from './PageAppearance.svelte';
   import PageConfig from './PageConfig.svelte';
   import PageAbout from './PageAbout.svelte';
+  import PageWelcome from './PageWelcome.svelte';
   import Head from './Head.svelte';
 
   const PAGES = [
@@ -28,13 +29,15 @@
     { id: 'conf', label: '配置文件', d: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h4' },
     { id: 'about', label: '关于', d: 'M12 3a9 9 0 110 18 9 9 0 010-18zM12 11v5M12 8h.01' },
   ] as const;
-  type PageId = (typeof PAGES)[number]['id'];
+  /** 新手引导（M11.2）不在导航里：第一次运行时打开，「关于」页可以再打开 */
+  type PageId = (typeof PAGES)[number]['id'] | 'welcome';
+  const known = (p: string | undefined): p is PageId => p === 'welcome' || PAGES.some((x) => x.id === p);
   const KEY = 'snapmind.settings.page';
 
   function load(): PageId {
     // 从工具条「自定义工具条…」等入口新建窗口时，Rust 用初始化脚本告诉我们要开哪一页
     const asked = (window as unknown as { __SETTINGS_PAGE__?: string }).__SETTINGS_PAGE__;
-    if (asked && PAGES.some((p) => p.id === asked)) return asked as PageId;
+    if (known(asked)) return asked;
     try {
       const v = localStorage.getItem(KEY);
       if (v && PAGES.some((p) => p.id === v)) return v as PageId;
@@ -50,7 +53,7 @@
   // 工具条「更多 → 自定义工具条…」等入口：打开设置并跳到指定页
   onMount(() => {
     const off = onSettingsGoto((p) => {
-      if (PAGES.some((x) => x.id === p)) go(p as PageId);
+      if (known(p)) go(p);
     });
     return () => {
       off.then((f) => f());
@@ -61,6 +64,7 @@
     if (id === page) return;
     page = id;
     scroller?.scrollTo({ top: 0 });
+    if (id === 'welcome') return;
     try {
       localStorage.setItem(KEY, id);
     } catch {
@@ -107,8 +111,10 @@
           <PageAppearance />
         {:else if page === 'conf'}
           <PageConfig />
+        {:else if page === 'welcome'}
+          <PageWelcome {go} />
         {:else}
-          <PageAbout />
+          <PageAbout {go} />
         {/if}
       </div>
     {/key}

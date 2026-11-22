@@ -13,6 +13,7 @@
   import Field from '$lib/ui/Field.svelte';
   import Head from './Head.svelte';
   import Chains from './Chains.svelte';
+  import OcrModel from './OcrModel.svelte';
 
   let langs = $state<Lang[]>([]);
   onMount(async () => {
@@ -72,6 +73,10 @@
   </div>
   {#if flow.note}<span class="note">{flow.note}</span>{/if}
 </div>
+
+<Card>
+  <OcrModel />
+</Card>
 
 <Card>
   <Row title="一步到位" desc="识别和翻译交给同一个视觉大模型，看图直接给出原文和译文，只调用一次；需要在「备用链 · 一步到位」里加视觉模型">

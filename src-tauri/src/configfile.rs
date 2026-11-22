@@ -46,7 +46,7 @@ pub fn weekly_backup<R: Runtime>(app: &AppHandle<R>) {
     }
     if since_last(app, None).is_none_or(|s| s >= WEEK) {
         if let Err(e) = backup_now(app, &config, BackupReason::Weekly) {
-            eprintln!("每周备份配置失败：{e}");
+            crate::log_warn!("每周备份配置失败：{e}");
         }
     }
 }
@@ -82,7 +82,7 @@ fn apply<R: Runtime>(app: &AppHandle<R>, patch: &Value, auto_backup: bool) -> Re
         // 只在真的会变时备份
         if snapmind_core::config::apply_patch(&prev, patch).is_ok_and(|n| n != prev) {
             if let Err(e) = backup_now(app, &prev, BackupReason::Change) {
-                eprintln!("修改前备份配置失败：{e}");
+                crate::log_warn!("修改前备份配置失败：{e}");
             }
         }
     }
@@ -240,7 +240,7 @@ pub async fn config_import(app: AppHandle, path: String, sections: Vec<Section>,
     for (account, key) in keys.unwrap_or_default() {
         match secrets::set(&account, &key) {
             Ok(()) => n += 1,
-            Err(e) => eprintln!("写入 Key（{account}）失败：{e}"),
+            Err(e) => crate::log_warn!("写入 Key（{account}）失败：{e}"),
         }
     }
     Ok(ImportResult { backup: backup.name, keys: n })

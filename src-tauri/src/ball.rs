@@ -89,7 +89,7 @@ pub fn sync<R: Runtime>(app: &AppHandle<R>, cfg: &BallConfig) {
     match (cfg.enabled, existing) {
         (true, None) => {
             if let Err(e) = create(app, cfg) {
-                eprintln!("创建悬浮球失败：{e}");
+                crate::log_warn!("创建悬浮球失败：{e}");
             }
         }
         (false, Some(w)) => {
@@ -138,7 +138,7 @@ fn create<R: Runtime>(app: &AppHandle<R>, cfg: &BallConfig) -> tauri::Result<()>
         "ball-settings" => crate::wm::show_settings(&app2, None),
         "ball-hide" => {
             if let Err(e) = crate::configfile::update(&app2, &json!({ "ball": { "enabled": false } })) {
-                eprintln!("关闭悬浮球失败：{e}");
+                crate::log_warn!("关闭悬浮球失败：{e}");
             }
         }
         _ => {}
@@ -226,7 +226,7 @@ pub fn on_moved<R: Runtime>(app: &AppHandle<R>) {
         animate(&w, &state, to);
         state.shown.store(true, Ordering::SeqCst);
         if let Err(e) = crate::configfile::update(&app, &json!({ "ball": { "pos": [center.0, center.1] } })) {
-            eprintln!("记录悬浮球位置失败：{e}");
+            crate::log_warn!("记录悬浮球位置失败：{e}");
         }
     });
 }

@@ -84,7 +84,7 @@ fn build<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
             Some(label)
         }
         Err(e) => {
-            eprintln!("创建划词卡片失败：{e}");
+            crate::log_warn!("创建划词卡片失败：{e}");
             None
         }
     }

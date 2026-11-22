@@ -95,7 +95,10 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
                 let on = autostart_enabled(app);
                 set_autostart(app, !on);
             }
-            id::QUIT => app.exit(0),
+            id::QUIT => {
+                crate::pin::close_all_for_exit(app);
+                app.exit(0)
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {

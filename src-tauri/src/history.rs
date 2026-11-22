@@ -28,9 +28,9 @@ pub fn prune<R: Runtime>(app: &AppHandle<R>) {
     let state = app.state::<AppState>();
     let Some(h) = state.history.as_ref() else { return };
     match h.prune(retention(&state.config.get().history)) {
-        Ok(r) if r.pins + r.translations > 0 => eprintln!("历史记录按保留方式清理：贴图 {} 条，翻译 {} 条", r.pins, r.translations),
+        Ok(r) if r.pins + r.translations > 0 => crate::log_info!("历史记录按保留方式清理：贴图 {} 条，翻译 {} 条", r.pins, r.translations),
         Ok(_) => {}
-        Err(e) => eprintln!("清理历史记录失败：{e}"),
+        Err(e) => crate::log_warn!("清理历史记录失败：{e}"),
     }
 }
 

@@ -87,7 +87,7 @@ fn record<R: Runtime>(
                 std::thread::spawn(move || crate::history::prune(&app));
             }
         }
-        Err(e) => eprintln!("写入翻译历史失败：{e}"),
+        Err(e) => crate::log_warn!("写入翻译历史失败：{e}"),
     }
 }
 

@@ -97,7 +97,7 @@ pub fn overlay_end(app: AppHandle) {
 /// 前端日志（隐藏窗口里的错误也能看到）。M11.2 起改写到滚动日志文件。
 #[tauri::command]
 pub fn ui_log(level: String, msg: String) {
-    eprintln!("[ui:{level}] {msg}");
+    crate::applog::write(&format!("ui:{level}"), &msg);
 }
 
 /// 贴图页面启动时取图片尺寸。
