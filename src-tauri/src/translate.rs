@@ -84,6 +84,7 @@ fn record<R: Runtime>(app: &AppHandle<R>, task: &str, source: &str, translation:
 /// - `src` / `dst`：原文 / 译文的增量；`src-reset` / `dst-reset`：切换后端，清掉半截输出
 /// - `done`：完成，`text` = 说明（实际使用的后端、切换原因、耗时）
 /// - `error`：失败，`text` = 原因
+/// - `overlay`：原位覆盖的段落块（`text` 是 JSON 数组，见 [`OverlayBlock`]）
 #[derive(Debug, Clone, Serialize)]
 pub struct TaskEvent {
     id: String,
@@ -92,6 +93,7 @@ pub struct TaskEvent {
     text: String,
 }
 
+#[derive(Clone)]
 struct Emit<R: Runtime> {
     win: WebviewWindow<R>,
     id: String,
@@ -418,6 +420,121 @@ pub fn capture_translate(
             }
             Err(e) => out.send("error", "translate", e),
         }
+    });
+    Ok(())
+}
+
+/// 原位覆盖的一个段落块（坐标相对选区，截图物理像素）。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverlayBlock {
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    fg: [u8; 3],
+    bg: [u8; 3],
+    size: u32,
+    /// 保持原样（公式、代码、只有数字符号），不画覆盖
+    keep: bool,
+    src: String,
+    dst: String,
+}
+
+/// 整段译文的段数和原文对不上（大模型合并或拆开了段落）时，逐段重译，每次并发 4 个。
+/// 逐段翻译的事件用另一个 id 发出，卡片会忽略，不会搅乱已经显示的整段译文。
+async fn translate_each<R: Runtime>(cfg: &Config, texts: &[String], out: &Emit<R>) -> Result<Vec<String>, String> {
+    let cfg = std::sync::Arc::new(cfg.clone());
+    let mut result = Vec::with_capacity(texts.len());
+    for (k, chunk) in texts.chunks(4).enumerate() {
+        let handles: Vec<_> = chunk
+            .iter()
+            .enumerate()
+            .map(|(j, t)| {
+                let (cfg, t) = (cfg.clone(), t.clone());
+                let quiet = Emit { win: out.win.clone(), id: format!("{}#{}", out.id, k * 4 + j) };
+                tauri::async_runtime::spawn(async move { translate(&cfg, &t, &quiet).await.map(|r| r.0) })
+            })
+            .collect();
+        for h in handles {
+            result.push(h.await.map_err(|e| e.to_string())??);
+        }
+    }
+    Ok(result)
+}
+
+/// 截图翻译 · 原位覆盖（需求第 4 节）：坐标只有本地 OCR 能给，所以不管识别链怎么设都用本地 OCR；
+/// 要翻译的段落用空行连成一段一次翻译，再按空行拆回各段；公式、代码、纯数字符号的段落保持原样。
+#[tauri::command]
+pub fn capture_translate_overlay(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    id: String,
+    index: usize,
+    region: Region,
+) -> Result<(), String> {
+    let img = crate::export::crop_base(&app, index, region)?;
+    let cfg = state.config.get();
+    let out = Emit { win: window, id: id.clone() };
+    let handle = app.clone();
+    spawn(&app, id.clone(), async move {
+        let t0 = Instant::now();
+        out.send("stage", "recognize", "本地 OCR");
+        let (w, h) = (img.width, img.height);
+        let ocr_app = handle.clone();
+        let lines = match tauri::async_runtime::spawn_blocking(move || crate::ocr::recognize(&ocr_app, &img)).await {
+            Ok(Ok(l)) => l,
+            Ok(Err(e)) if !crate::ocr::installed(&handle) => {
+                return out.send("error", "recognize", format!("{e}。原位覆盖要用本地 OCR：在截图里按 Shift+C 打开「识别文字」下载模型，或者切回卡片"))
+            }
+            Ok(Err(e)) => return out.send("error", "recognize", e),
+            Err(e) => return out.send("error", "recognize", e.to_string()),
+        };
+        let blocks = snapmind_ocr::overlay::blocks(&lines, w, h);
+        let todo: Vec<usize> = (0..blocks.len()).filter(|&i| !blocks[i].keep).collect();
+        if todo.is_empty() {
+            return out.send("error", "recognize", "选区里没有要翻译的文字");
+        }
+        let texts: Vec<String> = todo.iter().map(|&i| blocks[i].text.clone()).collect();
+        let source = texts.join("\n\n");
+        out.send("src", "recognize", source.clone());
+        let (dst, tr, target) = match translate(&cfg, &source, &out).await {
+            Ok(r) => r,
+            Err(e) => return out.send("error", "translate", e),
+        };
+        let parts = match snapmind_ocr::overlay::split_translation(&dst, todo.len()) {
+            Some(p) => p,
+            None => match translate_each(&cfg, &texts, &out).await {
+                Ok(p) => p,
+                Err(e) => return out.send("error", "translate", e),
+            },
+        };
+        if let Some(t) = &target {
+            record(&handle, &id, &source, &dst, t, &tr);
+        }
+        let mut dst_of = vec![String::new(); blocks.len()];
+        for (k, &i) in todo.iter().enumerate() {
+            dst_of[i] = parts[k].clone();
+        }
+        let payload: Vec<OverlayBlock> = blocks
+            .into_iter()
+            .zip(dst_of)
+            .map(|(b, dst)| OverlayBlock {
+                x: b.x,
+                y: b.y,
+                width: b.width,
+                height: b.height,
+                fg: b.fg,
+                bg: b.bg,
+                size: b.size,
+                keep: b.keep,
+                src: b.text,
+                dst,
+            })
+            .collect();
+        out.send("overlay", "translate", serde_json::to_string(&payload).unwrap_or_default());
+        out.send("done", "translate", format!("本地 OCR → {tr} · {}", secs(t0)))
     });
     Ok(())
 }

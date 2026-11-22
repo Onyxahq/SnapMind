@@ -5,11 +5,14 @@
   import { placeCard, stageLabel, type TranslateCard } from '$lib/task';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Button from '$lib/ui/Button.svelte';
+  import Seg from '$lib/ui/Seg.svelte';
 
   let {
     sel,
     card,
     bilingual = false,
+    overlay = false,
+    onmode,
     onsrc,
     ondst,
     onretranslate,
@@ -21,6 +24,9 @@
     card: TranslateCard;
     /** 复制 / 贴图时用双语对照 */
     bilingual?: boolean;
+    /** 原位覆盖模式：复制 / 贴图交出的是画上译文的截图 */
+    overlay?: boolean;
+    onmode: (overlay: boolean) => void;
     onsrc: (v: string) => void;
     ondst: (v: string) => void;
     onretranslate: () => void;
@@ -36,6 +42,11 @@
   const streamingSrc = $derived(card.stage === 'recognize' || card.stage === 'oneshot');
   const waitingDst = $derived(card.stage === 'translate' && !card.dst);
   const canAct = $derived(!busy && !!card.dst.trim());
+
+  let mode = $state<'card' | 'overlay'>('card');
+  $effect(() => {
+    mode = overlay ? 'overlay' : 'card';
+  });
 
   let dstEl = $state<HTMLTextAreaElement>();
   // 流式输出时译文框跟着滚到底
@@ -63,6 +74,15 @@
       {stageLabel(card)}
     </span>
     <span class="grow"></span>
+    <Seg
+      label="结果呈现"
+      options={[
+        { value: 'card', label: '卡片' },
+        { value: 'overlay', label: '覆盖' },
+      ]}
+      bind:value={mode}
+      onchange={(v) => onmode(v === 'overlay')}
+    />
     <IconButton icon="close" label="关闭  Esc" size={28} onclick={onclose} />
   </header>
 
@@ -111,8 +131,13 @@
       disabled={busy || !card.src.trim()}
       onclick={onretranslate}
     />
-    <Button disabled={!canAct} onclick={onpin} title={bilingual ? '把原文和译文对照贴到屏幕上' : '把译文贴到屏幕上'}>贴图</Button>
-    <Button variant="primary" disabled={!canAct} onclick={oncopy}>{bilingual ? '复制双语' : '复制译文'}</Button>
+    {#if overlay}
+      <Button disabled={!canAct} onclick={onpin} title="把画上译文的截图贴到屏幕上">贴图</Button>
+      <Button variant="primary" disabled={!canAct} onclick={oncopy} title="复制画上译文的截图">复制图片</Button>
+    {:else}
+      <Button disabled={!canAct} onclick={onpin} title={bilingual ? '把原文和译文对照贴到屏幕上' : '把译文贴到屏幕上'}>贴图</Button>
+      <Button variant="primary" disabled={!canAct} onclick={oncopy}>{bilingual ? '复制双语' : '复制译文'}</Button>
+    {/if}
   </footer>
 </div>
 

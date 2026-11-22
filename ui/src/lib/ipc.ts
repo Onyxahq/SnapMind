@@ -36,6 +36,8 @@ export interface TranslationConfig {
   /** 不翻译列表 */
   glossary: string[];
   oneshot: boolean;
+  /** 截图翻译用原位覆盖（否则用卡片） */
+  overlay: boolean;
 }
 
 export type PromptKind = 'recognize' | 'translate' | 'oneshot' | 'markdown';
@@ -116,6 +118,7 @@ export const DEFAULT_CONFIG: Config = {
     autoTerms: true,
     glossary: [],
     oneshot: false,
+    overlay: false,
   },
 };
 
@@ -626,7 +629,7 @@ export async function languages(): Promise<Lang[]> {
 /** Rust 推来的任务事件（见 src-tauri/src/translate.rs）。 */
 export interface TaskEvent {
   id: string;
-  kind: 'stage' | 'src' | 'src-reset' | 'dst' | 'dst-reset' | 'done' | 'error';
+  kind: 'stage' | 'src' | 'src-reset' | 'dst' | 'dst-reset' | 'done' | 'error' | 'overlay';
   stage: 'recognize' | 'oneshot' | 'translate';
   text: string;
 }
@@ -672,6 +675,41 @@ export async function captureTranslate(id: string, index: number, region: Region
     ]);
   }
   return invoke('capture_translate', { id, index, region });
+}
+
+/** 截图翻译 · 原位覆盖：本地 OCR → 按段落翻译，段落块通过 overlay 事件推来。 */
+export async function captureTranslateOverlay(id: string, index: number, region: Region): Promise<void> {
+  if (!inTauri()) {
+    const paras = [
+      ['Screen text is easy to read back.', '屏幕上的文字很容易读回来。'],
+      ['Translations are drawn in place,', '译文直接画在原文的位置上，'],
+      ['42.0 %', ''],
+    ];
+    const h = Math.max(16, Math.min(28, Math.round(region.height / 10)));
+    const blocks = paras.map(([src, dst], i) => ({
+      x: h,
+      y: h + i * h * 2.2,
+      width: Math.min(region.width - 2 * h, Math.round(src.length * h * 0.52)),
+      height: Math.round(h * 1.5),
+      fg: [30, 41, 59],
+      bg: [248, 250, 252],
+      size: h,
+      keep: !dst,
+      src,
+      dst,
+    }));
+    const src = paras.filter((p) => p[1]).map((p) => p[0]).join('\n\n');
+    const dst = paras.filter((p) => p[1]).map((p) => p[1]).join('\n\n');
+    return fakeRun(id, [
+      { kind: 'stage', stage: 'recognize', text: '本地 OCR' },
+      { kind: 'src', stage: 'recognize', text: src },
+      { kind: 'stage', stage: 'translate', text: 'DeepL' },
+      { kind: 'dst', stage: 'translate', text: dst },
+      { kind: 'overlay', stage: 'translate', text: JSON.stringify(blocks) },
+      { kind: 'done', stage: 'translate', text: '本地 OCR → DeepL · 0.9 s' },
+    ]);
+  }
+  return invoke('capture_translate_overlay', { id, index, region });
 }
 
 /** 按（改过的）原文重新翻译。 */

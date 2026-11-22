@@ -1,6 +1,7 @@
 // 识别 / 翻译任务在卡片上的状态：把 Rust 推来的事件折叠成卡片要显示的内容，以及卡片摆放位置。
 import type { Rect } from './geometry';
 import type { TaskEvent } from './ipc';
+import type { OverlayBlock } from './overlay';
 
 export type CardStage = 'recognize' | 'oneshot' | 'translate' | 'done' | 'error';
 
@@ -14,10 +15,12 @@ export interface TranslateCard {
   /** 完成后的说明：实际使用的后端、切换原因、耗时 */
   meta: string;
   error: string;
+  /** 原位覆盖的段落块（覆盖模式翻译完成后才有） */
+  overlay: OverlayBlock[] | null;
 }
 
 export function newCard(id: string, src = '', stage: CardStage = 'recognize'): TranslateCard {
-  return { id, src, dst: '', stage, backend: '', meta: '', error: '' };
+  return { id, src, dst: '', stage, backend: '', meta: '', error: '', overlay: null };
 }
 
 /** 应用一个事件；不是这张卡片的事件原样返回。 */
@@ -38,6 +41,12 @@ export function reduce(c: TranslateCard, e: TaskEvent): TranslateCard {
       return { ...c, stage: 'done', meta: e.text, src: c.src.trim(), dst: c.dst.trim() };
     case 'error':
       return { ...c, stage: 'error', error: e.text };
+    case 'overlay':
+      try {
+        return { ...c, overlay: JSON.parse(e.text) as OverlayBlock[] };
+      } catch {
+        return c;
+      }
   }
 }
 

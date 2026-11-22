@@ -3,7 +3,7 @@
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
   // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）；
-  // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选。
+  // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选；M6.2 翻译的原位覆盖。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -11,6 +11,7 @@
     capturePin,
     capturePinText,
     captureTranslate,
+    captureTranslateOverlay,
     captureOcr,
     ocrCompose,
     ocrDownload,
@@ -73,6 +74,8 @@
   import { bilingual, newCard, reduce, type TranslateCard as Card } from '$lib/task';
   import OcrCardView from './OcrCard.svelte';
   import OcrBoxes from './OcrBoxes.svelte';
+  import TranslateOverlay from './TranslateOverlay.svelte';
+  import { canvasMeasure, drawOverlay, drawable, fitText } from '$lib/overlay';
   import { newOcrCard, pickLines, type OcrCard } from '$lib/ocr';
 
   /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
@@ -106,6 +109,8 @@
   let confirmOpen = $state(false);
   /** 翻译结果卡片（打开卡片不会结束截图） */
   let card = $state<Card | null>(null);
+  /** 翻译时的选区（原位覆盖只在选区没动时画） */
+  let cardRegion = $state<Rect | null>(null);
   /** 识别文字卡片（和翻译卡片同一时间只开一张） */
   let ocr = $state<OcrCard | null>(null);
   /** 本地 OCR 模型的下载状态 */
@@ -175,6 +180,14 @@
   const ocrBoxes = $derived(
     ocr?.result && sel && !saveOpen && !ann.tool && sameRect(sel, ocr.region) ? ocr.result : null,
   );
+  /** 原位覆盖：覆盖模式、翻译完成、选区还是翻译时那块 */
+  const overlayBlocks = $derived(
+    config.value.translation.overlay && card?.overlay && sel && cardRegion && !saveOpen && sameRect(sel, cardRegion)
+      ? drawable(card.overlay)
+      : null,
+  );
+  const measureText = canvasMeasure();
+  const overlayFits = $derived(overlayBlocks ? overlayBlocks.map((b) => fitText(b, measureText)) : []);
   /** 正在右键划的矩形（相对识别区域） */
   const rdragRect = $derived(
     rdrag?.moved && ocr
@@ -314,9 +327,20 @@
   async function syncAnnotations(index: number, r: Region) {
     ann.commitText();
     const shapes = ann.doc.shapes;
-    if (!shapes.length) return captureSetAnnotations(index, null);
+    // 原位覆盖的译文也随标注层一起交出去（画在标注下面）
+    const blocks = overlayBlocks && sameRect(r, cardRegion!) ? overlayBlocks : null;
+    const fits = overlayFits;
+    if (!shapes.length && !blocks) return captureSetAnnotations(index, null);
     const t0 = performance.now();
-    const layer = renderLayer(shapes, r, img);
+    const under = blocks
+      ? (g: CanvasRenderingContext2D) => {
+          g.save();
+          g.translate(r.x, r.y);
+          drawOverlay(g, blocks, fits);
+          g.restore();
+        }
+      : undefined;
+    const layer = renderLayer(shapes, r, img, under);
     const t1 = performance.now();
     await captureSetAnnotations(index, layer);
     const t2 = performance.now();
@@ -401,14 +425,24 @@
     if (card) taskCancel(card.id);
     const id = `tr-${session.seq}-${++cardSeq}`;
     card = newCard(id);
-    captureTranslate(id, session.index, sel).catch((e) => {
+    cardRegion = sel;
+    const run = config.value.translation.overlay ? captureTranslateOverlay : captureTranslate;
+    run(id, session.index, sel).catch((e) => {
       if (card?.id === id) card = { ...card, stage: 'error', error: String(e) };
     });
   }
 
+  /** 卡片 / 覆盖切换（记进配置）。切到覆盖而这次还没有段落位置时，按覆盖模式重新翻译。 */
+  function setTranslateMode(overlay: boolean) {
+    updateConfig({ translation: { overlay } });
+    const busy = card && (card.stage === 'recognize' || card.stage === 'oneshot' || card.stage === 'translate');
+    if (overlay && card && !card.overlay && !busy) translate();
+  }
+
   function retranslate() {
     if (!card || !card.src.trim()) return;
-    card = { ...card, dst: '', stage: 'translate', backend: '', meta: '', error: '' };
+    // 改过原文后段落和位置对不上了：覆盖撤掉，结果回到卡片里
+    card = { ...card, dst: '', stage: 'translate', backend: '', meta: '', error: '', overlay: null };
     translateText(card.id, card.src).catch((e) => {
       if (card) card = { ...card, stage: 'error', error: String(e) };
     });
@@ -424,9 +458,10 @@
     return config.value.translation.bilingual ? bilingual(c.src, c.dst) : c.dst.trim();
   }
 
-  /** 复制译文：交出结果，结束截图（不再询问未保存的标注）。 */
+  /** 复制译文：交出结果，结束截图（不再询问未保存的标注）。覆盖模式下复制画上译文的截图。 */
   async function copyTranslation() {
     if (!card) return;
+    if (overlayBlocks) return copy();
     await clipboardWriteText(resultText(card));
     close();
   }
@@ -434,6 +469,7 @@
   /** 把译文贴成文字卡片，结束截图。 */
   function pinTranslation() {
     if (!card || !session || !sel) return;
+    if (overlayBlocks) return pin();
     const [i, r, text] = [session.index, sel, resultText(card)];
     resetView();
     capturePinText(i, r, text).catch((e) => log('error', `贴译文失败：${e}`));
@@ -815,6 +851,9 @@
 >
   <img bind:this={img} {src} alt="" draggable="false" crossorigin="anonymous" />
   <div class="scrim" class:snapping={!sel && !drag} style:clip-path={scrimClip}></div>
+  {#if overlayBlocks && cardRegion}
+    <TranslateOverlay region={cardRegion} scale={mon.scale} blocks={overlayBlocks} fits={overlayFits} />
+  {/if}
   {#if sel}
     <AnnotationLayer shapes={ann.visible} draft={ann.draft} clip={sel} {mon} src={img} />
   {/if}
@@ -869,6 +908,8 @@
       sel={unionRect(selOnlyCss, showToolbar ? toolbarRect : null)}
       {card}
       bilingual={config.value.translation.bilingual}
+      overlay={config.value.translation.overlay}
+      onmode={setTranslateMode}
       onsrc={(v) => card && (card = { ...card, src: v })}
       ondst={(v) => card && (card = { ...card, dst: v })}
       onretranslate={retranslate}

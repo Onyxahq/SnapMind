@@ -129,6 +129,7 @@ pub fn run() {
             export::capture_pin,
             export::capture_pin_text,
             translate::capture_translate,
+            translate::capture_translate_overlay,
             translate::translate_text,
             translate::task_cancel,
             ocr::capture_ocr,

@@ -323,6 +323,8 @@ pub struct TranslationConfig {
     pub glossary: Vec<String>,
     /// 一步到位：识别和翻译交给同一个视觉模型，一次调用
     pub oneshot: bool,
+    /// 截图翻译的结果用原位覆盖（译文画在原文位置上）而不是卡片；切换后记住
+    pub overlay: bool,
 }
 
 impl Default for TranslationConfig {
@@ -336,6 +338,7 @@ impl Default for TranslationConfig {
             auto_terms: true,
             glossary: Vec::new(),
             oneshot: false,
+            overlay: false,
         }
     }
 }
@@ -544,7 +547,8 @@ mod tests {
                     "keepFormat": true,
                     "autoTerms": true,
                     "glossary": [],
-                    "oneshot": false
+                    "oneshot": false,
+                    "overlay": false
                 }
             })
         );

@@ -388,12 +388,15 @@ export function renderLayer(
   shapes: Shape[],
   sel: { x: number; y: number; width: number; height: number },
   src: CanvasImageSource,
+  /** 先画在标注下面的内容（原位覆盖的译文），坐标和标注一样是截图像素 */
+  under?: (g: CanvasRenderingContext2D) => void,
 ): Layer | null {
   const width = Math.max(1, sel.width);
   const height = Math.max(1, sel.height);
   const c = new OffscreenCanvas(width, height);
   const g = c.getContext('2d', { willReadFrequently: true }) as unknown as CanvasRenderingContext2D;
   g.translate(-sel.x, -sel.y);
+  under?.(g);
   for (const s of shapes) drawShape(g, s, 1, src);
   const full = g.getImageData(0, 0, width, height).data;
   const b = alphaBounds(full, width, height);

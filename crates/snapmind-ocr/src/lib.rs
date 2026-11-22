@@ -11,6 +11,7 @@ mod imgops;
 pub mod ink;
 pub mod layout;
 pub mod models;
+pub mod overlay;
 pub mod rec;
 
 use std::path::Path;
