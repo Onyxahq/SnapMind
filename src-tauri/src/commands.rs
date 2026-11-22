@@ -34,11 +34,15 @@ pub fn config_get(state: State<'_, AppState>) -> Config {
 /// 成功且内容有变化时广播 `config-changed`。返回修改后的完整配置。
 #[tauri::command]
 pub fn config_update(app: AppHandle, state: State<'_, AppState>, patch: Value) -> Result<Config, String> {
-    let before = state.config.get().hotkeys;
+    let prev = state.config.get();
     match state.config.update(&patch).map_err(|e| e.to_string())? {
         Some(next) => {
-            if next.hotkeys != before {
+            if next.hotkeys != prev.hotkeys {
                 crate::hotkeys::apply(&app, &next.hotkeys);
+            }
+            if next.history != prev.history {
+                let app = app.clone();
+                std::thread::spawn(move || crate::history::prune(&app));
             }
             state::on_config_changed(&app, &next);
             Ok(next)

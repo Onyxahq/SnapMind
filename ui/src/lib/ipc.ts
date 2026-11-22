@@ -1,6 +1,6 @@
 // 前端调用 Rust 命令的唯一入口。命令名、事件名和数据类型集中在这里。
 // 在普通浏览器里打开开发页面时（没有 Tauri），用内存里的假实现代替，方便调界面。
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { Accent, ThemeMode } from './theme';
@@ -27,6 +27,14 @@ export interface Config {
   record: RecordConfig;
   hotkeys: HotkeysConfig;
   toolbar: { capture: ToolbarLayout; pin: ToolbarLayout };
+  history: HistoryConfig;
+}
+
+/** 历史记录保留方式：不限制 / 每类最多 maxCount 条 / 合计最多 maxMb MB（贴图优先清理）。 */
+export interface HistoryConfig {
+  mode: 'unlimited' | 'count' | 'size';
+  maxCount: number;
+  maxMb: number;
 }
 
 /** 一条工具条的布局：order 里的 'more' 是分隔线，后面的按钮收进「⋯ 更多」；hidden 是隐藏的按钮。 */
@@ -162,6 +170,7 @@ export const DEFAULT_CONFIG: Config = {
     },
     pin: { order: ['annotate', 'save', 'copy', 'more', 'through', 'zoom100'], hidden: [] },
   },
+  history: { mode: 'size', maxCount: 500, maxMb: 1024 },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -565,8 +574,91 @@ export interface PinRecord {
 
 /** 贴图历史（最近关闭的在前），query 按识别文字搜索。 */
 export async function historyPins(query?: string, limit?: number): Promise<PinRecord[]> {
-  if (!inTauri()) return [];
+  if (!inTauri()) return fakeHistory.pins.filter((p) => !query || p.text.toLowerCase().includes(query.toLowerCase()));
   return invoke('history_pins', { query: query ?? null, limit: limit ?? null });
+}
+
+// ---- 历史记录的统计与操作（见 src-tauri/src/history.rs）----
+
+export interface Usage {
+  count: number;
+  bytes: number;
+}
+
+export interface HistoryUsage {
+  pins: Usage;
+  translations: Usage;
+  /** 历史文件夹 */
+  dir: string;
+}
+
+/** 浏览器开发页里的示例历史 */
+const fakeHistory = {
+  pins: [1, 2, 3, 4, 5].map((i) => ({
+    id: i,
+    createdAt: Date.now() - i * 3_600_000,
+    closedAt: Date.now() - i * 3_000_000,
+    width: 800 + i * 40,
+    height: 500 + i * 30,
+    imagePath: '',
+    thumbPath: '',
+    text: i % 2 ? `第 ${i} 张贴图里识别出的文字 · SnapMind 截图识别翻译` : '',
+    source: (i === 3 ? 'text' : 'capture') as PinRecord['source'],
+    bytes: 180_000 * i,
+  })) as PinRecord[],
+};
+
+export async function historyUsage(): Promise<HistoryUsage> {
+  if (!inTauri()) {
+    const bytes = fakeHistory.pins.reduce((a, p) => a + p.bytes, 0);
+    return { pins: { count: fakeHistory.pins.length, bytes }, translations: { count: 12, bytes: 48_000 }, dir: 'C:\\Users\\demo\\AppData\\Roaming\\SnapMind\\history' };
+  }
+  return invoke('history_usage');
+}
+
+/** 贴图历史缩略图的地址。 */
+export function thumbUrl(id: number): string {
+  if (!inTauri()) return '';
+  return convertFileSrc(String(id), 'snapthumb');
+}
+
+export async function historyDeletePin(id: number): Promise<boolean> {
+  if (!inTauri()) {
+    fakeHistory.pins = fakeHistory.pins.filter((p) => p.id !== id);
+    return true;
+  }
+  return invoke('history_delete_pin', { id });
+}
+
+/** 清空一类历史，返回删了几条。 */
+export async function historyClear(kind: 'pins' | 'translations'): Promise<number> {
+  if (!inTauri()) {
+    const n = kind === 'pins' ? fakeHistory.pins.length : 0;
+    if (kind === 'pins') fakeHistory.pins = [];
+    return n;
+  }
+  return invoke('history_clear', { kind });
+}
+
+/** 重新贴出（贴在鼠标所在屏幕中央，并从历史里移除），返回新贴图的 id。 */
+export async function historyRepin(id: number): Promise<number> {
+  if (!inTauri()) {
+    fakeHistory.pins = fakeHistory.pins.filter((p) => p.id !== id);
+    return 99;
+  }
+  return invoke('history_repin', { id });
+}
+
+/** 复制贴图历史的原图。 */
+export async function historyCopyPin(id: number): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('history_copy_pin', { id });
+}
+
+/** 把一段文字贴成文字卡片。 */
+export async function historyPinText(text: string): Promise<number> {
+  if (!inTauri()) return 99;
+  return invoke('history_pin_text', { text });
 }
 
 // ---- 模型服务 ----

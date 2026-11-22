@@ -82,6 +82,10 @@ fn record<R: Runtime>(
     match result {
         Ok(id) => {
             tasks.records.lock().expect("任务锁").insert(task.to_string(), id);
+            if existing.is_none() {
+                let app = app.clone();
+                std::thread::spawn(move || crate::history::prune(&app));
+            }
         }
         Err(e) => eprintln!("写入翻译历史失败：{e}"),
     }

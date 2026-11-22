@@ -152,6 +152,27 @@ pub struct History {
     conn: Mutex<Connection>,
 }
 
+/// 保留方式（需求第 7 节）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Retention {
+    /// 全部保留，手动清理
+    Unlimited,
+    /// 每类最多保留 N 条
+    Count(u64),
+    /// 贴图和翻译合计最多占这么多字节，超出时删除最早的记录，贴图优先
+    Bytes(u64),
+}
+
+/// 一次清理删掉了多少条。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+pub struct Pruned {
+    pub pins: u64,
+    pub translations: u64,
+}
+
+/// 一条翻译历史的估算占用（和 translation_usage 的口径一致）。
+const TRANS_BYTES: &str = "LENGTH(CAST(source AS BLOB)) + LENGTH(CAST(translation AS BLOB)) + LENGTH(CAST(backend AS BLOB))";
+
 impl History {
     /// 打开（不存在则创建）历史目录和数据库，并迁移到当前结构。
     pub fn open(dir: &Path) -> Result<Self, HistoryError> {
@@ -240,11 +261,95 @@ impl History {
     /// 删除一条贴图历史（连同图片文件）。返回是否存在。
     pub fn delete_pin(&self, id: i64) -> Result<bool, HistoryError> {
         let conn = self.conn.lock().expect("历史库锁");
+        self.delete_pin_locked(&conn, id)
+    }
+
+    fn delete_pin_locked(&self, conn: &Connection, id: i64) -> Result<bool, HistoryError> {
         let existed = conn.query_row("SELECT 1 FROM pins WHERE id = ?1", [id], |_| Ok(())).optional()?.is_some();
         conn.execute("DELETE FROM pins WHERE id = ?1", [id])?;
         let _ = fs::remove_file(self.dir.join("images").join(format!("{id}.png")));
         let _ = fs::remove_file(self.dir.join("thumbs").join(format!("{id}.jpg")));
         Ok(existed)
+    }
+
+    /// 取一条贴图历史（重新贴出、复制时用）。
+    pub fn get_pin(&self, id: i64) -> Result<Option<PinRecord>, HistoryError> {
+        Ok(self.list_pins(None, usize::MAX)?.into_iter().find(|p| p.id == id))
+    }
+
+    /// 清空贴图历史（连同图片文件），返回删了几条。
+    pub fn clear_pins(&self) -> Result<u64, HistoryError> {
+        let conn = self.conn.lock().expect("历史库锁");
+        let n = conn.execute("DELETE FROM pins", [])? as u64;
+        for sub in ["images", "thumbs"] {
+            if let Ok(rd) = fs::read_dir(self.dir.join(sub)) {
+                for e in rd.flatten() {
+                    let _ = fs::remove_file(e.path());
+                }
+            }
+        }
+        Ok(n)
+    }
+
+    /// 清空翻译历史，返回删了几条。
+    pub fn clear_translations(&self) -> Result<u64, HistoryError> {
+        let conn = self.conn.lock().expect("历史库锁");
+        Ok(conn.execute("DELETE FROM translations", [])? as u64)
+    }
+
+    /// 按保留方式清理超出的记录（最早的先删）。
+    pub fn prune(&self, policy: Retention) -> Result<Pruned, HistoryError> {
+        let conn = self.conn.lock().expect("历史库锁");
+        let mut out = Pruned::default();
+        match policy {
+            Retention::Unlimited => {}
+            Retention::Count(n) => {
+                let n = n as i64;
+                let old: Vec<i64> = conn
+                    .prepare("SELECT id FROM pins ORDER BY closed_at DESC, id DESC LIMIT -1 OFFSET ?1")?
+                    .query_map([n], |r| r.get(0))?
+                    .collect::<Result<_, _>>()?;
+                for id in old {
+                    if self.delete_pin_locked(&conn, id)? {
+                        out.pins += 1;
+                    }
+                }
+                out.translations = conn.execute(
+                    "DELETE FROM translations WHERE id NOT IN (SELECT id FROM translations ORDER BY updated_at DESC, id DESC LIMIT ?1)",
+                    [n],
+                )? as u64;
+            }
+            Retention::Bytes(limit) => {
+                let pins: i64 = conn.query_row("SELECT COALESCE(SUM(bytes), 0) FROM pins", [], |r| r.get(0))?;
+                let trans: i64 =
+                    conn.query_row(&format!("SELECT COALESCE(SUM({TRANS_BYTES}), 0) FROM translations"), [], |r| r.get(0))?;
+                let mut total = (pins + trans).max(0) as u64;
+                // 先删最早的贴图（图片占地方），删光了还超才删翻译
+                while total > limit {
+                    let oldest: Option<(i64, i64)> = conn
+                        .query_row("SELECT id, bytes FROM pins ORDER BY closed_at ASC, id ASC LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?)))
+                        .optional()?;
+                    let Some((id, bytes)) = oldest else { break };
+                    self.delete_pin_locked(&conn, id)?;
+                    out.pins += 1;
+                    total = total.saturating_sub(bytes.max(0) as u64);
+                }
+                while total > limit {
+                    let oldest: Option<(i64, i64)> = conn
+                        .query_row(
+                            &format!("SELECT id, {TRANS_BYTES} FROM translations ORDER BY updated_at ASC, id ASC LIMIT 1"),
+                            [],
+                            |r| Ok((r.get(0)?, r.get(1)?)),
+                        )
+                        .optional()?;
+                    let Some((id, bytes)) = oldest else { break };
+                    conn.execute("DELETE FROM translations WHERE id = ?1", [id])?;
+                    out.translations += 1;
+                    total = total.saturating_sub(bytes.max(0) as u64);
+                }
+            }
+        }
+        Ok(out)
     }
 
     /// 记一条翻译历史，返回 id。
@@ -304,8 +409,7 @@ impl History {
     pub fn translation_usage(&self) -> Result<Usage, HistoryError> {
         let conn = self.conn.lock().expect("历史库锁");
         let (count, bytes): (i64, i64) = conn.query_row(
-            "SELECT COUNT(*), COALESCE(SUM(LENGTH(CAST(source AS BLOB)) + LENGTH(CAST(translation AS BLOB)) + LENGTH(CAST(backend AS BLOB))), 0)
-             FROM translations",
+            &format!("SELECT COUNT(*), COALESCE(SUM({TRANS_BYTES}), 0) FROM translations"),
             [],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
@@ -396,6 +500,56 @@ mod tests {
             origin: TransOrigin::Capture,
             at,
         }
+    }
+
+    #[test]
+    fn prune_by_count_keeps_newest_of_each_kind() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = History::open(dir.path()).unwrap();
+        let p: Vec<_> = (0..4).map(|i| add(&h, &format!("p{i}"), 1_000 * (i + 1))).collect();
+        for i in 0..5 {
+            h.add_translation(tr(&format!("s{i}"), "t", 1_000 * (i + 1))).unwrap();
+        }
+        let r = h.prune(Retention::Count(2)).unwrap();
+        assert_eq!(r, Pruned { pins: 2, translations: 3 });
+        let left: Vec<_> = h.list_pins(None, 10).unwrap().into_iter().map(|x| x.id).collect();
+        assert_eq!(left, vec![p[3].id, p[2].id]);
+        assert!(!p[0].image_path.exists() && !p[0].thumb_path.exists());
+        let srcs: Vec<_> = h.list_translations(None, 10).unwrap().into_iter().map(|t| t.source).collect();
+        assert_eq!(srcs, vec!["s4", "s3"]);
+        assert_eq!(h.prune(Retention::Unlimited).unwrap(), Pruned::default());
+    }
+
+    #[test]
+    fn prune_by_bytes_drops_oldest_pins_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = History::open(dir.path()).unwrap();
+        let a = add(&h, "a", 1_000);
+        let b = add(&h, "b", 2_000);
+        h.add_translation(tr("hello", "你好", 500)).unwrap();
+        let pins = h.pin_usage().unwrap().bytes;
+        let trans = h.translation_usage().unwrap().bytes;
+        // 上限刚好放得下一张贴图 + 翻译：删最早的那张
+        let r = h.prune(Retention::Bytes(b.bytes + trans)).unwrap();
+        assert_eq!(r, Pruned { pins: 1, translations: 0 });
+        assert!(h.get_pin(a.id).unwrap().is_none() && h.get_pin(b.id).unwrap().is_some());
+        // 上限比翻译还小：贴图删光后再删翻译
+        let r = h.prune(Retention::Bytes(trans - 1)).unwrap();
+        assert_eq!(r, Pruned { pins: 1, translations: 1 });
+        assert_eq!(h.pin_usage().unwrap().count + h.translation_usage().unwrap().count, 0);
+        assert!(pins > 0);
+    }
+
+    #[test]
+    fn clear_removes_records_and_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = History::open(dir.path()).unwrap();
+        let p = add(&h, "x", 1_000);
+        h.add_translation(tr("a", "b", 1)).unwrap();
+        assert_eq!(h.clear_pins().unwrap(), 1);
+        assert_eq!(h.clear_translations().unwrap(), 1);
+        assert!(!p.image_path.exists());
+        assert_eq!(h.pin_usage().unwrap().count, 0);
     }
 
     #[test]

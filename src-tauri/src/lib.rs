@@ -3,6 +3,7 @@
 mod actions;
 mod commands;
 mod export;
+mod history;
 mod hotkeys;
 mod launch;
 mod live;
@@ -62,6 +63,7 @@ pub fn run() {
         .manage(record::RecordState::default())
         .manage(hotkeys::HotkeyState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
+        .register_uri_scheme_protocol(history::PROTOCOL, |ctx, req| history::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
             let (config, outcome) = ConfigStore::open(&state::config_dir(handle)?)?;
@@ -173,6 +175,12 @@ pub fn run() {
             commands::history_pins,
             commands::history_translations,
             commands::history_delete_translation,
+            history::history_usage,
+            history::history_delete_pin,
+            history::history_clear,
+            history::history_repin,
+            history::history_copy_pin,
+            history::history_pin_text,
             commands::tools_hover,
             commands::tools_menu,
             commands::tools_layout,

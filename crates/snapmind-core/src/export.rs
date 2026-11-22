@@ -150,6 +150,14 @@ pub fn encode(img: &RgbaImage, format: ImageFormat, quality: u8, fast: bool) -> 
     Ok(out)
 }
 
+/// 解码 PNG（历史里的贴图原图）为 RGBA。
+pub fn decode_png(bytes: &[u8]) -> Result<RgbaImage, ExportError> {
+    let img = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)
+        .map_err(|e| ExportError::Encode(e.to_string()))?
+        .to_rgba8();
+    Ok(RgbaImage { width: img.width(), height: img.height(), data: img.into_raw() })
+}
+
 /// 当前本地时间（文件名模板用）。
 pub fn now_local() -> NaiveDateTime {
     chrono::Local::now().naive_local()

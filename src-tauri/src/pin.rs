@@ -378,6 +378,7 @@ pub fn close<R: Runtime>(app: &AppHandle<R>, id: u32) {
                 if let Err(e) = history.add_pin(rec) {
                     eprintln!("贴图写入历史失败：{e}");
                 }
+                crate::history::prune(&app);
             });
         }
     }

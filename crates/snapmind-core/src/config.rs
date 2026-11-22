@@ -44,6 +44,8 @@ pub struct Config {
     pub hotkeys: HotkeysConfig,
     /// 截图和贴图工具条的按钮顺序、隐藏、收进「更多」（需求 3.6、第 9 节）
     pub toolbar: ToolbarConfig,
+    /// 历史记录的保留方式（需求第 7 节）
+    pub history: HistoryConfig,
 }
 
 impl Default for Config {
@@ -61,6 +63,7 @@ impl Default for Config {
             record: RecordConfig::default(),
             hotkeys: HotkeysConfig::default(),
             toolbar: ToolbarConfig::default(),
+            history: HistoryConfig::default(),
         }
     }
 }
@@ -312,6 +315,32 @@ pub enum SameLang {
     Second,
     /// 不翻译，原样给出
     Skip,
+}
+
+/// 历史记录的保留方式。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HistoryMode {
+    /// 不限制，手动清理
+    Unlimited,
+    /// 每类最多 max_count 条
+    Count,
+    /// 合计最多 max_mb MB，超出删最早的，贴图优先
+    Size,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct HistoryConfig {
+    pub mode: HistoryMode,
+    pub max_count: u32,
+    pub max_mb: u32,
+}
+
+impl Default for HistoryConfig {
+    fn default() -> Self {
+        Self { mode: HistoryMode::Size, max_count: 500, max_mb: 1024 }
+    }
 }
 
 /// 一条工具条的布局：按钮 id 的顺序（其中 `more` 是分隔线，它后面的按钮收进「⋯ 更多」）和隐藏的按钮。
@@ -659,7 +688,8 @@ mod tests {
                         "hidden": []
                     },
                     "pin": { "order": ["annotate", "save", "copy", "more", "through", "zoom100"], "hidden": [] }
-                }
+                },
+                "history": { "mode": "size", "maxCount": 500, "maxMb": 1024 }
             })
         );
     }
