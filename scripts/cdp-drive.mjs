@@ -7,7 +7,7 @@
 //    （stdout / stderr 都要重定向，否则子进程继承管道，调用方会一直等它退出）
 // 2. 按 Shift+F1 开始截图，然后：node scripts/cdp-drive.mjs 9333 steps.json
 //
-// steps.json：[{ "op": "drag" | "rdrag"（右键）, "x1", "y1", "x2", "y2" } | { "op": "click" | "rclick", "x", "y" }
+// steps.json：[{ "op": "drag" | "rdrag"（右键）, "x1", "y1", "x2", "y2" } | { "op": "click" | "rclick" | "dblclick", "x", "y" }
 //   | { "op": "key", "key", "mods"(1 Alt / 2 Ctrl / 4 Meta / 8 Shift) } | { "op": "type", "text" }
 //   | { "op": "wheel", "x", "y", "dy", "mods" }
 //   | { "op": "wait", "ms" } | { "op": "eval", "expr" }]，坐标是窗口内的 CSS 像素。
@@ -55,6 +55,13 @@ for (const s of steps) {
       for (let i = 1; i <= 10; i++) await mouse('mouseMoved', s.x1 + ((s.x2 - s.x1) * i) / 10, s.y1 + ((s.y2 - s.y1) * i) / 10, 1);
       await mouse('mouseReleased', s.x2, s.y2); break;
     }
+    case 'dblclick':
+      await mouse('mouseMoved', s.x, s.y);
+      for (const clickCount of [1, 2]) {
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: s.x, y: s.y, button: 'left', buttons: 1, clickCount });
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: s.x, y: s.y, button: 'left', buttons: 0, clickCount });
+      }
+      break;
     case 'rclick':
       await mouse('mouseMoved', s.x, s.y); await mouse('mousePressed', s.x, s.y, 2, true); await mouse('mouseReleased', s.x, s.y, 0, true); break;
     case 'rdrag': {

@@ -84,8 +84,13 @@ fn engine<R: Runtime>(app: &AppHandle<R>) -> Result<Arc<Ocr>, String> {
     Ok(e)
 }
 
+/// 模型已经下载好（引擎可以加载）。
+pub fn installed<R: Runtime>(app: &AppHandle<R>) -> bool {
+    models::installed(&models_dir(app))
+}
+
 /// 识别一张图，返回按阅读顺序的行（阻塞）。
-fn recognize<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Result<Vec<Line>, String> {
+pub fn recognize<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Result<Vec<Line>, String> {
     let ocr = engine(app)?;
     let (lines, t) = ocr
         .recognize(Image { width: img.width, height: img.height, rgba: &img.data })
@@ -163,6 +168,74 @@ pub fn ocr_compose(app: AppHandle, id: String, pick: Option<Vec<usize>>, by_line
         .ok_or("识别结果已过期")?;
     let pick = pick.unwrap_or_else(|| (0..lines.len()).collect());
     Ok(layout::compose(&lines, &pick, by_line))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinOcrLine {
+    /// 笔画的范围（图片像素），透明文字层按它摆放和拉伸
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    text: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinOcr {
+    lines: Vec<PinOcrLine>,
+    paragraphs: Vec<Vec<usize>>,
+}
+
+/// 贴图的自动识别（需求第 6 节、M4.5）：贴出后页面调用，在后台识别原图（不带标注）。
+/// 文字卡片（原文已知）和还没下载模型时返回 None——不替用户下载，模型在识别卡片里下载。
+#[tauri::command]
+pub async fn pin_ocr(app: AppHandle, window: tauri::WebviewWindow) -> Result<Option<PinOcr>, String> {
+    let Some(id) = crate::pin::id_of(window.label()) else { return Ok(None) };
+    let Some((img, is_text)) = crate::pin::base_image(&app, id) else { return Ok(None) };
+    if is_text || !installed(&app) {
+        return Ok(None);
+    }
+    let handle = app.clone();
+    let lines = tauri::async_runtime::spawn_blocking(move || recognize(&handle, &img)).await.map_err(|e| e.to_string())??;
+    let paragraphs = layout::paragraphs(&lines);
+    let out = PinOcr {
+        lines: lines
+            .iter()
+            .map(|l| PinOcrLine { x: l.ink.left, y: l.ink.top, width: l.ink.width, height: l.ink.height, text: l.text.clone() })
+            .collect(),
+        paragraphs,
+    };
+    crate::pin::set_ocr(&app, id, Arc::new(lines));
+    Ok(Some(out))
+}
+
+/// 复制贴图上拖选的文字：`pieces` 是选中的行号和选中的那部分文字（首尾两行可能只选了一半），
+/// 按段落规则拼接后写进剪贴板，返回拼好的文字。
+#[tauri::command]
+pub fn pin_copy_text(app: AppHandle, window: tauri::WebviewWindow, pieces: Vec<(usize, String)>) -> Result<String, String> {
+    let id = crate::pin::id_of(window.label()).ok_or("不是贴图窗口")?;
+    let lines = crate::pin::ocr(&app, id).ok_or("贴图还没有识别结果")?;
+    let text = compose_pieces(&lines, &pieces);
+    if text.is_empty() {
+        return Err("没有选中文字".into());
+    }
+    snapmind_platform::clipboard::set_text(&text).map_err(|e| e.to_string())?;
+    Ok(text)
+}
+
+/// 用选中的部分文字替换对应行的文字，再按段落规则拼接。
+pub fn compose_pieces(lines: &[Line], pieces: &[(usize, String)]) -> String {
+    let mut picked: Vec<Line> = Vec::new();
+    for (i, t) in pieces {
+        if let Some(l) = lines.get(*i) {
+            if !t.trim().is_empty() {
+                picked.push(Line { text: t.clone(), ..l.clone() });
+            }
+        }
+    }
+    layout::compose(&picked, &(0..picked.len()).collect::<Vec<_>>(), false)
 }
 
 /// 卡片关掉后释放识别结果。
@@ -275,4 +348,29 @@ async fn fetch<R: Runtime>(
 
 fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use snapmind_ocr::Ink;
+
+    fn line(text: &str, y: u32) -> Line {
+        let ink = Ink { left: 10, top: y, width: 300, height: 14, color: [0; 3], background: [255; 3] };
+        Line { text: text.into(), x: 10, y, width: 300, height: 14, score: 1.0, ink }
+    }
+
+    #[test]
+    fn partial_selection_is_rejoined_by_paragraph_rules() {
+        let lines = vec![line("The first line of a para-", 10), line("graph keeps going here.", 30), line("新的段落", 80)];
+        // 第一行只选了后半段，第二行整行，第三行前两个字
+        let pieces = vec![(0, "line of a para-".to_string()), (1, "graph keeps going here.".to_string()), (2, "新的".to_string())];
+        assert_eq!(compose_pieces(&lines, &pieces), "line of a paragraph keeps going here.\n\n新的");
+        assert_eq!(compose_pieces(&lines, &[(9, "x".into()), (1, "  ".into())]), "");
+    }
+
+    #[test]
+    fn hex_digest() {
+        assert_eq!(hex(&Sha256::digest(b"abc"))[..16], *"ba7816bf8f01cfea");
+    }
 }

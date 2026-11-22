@@ -5,6 +5,8 @@
   // M3.2：悬停时显示共用的贴图工具条（复制、保存、更多、关闭）；Ctrl+C / Ctrl+S；文字卡片。
   // M3.3：标注模式（空格或工具条「标注」）——复用截图的标注控制器，标注画在图片上，
   // 期间拖动是绘制、双击不关闭；完成 / 空格 / Esc 退出，标注保留，复制和保存时一起导出。
+  // M4.5：贴出后后台自动识别，铺一层透明文字：在文字上拖动是选字（Ctrl+C 复制选中的文字），
+  // 在空白处拖动才是移动贴图；在文字上双击是选词，不关闭贴图。
   import { onMount } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -24,12 +26,16 @@
     pinZoom,
     pinKeep,
     pinSetAnnotations,
+    pinOcr,
+    pinCopyText,
     sendAnnotState,
+    type PinOcr,
     type PinActionMsg,
   } from '$lib/ipc';
   import { Annotator } from '$lib/annotator.svelte';
   import { renderLayer, toolForKey } from '$lib/annotate';
   import PinLayer from './PinLayer.svelte';
+  import PinText from './PinText.svelte';
   import TextEditor from '../overlay/TextEditor.svelte';
   import { log } from '$lib/log';
   import { PIN_MARGIN, opacityStep, wrapText, zoomFactor } from '$lib/pin';
@@ -48,6 +54,9 @@
   let pinId = 0;
   /** 文字卡片的原文（贴剪贴板里的文字时） */
   let cardText: string | null = null;
+  /** 自动识别的结果（透明文字层） */
+  let ocr = $state.raw<PinOcr | null>(null);
+  let textLayer = $state<HTMLDivElement>();
 
   /** 1 个 CSS 像素对应多少图片像素（标注线宽、字号按它换算，缩放后画出的粗细和屏幕上看到的一致） */
   const unit = () => natural.width / Math.max(1, winWidth - 2 * PIN_MARGIN);
@@ -108,8 +117,31 @@
   // ---- 拖动：按下后移动超过 3px 才交给系统拖动，这样双击仍然能关闭 ----
   let press: { x: number; y: number } | null = null;
 
+  /** 在识别出的文字上（这时拖动是选字，不移动贴图） */
+  const onText = (e: Event) => !ann.tool && !!(e.target as Element | null)?.closest?.('.ln');
+
+  /** 拖选到的文字：[行号, 选中的部分]。首尾两行可能只选了一半。 */
+  function selectedPieces(): [number, string][] {
+    const sel = getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || !textLayer) return [];
+    const r = sel.getRangeAt(0);
+    const out: [number, string][] = [];
+    for (const el of textLayer.querySelectorAll<HTMLElement>('.ln')) {
+      if (!r.intersectsNode(el)) continue;
+      const text = el.textContent ?? '';
+      // 端点可能落在行里的文字节点上（偏移是字符），也可能落在行元素本身（偏移是子节点）
+      const at = (node: Node, offset: number) => (node === el ? (offset > 0 ? text.length : 0) : offset);
+      const s = el.contains(r.startContainer) ? at(r.startContainer, r.startOffset) : 0;
+      const e = el.contains(r.endContainer) ? at(r.endContainer, r.endOffset) : text.length;
+      if (e > s) out.push([Number(el.dataset.i), text.slice(s, e)]);
+    }
+    return out;
+  }
+
   function onDown(e: PointerEvent) {
     if (e.button !== 0) return;
+    if (onText(e)) return; // 交给浏览器选字
+    getSelection()?.removeAllRanges();
     if (ann.editing) {
       ann.commitText();
       return;
@@ -140,6 +172,16 @@
   }
 
   async function copy() {
+    const pieces = selectedPieces();
+    if (pieces.length) {
+      try {
+        await pinCopyText(pieces);
+        toast('已复制选中的文字');
+      } catch (e) {
+        toast(`复制失败：${e}`, { kind: 'error' });
+      }
+      return;
+    }
     try {
       await syncAnnotations();
       await pinCopy(pinId);
@@ -214,7 +256,10 @@
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      close();
+      // 有选中的文字时先取消选择
+      const sel = getSelection();
+      if (sel && !sel.isCollapsed) sel.removeAllRanges();
+      else close();
     } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'c') {
       e.preventDefault();
       copy();
@@ -260,6 +305,23 @@
     natural = { width: w, height: h };
   }
 
+  /** 浏览器开发页：把假识别结果的文字真的画出来，用来对照透明文字层是否和字对齐。 */
+  async function devPinSrc(): Promise<string> {
+    const c = document.createElement('canvas');
+    c.width = natural.width;
+    c.height = natural.height;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#fff';
+    g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = '#1f2937';
+    g.textBaseline = 'top';
+    for (const l of (await pinOcr())?.lines ?? []) {
+      g.font = `${l.height * 1.25}px Georgia, 'SimSun', serif`;
+      g.fillText(l.text, l.x, l.y - l.height * 0.12, l.width);
+    }
+    return c.toDataURL();
+  }
+
   onMount(() => {
     const off = onPinThrough((on) => (through = on));
     const offAction = onPinAction(onAction);
@@ -269,13 +331,13 @@
       const info = await pinInfo();
       if (!info) return log('error', '找不到贴图数据');
       natural = info;
-      pinId = Number(getCurrentWindow().label.replace('pin-', ''));
+      pinId = inTauri() ? Number(getCurrentWindow().label.replace('pin-', '')) : 1;
       if (info.text) {
         cardText = info.text;
         await renderCard(info.text);
       }
       // 带上时间戳：文字卡片换过图，避免拿到缓存的占位图
-      src = `${convertFileSrc(`pin/${pinId}`, 'snapframe')}?t=${Date.now()}`;
+      src = inTauri() ? `${convertFileSrc(`pin/${pinId}`, 'snapframe')}?t=${Date.now()}` : await devPinSrc();
       await new Promise((r) => requestAnimationFrame(r));
       try {
         await img!.decode();
@@ -283,6 +345,12 @@
         log('error', `贴图解码失败：${e}`);
       }
       await pinReady();
+      // 后台自动识别（不阻塞显示）；文字卡片和没下载模型时没有结果
+      if (!info.text) {
+        pinOcr()
+          .then((r) => (ocr = r && r.lines.length ? r : null))
+          .catch((e) => log('warn', `贴图自动识别失败：${e}`));
+      }
     })();
     return () => {
       off.then((f) => f());
@@ -312,13 +380,16 @@
     press = null;
     if (ann.gesture) ann.up();
   }}
-  ondblclick={() => !ann.tool && close()}
+  ondblclick={(e) => !ann.tool && !onText(e) && close()}
   onwheel={onWheel}
 >
   {#if src}
     <img bind:this={img} {src} alt="" draggable="false" />
   {/if}
   <PinLayer shapes={ann.visible} draft={ann.draft} {natural} src={img} />
+  {#if ocr}
+    <PinText {ocr} {natural} css={(winWidth - 2 * PIN_MARGIN) / natural.width} disabled={ann.tool !== null} bind:layer={textLayer} />
+  {/if}
   {#if ann.editing}
     <TextEditor
       shape={ann.editing.shape}

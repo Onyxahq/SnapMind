@@ -814,6 +814,29 @@ export async function onOcrDownload(cb: (s: OcrStatus) => void): Promise<() => v
   return listen<OcrStatus>('ocr:download', (e) => cb(e.payload));
 }
 
+/** 贴图的自动识别结果：行的笔画范围（图片像素）和段落。 */
+export interface PinOcr {
+  lines: OcrLine[];
+  paragraphs: number[][];
+}
+
+/** 贴图贴出后自动识别（文字卡片、没下载模型时为 null）。 */
+export async function pinOcr(): Promise<PinOcr | null> {
+  if (!inTauri()) {
+    // 浏览器开发页：在 400×300 的假贴图上排几行
+    const texts = ['Pinned screenshots can be read back.', 'Drag across the words to select them,', 'then press Ctrl+C to copy.', '中文也可以直接拖选复制。'];
+    const lines = texts.map((text, i) => ({ x: 20, y: 30 + i * 34 + (i === 3 ? 30 : 0), width: Math.round(text.length * (i === 3 ? 15 : 8.2)), height: 15, text }));
+    return { lines, paragraphs: [[0, 1, 2], [3]] };
+  }
+  return invoke('pin_ocr');
+}
+
+/** 复制贴图上拖选的文字：[行号, 选中的部分]，Rust 按段落规则拼接后写进剪贴板。 */
+export async function pinCopyText(pieces: [number, string][]): Promise<string> {
+  if (!inTauri()) return pieces.map((p) => p[1]).join(' ');
+  return invoke('pin_copy_text', { pieces });
+}
+
 /** 把文字贴成文字卡片（放在选区左上角）并结束截图。 */
 export async function capturePinText(index: number, region: Region, text: string): Promise<number> {
   if (!inTauri()) return 0;

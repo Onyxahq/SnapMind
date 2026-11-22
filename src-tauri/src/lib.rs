@@ -136,6 +136,8 @@ pub fn run() {
             ocr::ocr_forget,
             ocr::ocr_status,
             ocr::ocr_download,
+            ocr::pin_ocr,
+            ocr::pin_copy_text,
             commands::pin_info,
             commands::pin_ready,
             commands::pin_zoom,

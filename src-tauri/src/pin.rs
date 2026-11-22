@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use snapmind_core::export::RgbaImage;
 use snapmind_core::history::{NewPin, PinSource};
+use snapmind_ocr::{layout, Line};
 use snapmind_platform::bmp::Frame;
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -41,6 +42,8 @@ pub struct Pin {
     /// 贴出时间（Unix 毫秒）和来源，关闭时写进历史
     pub created_at: i64,
     pub source: PinSource,
+    /// 贴出后后台自动识别的结果（M4.5）：页面据此铺透明文字层；关闭时识别文字写进历史
+    pub ocr: Option<Arc<Vec<Line>>>,
 }
 
 fn now_ms() -> i64 {
@@ -142,6 +145,7 @@ fn create_with<R: Runtime>(
             annotations: None,
             created_at: now_ms(),
             source,
+            ocr: None,
         });
 
     let margin = (MARGIN_CSS * scale).round() as i32;
@@ -218,6 +222,23 @@ pub fn copy<R: Runtime>(app: &AppHandle<R>, id: u32, template: &str) -> Result<(
             crate::export::copy_image(&img, template).map(|_| ())
         }
     }
+}
+
+/// 贴图的原图（不带标注）和是否是文字卡片：自动识别用。
+pub fn base_image<R: Runtime>(app: &AppHandle<R>, id: u32) -> Option<(Arc<RgbaImage>, bool)> {
+    let state = app.state::<PinState>();
+    let pins = state.pins.lock().expect("贴图锁");
+    pins.get(&id).map(|p| (p.image.clone(), p.text.is_some()))
+}
+
+pub fn set_ocr<R: Runtime>(app: &AppHandle<R>, id: u32, lines: Arc<Vec<Line>>) {
+    if let Some(p) = app.state::<PinState>().pins.lock().expect("贴图锁").get_mut(&id) {
+        p.ocr = Some(lines);
+    }
+}
+
+pub fn ocr<R: Runtime>(app: &AppHandle<R>, id: u32) -> Option<Arc<Vec<Line>>> {
+    app.state::<PinState>().pins.lock().expect("贴图锁").get(&id).and_then(|p| p.ocr.clone())
 }
 
 /// 贴图的图片，有标注时按原始分辨率叠上标注（复制、保存、历史用）。
@@ -328,9 +349,11 @@ pub fn close<R: Runtime>(app: &AppHandle<R>, id: u32) {
             std::thread::spawn(move || {
                 let state = app.state::<crate::state::AppState>();
                 let Some(history) = state.history.as_ref() else { return };
+                // 文字卡片记原文，截图贴图记自动识别出的文字（历史里可以按文字搜索）
+                let recognized = pin.ocr.as_ref().map(|l| layout::compose(l, &(0..l.len()).collect::<Vec<_>>(), false));
                 let rec = NewPin {
                     image: &image,
-                    text: pin.text.as_deref().unwrap_or(""),
+                    text: pin.text.as_deref().or(recognized.as_deref()).unwrap_or(""),
                     source: pin.source,
                     created_at: pin.created_at,
                     closed_at: now_ms(),
