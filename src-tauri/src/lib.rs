@@ -10,6 +10,7 @@ mod pintools;
 mod providers;
 mod state;
 mod ocr;
+mod selcard;
 mod translate;
 mod tray;
 mod wm;
@@ -58,6 +59,7 @@ pub fn run() {
         .manage(pintools::ToolsState::default())
         .manage(translate::TaskState::default())
         .manage(ocr::OcrState::default())
+        .manage(selcard::SelState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
@@ -78,6 +80,7 @@ pub fn run() {
             tray::create(handle)?;
             overlay::prewarm(handle);
             pintools::prewarm(handle);
+            selcard::prewarm(handle);
             std::thread::spawn(export::cleanup_clip_files);
             for key in [
                 actions::CAPTURE_SHORTCUT,
@@ -97,6 +100,12 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // 划词卡片：点了别处（失去焦点）就收起，固定的除外
+            if let WindowEvent::Focused(false) = event {
+                if selcard::is_card(window.label()) {
+                    selcard::on_blur(window.app_handle(), window.label());
+                }
+            }
             // 贴图移动或缩放：工具条跟着走
             if let WindowEvent::Moved(_) | WindowEvent::Resized(_) = event {
                 if let Some(id) = pin::id_of(window.label()) {
@@ -113,6 +122,10 @@ pub fn run() {
                     // Alt+F4 等关闭遮罩 = 结束截图；窗口保留以便下次秒开。
                     api.prevent_close();
                     overlay::end(window.app_handle());
+                } else if selcard::is_card(window.label()) {
+                    // Alt+F4 关划词卡片：和点关闭一样（空闲的那张留着下次用）
+                    api.prevent_close();
+                    selcard::close(window.app_handle(), window.label());
                 } else if wm::hide_instead_of_close(window.label()) {
                     api.prevent_close();
                     let _ = window.hide();
@@ -142,6 +155,10 @@ pub fn run() {
             ocr::ocr_download,
             ocr::pin_ocr,
             ocr::pin_copy_text,
+            selcard::selcard_resize,
+            selcard::selcard_pin,
+            selcard::selcard_close,
+            selcard::selcard_pending,
             commands::pin_info,
             commands::pin_ready,
             commands::pin_zoom,

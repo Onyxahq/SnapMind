@@ -51,7 +51,9 @@ pub fn translate_selection<R: Runtime>(app: &AppHandle<R>) {
             snapmind_platform::selection::Method::Copy => "copy",
         };
         eprintln!("划词：{method} 取到 {} 字（{:.0} ms）", text.chars().count(), t0.elapsed().as_secs_f64() * 1e3);
-        let _ = app.emit(SELECTION_EVENT, SelectionText { text, method, cursor });
+        let sel = SelectionText { text, method, cursor };
+        let _ = app.emit(SELECTION_EVENT, sel.clone());
+        crate::selcard::show(&app, sel);
     });
 }
 

@@ -2,6 +2,7 @@
 // 在普通浏览器里打开开发页面时（没有 Tauri），用内存里的假实现代替，方便调界面。
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { Accent, ThemeMode } from './theme';
 import type { ColorFormat } from './color';
 
@@ -712,10 +713,65 @@ export async function captureTranslateOverlay(id: string, index: number, region:
   return invoke('capture_translate_overlay', { id, index, region });
 }
 
-/** 按（改过的）原文重新翻译。 */
-export async function translateText(id: string, text: string): Promise<void> {
+/**
+ * 按（改过的）原文重新翻译。`target` 这次翻成哪种语言（不给就按设置），
+ * `selection` 表示来自划词（翻译历史里记成划词）。
+ */
+export async function translateText(
+  id: string,
+  text: string,
+  opts: { target?: string; selection?: boolean } = {},
+): Promise<void> {
   if (!inTauri()) return fakeRun(id, fakeTranslate(text));
-  return invoke('translate_text', { id, text });
+  return invoke('translate_text', { id, text, target: opts.target ?? null, selection: opts.selection ?? null });
+}
+
+// ---- 划词卡片（见 src-tauri/src/selcard.rs）----
+
+export interface SelcardShow {
+  text: string;
+  /** automation（UI Automation）/ copy（模拟复制） */
+  method: string;
+}
+
+/** Rust 把卡片摆到鼠标旁、显示出来时通知页面（文字用 selcardPending 去取）。 */
+export async function onSelcardShow(cb: () => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  // 只收发给本窗口的（同时钉着好几张卡片时，别的卡片的通知不能把这张重置掉）
+  return getCurrentWebviewWindow().listen('selcard:show', () => cb());
+}
+
+let fakeSelcardShown = false;
+/** 取走等着翻译的文字（只取一次；新建的卡片页面加载完时也来取，补上加载前发出的通知）。 */
+export async function selcardPending(): Promise<SelcardShow | null> {
+  if (!inTauri()) {
+    if (fakeSelcardShown) return null;
+    fakeSelcardShown = true;
+    return { text: 'Selection translation shows the result right next to the mouse pointer.', method: 'automation' };
+  }
+  return invoke('selcard_pending');
+}
+
+/** 卡片被收起（点了别处、Esc、关闭）。 */
+export async function onSelcardHide(cb: () => void): Promise<() => void> {
+  if (!inTauri()) return () => {};
+  return getCurrentWebviewWindow().listen('selcard:hide', () => cb());
+}
+
+/** 报告卡片内容高度（CSS 像素），Rust 调整窗口大小和位置。 */
+export async function selcardResize(height: number): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('selcard_resize', { height });
+}
+
+export async function selcardPin(on: boolean): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('selcard_pin', { on });
+}
+
+export async function selcardClose(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('selcard_close');
 }
 
 export async function taskCancel(id: string): Promise<void> {

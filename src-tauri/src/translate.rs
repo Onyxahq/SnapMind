@@ -53,7 +53,15 @@ fn now_ms() -> i64 {
 }
 
 /// 翻译完成后写入翻译历史（需求第 7 节）；同一任务再次完成时更新原记录。历史库不可用时只记日志。
-fn record<R: Runtime>(app: &AppHandle<R>, task: &str, source: &str, translation: &str, target: &str, backend: &str) {
+fn record<R: Runtime>(
+    app: &AppHandle<R>,
+    task: &str,
+    source: &str,
+    translation: &str,
+    target: &str,
+    backend: &str,
+    origin: TransOrigin,
+) {
     let state = app.state::<AppState>();
     let Some(history) = state.history.as_ref() else { return };
     let entry = || NewTranslation {
@@ -62,7 +70,7 @@ fn record<R: Runtime>(app: &AppHandle<R>, task: &str, source: &str, translation:
         source_lang: detect(source).unwrap_or(""),
         target_lang: target,
         backend,
-        origin: TransOrigin::Capture,
+        origin,
         at: now_ms(),
     };
     let tasks = app.state::<TaskState>();
@@ -383,7 +391,7 @@ pub fn capture_translate(
                     // 原文已是目标语言：按设置改翻第二语言或不翻译（会替换掉一步到位给的译文）
                     if plan(&cfg.translation, &source) == Plan::Translate(cfg.translation.target_lang.clone(), None) {
                         let (_, dst) = &pair;
-                        record(&handle, &id, &source, dst, &cfg.translation.target_lang, &desc);
+                        record(&handle, &id, &source, dst, &cfg.translation.target_lang, &desc, TransOrigin::Capture);
                         return out.send("done", "oneshot", format!("{desc} · {}", secs(t0)));
                     }
                     out.send("dst-reset", "translate", "");
@@ -391,7 +399,7 @@ pub fn capture_translate(
                         Ok((dst, tr, target)) => {
                             let desc = format!("{desc} → {tr}");
                             if let Some(t) = target {
-                                record(&handle, &id, &source, &dst, &t, &desc);
+                                record(&handle, &id, &source, &dst, &t, &desc, TransOrigin::Capture);
                             }
                             out.send("done", "translate", format!("{desc} · {}", secs(t0)))
                         }
@@ -414,7 +422,7 @@ pub fn capture_translate(
             Ok((dst, tr, target)) => {
                 let desc = format!("{prefix}{rec} → {tr}");
                 if let Some(t) = target {
-                    record(&handle, &id, &source, &dst, &t, &desc);
+                    record(&handle, &id, &source, &dst, &t, &desc, TransOrigin::Capture);
                 }
                 out.send("done", "translate", format!("{desc} · {}", secs(t0)))
             }
@@ -511,7 +519,7 @@ pub fn capture_translate_overlay(
             },
         };
         if let Some(t) = &target {
-            record(&handle, &id, &source, &dst, t, &tr);
+            record(&handle, &id, &source, &dst, t, &tr, TransOrigin::Capture);
         }
         let mut dst_of = vec![String::new(); blocks.len()];
         for (k, &i) in todo.iter().enumerate() {
@@ -540,9 +548,22 @@ pub fn capture_translate_overlay(
 }
 
 /// 按（改过的）原文重新翻译。
+/// `target`：这次翻成哪种语言（划词卡片固定后可以切换；不给就按设置）；`selection`：来自划词（写进历史的来源）。
 #[tauri::command]
-pub fn translate_text(app: AppHandle, window: WebviewWindow, state: State<'_, AppState>, id: String, text: String) -> Result<(), String> {
-    let cfg = state.config.get();
+pub fn translate_text(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    id: String,
+    text: String,
+    target: Option<String>,
+    selection: Option<bool>,
+) -> Result<(), String> {
+    let mut cfg = state.config.get();
+    if let Some(t) = target.filter(|t| !t.is_empty()) {
+        cfg.translation.target_lang = t;
+    }
+    let origin = if selection == Some(true) { TransOrigin::Selection } else { TransOrigin::Capture };
     let out = Emit { win: window, id: id.clone() };
     let handle = app.clone();
     spawn(&app, id.clone(), async move {
@@ -554,7 +575,7 @@ pub fn translate_text(app: AppHandle, window: WebviewWindow, state: State<'_, Ap
         match translate(&cfg, &source, &out).await {
             Ok((dst, tr, target)) => {
                 if let Some(t) = target {
-                    record(&handle, &id, &source, &dst, &t, &tr);
+                    record(&handle, &id, &source, &dst, &t, &tr, origin);
                 }
                 out.send("done", "translate", format!("{tr} · {}", secs(t0)))
             }

@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "设置窗口、截图遮罩与贴图窗口的权限",
+  "description": "设置窗口、截图遮罩、贴图窗口与划词卡片的权限",
   "windows": [
     "settings",
     "overlay-*",
     "pin-*",
-    "pintools"
+    "pintools",
+    "selcard-*"
   ],
   "permissions": [
     "core:default",
