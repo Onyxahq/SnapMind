@@ -2,6 +2,7 @@
 
 mod actions;
 mod commands;
+mod configfile;
 mod export;
 mod history;
 mod hotkeys;
@@ -86,6 +87,10 @@ pub fn run() {
             selcard::prewarm(handle);
             std::thread::spawn(export::cleanup_clip_files);
             hotkeys::apply(handle, &handle.state::<state::AppState>().config.get().hotkeys);
+            {
+                let h = handle.clone();
+                std::thread::spawn(move || configfile::weekly_backup(&h));
+            }
             if launch::mode(std::env::args()) == launch::LaunchMode::Interactive {
                 wm::show_settings(handle);
             }
@@ -129,6 +134,13 @@ pub fn run() {
             commands::config_get,
             commands::config_update,
             commands::config_path,
+            configfile::config_export,
+            configfile::config_import_read,
+            configfile::config_import_pick,
+            configfile::config_import,
+            configfile::config_backups,
+            configfile::config_restore,
+            configfile::config_reset,
             commands::autostart_get,
             commands::settings_open,
             commands::autostart_set,

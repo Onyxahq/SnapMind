@@ -5,7 +5,7 @@ use serde_json::Value;
 use snapmind_core::config::Config;
 use tauri::{AppHandle, Manager, State};
 
-use crate::state::{self, AppState};
+use crate::state::AppState;
 
 #[derive(Debug, Serialize)]
 pub struct AppInfo {
@@ -33,22 +33,8 @@ pub fn config_get(state: State<'_, AppState>) -> Config {
 /// 用 JSON Merge Patch 修改配置。校验失败时返回错误信息，配置保持不变；
 /// 成功且内容有变化时广播 `config-changed`。返回修改后的完整配置。
 #[tauri::command]
-pub fn config_update(app: AppHandle, state: State<'_, AppState>, patch: Value) -> Result<Config, String> {
-    let prev = state.config.get();
-    match state.config.update(&patch).map_err(|e| e.to_string())? {
-        Some(next) => {
-            if next.hotkeys != prev.hotkeys {
-                crate::hotkeys::apply(&app, &next.hotkeys);
-            }
-            if next.history != prev.history {
-                let app = app.clone();
-                std::thread::spawn(move || crate::history::prune(&app));
-            }
-            state::on_config_changed(&app, &next);
-            Ok(next)
-        }
-        None => Ok(state.config.get()),
-    }
+pub fn config_update(app: AppHandle, patch: Value) -> Result<Config, String> {
+    crate::configfile::update(&app, &patch)
 }
 
 /// 配置文件的完整路径（设置 → 配置文件）。

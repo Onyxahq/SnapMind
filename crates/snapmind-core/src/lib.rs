@@ -3,6 +3,7 @@
 //! 这个 crate 不依赖 Tauri 和任何平台 API，全部逻辑都可以单元测试。
 
 pub mod config;
+pub mod configfile;
 pub mod export;
 pub mod gifenc;
 pub mod history;

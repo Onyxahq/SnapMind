@@ -28,6 +28,8 @@ export interface Config {
   hotkeys: HotkeysConfig;
   toolbar: { capture: ToolbarLayout; pin: ToolbarLayout };
   history: HistoryConfig;
+  /** 自动备份：auto 控制「修改重要设置前」「每周」两种（导入、恢复、恢复默认前总会备份） */
+  backup: { auto: boolean };
 }
 
 /** 历史记录保留方式：不限制 / 每类最多 maxCount 条 / 合计最多 maxMb MB（贴图优先清理）。 */
@@ -171,6 +173,7 @@ export const DEFAULT_CONFIG: Config = {
     pin: { order: ['annotate', 'save', 'copy', 'more', 'through', 'zoom100'], hidden: [] },
   },
   history: { mode: 'size', maxCount: 500, maxMb: 1024 },
+  backup: { auto: true },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -1018,6 +1021,80 @@ let fakeAutostart = true;
 export async function autostartGet(): Promise<boolean> {
   if (!inTauri()) return fakeAutostart;
   return invoke('autostart_get');
+}
+
+// ---- 配置文件：导出、导入、备份、恢复默认（见 src-tauri/src/configfile.rs）----
+
+/** 导出 / 导入的四类内容：常规设置、快捷键与工具栏、提示词、模型服务与备用链。 */
+export type ConfigSection = 'general' | 'keys' | 'prompts' | 'providers';
+
+export interface ImportPreview {
+  path: string;
+  sections: ConfigSection[];
+  /** 文件里有加密的 API Key */
+  hasKeys: boolean;
+  appVersion: string;
+  exportedAt: string;
+}
+
+export type BackupReason = 'import' | 'reset' | 'restore' | 'change' | 'weekly';
+
+export interface BackupInfo {
+  name: string;
+  time: string;
+  reason: BackupReason;
+  bytes: number;
+}
+
+const fakeBackups: BackupInfo[] = [
+  { name: 'config-20261123-091500-change.json', time: '2026-11-23 09:15:00', reason: 'change', bytes: 6200 },
+  { name: 'config-20261120-080000-weekly.json', time: '2026-11-20 08:00:00', reason: 'weekly', bytes: 6100 },
+];
+
+/** 导出配置（系统另存为），password 有值时连 API Key 一起加密导出。返回路径，取消时为 null。 */
+export async function configExport(sections: ConfigSection[], password?: string): Promise<string | null> {
+  if (!inTauri()) return 'C:\\Users\\demo\\Documents\\SnapMind-配置-20261123.json';
+  return invoke('config_export', { sections, password: password || null });
+}
+
+/** 选择要导入的文件，返回预览；取消时为 null。 */
+export async function configImportPick(): Promise<ImportPreview | null> {
+  if (!inTauri()) {
+    return { path: 'C:\\demo\\SnapMind-配置.json', sections: ['general', 'keys', 'prompts', 'providers'], hasKeys: true, appVersion: '0.9.8', exportedAt: '2026-11-23 10:30:00' };
+  }
+  return invoke('config_import_pick');
+}
+
+/** 读拖进来的文件，返回预览。 */
+export async function configImportRead(path: string): Promise<ImportPreview> {
+  if (!inTauri()) return { path, sections: ['general', 'prompts'], hasKeys: false, appVersion: '0.9.8', exportedAt: '2026-11-23 10:30:00' };
+  return invoke('config_import_read', { path });
+}
+
+/** 导入选中的几类（导入前自动备份）。返回备份名和写回的 Key 个数。 */
+export async function configImport(path: string, sections: ConfigSection[], password?: string): Promise<{ backup: string; keys: number }> {
+  if (!inTauri()) {
+    if (password === 'wrong') throw new Error('密码不对，或文件已损坏');
+    return { backup: 'config-20261123-103100-import.json', keys: password ? 2 : 0 };
+  }
+  return invoke('config_import', { path, sections, password: password || null });
+}
+
+export async function configBackups(): Promise<BackupInfo[]> {
+  if (!inTauri()) return fakeBackups;
+  return invoke('config_backups');
+}
+
+/** 恢复某个备份（先备份当前配置）。 */
+export async function configRestore(name: string): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('config_restore', { name });
+}
+
+/** 恢复默认设置（模型服务、备用链、历史保留方式保留；先备份）。 */
+export async function configReset(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('config_reset');
 }
 
 /** 打开设置窗口并跳到某一页（如工具条「更多」里的「自定义工具条…」→ 'bar'）。 */

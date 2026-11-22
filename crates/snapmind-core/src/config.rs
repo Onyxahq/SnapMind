@@ -46,6 +46,8 @@ pub struct Config {
     pub toolbar: ToolbarConfig,
     /// 历史记录的保留方式（需求第 7 节）
     pub history: HistoryConfig,
+    /// 配置的自动备份（需求第 10 节）
+    pub backup: BackupConfig,
 }
 
 impl Default for Config {
@@ -64,6 +66,7 @@ impl Default for Config {
             hotkeys: HotkeysConfig::default(),
             toolbar: ToolbarConfig::default(),
             history: HistoryConfig::default(),
+            backup: BackupConfig::default(),
         }
     }
 }
@@ -315,6 +318,19 @@ pub enum SameLang {
     Second,
     /// 不翻译，原样给出
     Skip,
+}
+
+/// 配置的自动备份：导入前、恢复前、恢复默认前总会备份；这个开关控制「修改重要设置前」和「每周」两种。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct BackupConfig {
+    pub auto: bool,
+}
+
+impl Default for BackupConfig {
+    fn default() -> Self {
+        Self { auto: true }
+    }
 }
 
 /// 历史记录的保留方式。
@@ -590,6 +606,19 @@ impl ConfigStore {
         self.current.read().expect("配置锁中毒").clone()
     }
 
+    /// 整体换成另一份配置（恢复备份、恢复默认）。内容没变时不写盘，返回 `None`。
+    pub fn replace(&self, next: Config) -> Result<Option<Config>, ConfigError> {
+        let mut cur = self.current.write().expect("配置锁中毒");
+        let mut next = next;
+        next.version = cur.version;
+        if next == *cur {
+            return Ok(None);
+        }
+        self.write(&next)?;
+        *cur = next.clone();
+        Ok(Some(next))
+    }
+
     /// 应用补丁，校验通过后写盘并返回新配置；内容没变时不写盘，返回 `None`。
     pub fn update(&self, patch: &Value) -> Result<Option<Config>, ConfigError> {
         let mut cur = self.current.write().expect("配置锁中毒");
@@ -689,7 +718,8 @@ mod tests {
                     },
                     "pin": { "order": ["annotate", "save", "copy", "more", "through", "zoom100"], "hidden": [] }
                 },
-                "history": { "mode": "size", "maxCount": 500, "maxMb": 1024 }
+                "history": { "mode": "size", "maxCount": 500, "maxMb": 1024 },
+                "backup": { "auto": true }
             })
         );
     }
