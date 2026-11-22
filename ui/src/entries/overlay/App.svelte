@@ -4,7 +4,7 @@
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
   // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）；
   // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选；M6.2 翻译的原位覆盖；
-  // M8.1 识别为 Markdown（Shift+Alt+R）；M8.2 表格识别、M8.3 公式识别（工具条「更多」）。
+  // M8.1 识别为 Markdown（Shift+Alt+R）；M8.2 表格识别、M8.3 公式识别（工具条「更多」）；M9.1 长截图（L）。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -24,6 +24,17 @@
     ocrForget,
     ocrStatus,
     onOcrDownload,
+    longStart,
+    longHit,
+    longAuto,
+    longWheel,
+    longPreview,
+    longCancel,
+    longFinish,
+    onLongProgress,
+    type LongAxis,
+    type LongFinish,
+    type LongProgress,
     type OcrStatus,
     onTaskEvent,
     taskCancel,
@@ -83,6 +94,7 @@
   import TranslateOverlay from './TranslateOverlay.svelte';
   import MarkdownCard from './MarkdownCard.svelte';
   import FormulaCard from './FormulaCard.svelte';
+  import LongBar from './LongBar.svelte';
   import { toDisplayMath } from '$lib/formula';
   import TableCard from './TableCard.svelte';
   import { parseHtml, toTsv, type TableCardState, type TableView } from '$lib/table';
@@ -124,6 +136,9 @@
   let mdCard = $state<Card | null>(null);
   /** 公式卡片（src 是 LaTeX） */
   let fxCard = $state<Card | null>(null);
+  /** 长截图（选区里透出真实页面，滚动时自动拼接） */
+  let long = $state<{ axis: LongAxis; progress: LongProgress | null; preview: string | null; busy: boolean } | null>(null);
+  let longBarRect = $state<Rect>();
   /** 表格卡片 */
   let tableCard = $state<TableCardState | null>(null);
   /** 翻译时的选区（原位覆盖只在选区没动时画） */
@@ -219,14 +234,14 @@
   /** 操作提示：内容随状态变化，避开已有选区（悬停高亮不算）。 */
   const hintList = $derived(
     hintsFor(
-      ann.tool ? 'annotate' : ocrBoxes ? 'ocr' : sel ? 'selected' : 'idle',
+      long ? 'long' : ann.tool ? 'annotate' : ocrBoxes ? 'ocr' : sel ? 'selected' : 'idle',
       ann.tool ? TOOL_INFO[ann.tool].label : '',
     ),
   );
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard && !fxCard && !tableCard,
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard && !fxCard && !tableCard && !long,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -261,6 +276,14 @@
   }
 
   function onWheel(e: WheelEvent) {
+    if (long) {
+      // 长截图：遮罩收到的滚轮转给下面的页面（像素增量 → 滚轮单位，100 像素约一格 120）
+      e.preventDefault();
+      const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      const delta = Math.round((horizontal ? e.deltaX : -e.deltaY) * 1.2);
+      if (delta) longWheel(delta, horizontal);
+      return;
+    }
     if (!session || sel || drag || !snapList.length) return;
     e.preventDefault();
     snapLevel = wheelLevel(snapLevel, e.deltaY, snapList.length);
@@ -280,6 +303,7 @@
     closeMd();
     closeFormula();
     tableCard = null;
+    dropLong();
     ann.reset();
     propsOpen = false;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
@@ -307,6 +331,7 @@
     closeMd();
     closeFormula();
     tableCard = null;
+    dropLong();
     session = null;
     sel = null;
     drag = null;
@@ -436,6 +461,7 @@
       case 'markdown': return recognizeMarkdown();
       case 'table': return recognizeTable();
       case 'formula': return recognizeFormula();
+      case 'long': return startLong();
     }
   }
 
@@ -617,6 +643,112 @@
       toast(`保存失败：${e}`, { kind: 'error' });
     }
   }
+
+  // ---------------------------------------------------------------- 长截图
+
+  /** L / 工具条「长截图」：选区固定，滚动页面时自动拼接（标注不带进长图，取消后还在）。 */
+  async function startLong(axis: LongAxis = 'vertical') {
+    if (!session || drag) return;
+    if (!sel) sel = region();
+    closeCard();
+    closeOcr();
+    closeMd();
+    closeFormula();
+    tableCard = null;
+    ann.commitText();
+    if (ann.tool) exitAnnotate();
+    propsOpen = false;
+    saveOpen = false;
+    dropLong();
+    long = { axis, progress: null, preview: null, busy: false };
+    try {
+      await longStart(session.index, sel, axis);
+    } catch (e) {
+      long = null;
+      toast(`长截图失败：${e}`, { kind: 'error' });
+    }
+  }
+
+  /** 只清掉界面状态（Rust 那边由调用方负责停止）。 */
+  function dropLong() {
+    if (long?.preview) URL.revokeObjectURL(long.preview);
+    long = null;
+    previewRev = 0;
+  }
+
+  function cancelLong() {
+    longCancel();
+    dropLong();
+  }
+
+  function setLongAxis(axis: LongAxis) {
+    if (!long || long.axis === axis) return;
+    startLong(axis);
+  }
+
+  async function finishLong(action: LongFinish) {
+    if (!long || long.busy || !session) return;
+    let path: string | undefined;
+    if (action === 'save' && config.value.save.ctrlS !== 'direct') {
+      const info = await saveInfo();
+      const picked = await pickSaveFile(info.dir, info.name, config.value.save.format);
+      if (!picked) return; // 取消另存为：留在长截图里
+      path = picked;
+    }
+    long = { ...long, busy: true };
+    try {
+      await longFinish(action, path);
+      resetView();
+    } catch (e) {
+      const msg = String(e);
+      toast(msg, { kind: 'error' });
+      // 识别前就发现没有模型时长截图还在继续；其余错误时截图已经结束
+      if (msg.includes('OCR 模型')) long = long && { ...long, busy: false };
+      else resetView();
+    }
+  }
+
+  /** 拼接预览：内容版本变了就取一张新的，同一时间只取一张。 */
+  let previewRev = 0;
+  let previewBusy = false;
+  function refreshPreview() {
+    const p = long?.progress;
+    if (!long || !p || previewBusy || p.rev === previewRev) return;
+    previewBusy = true;
+    const rev = p.rev;
+    const thickness = (long.axis === 'vertical' ? 140 : 98) * mon.scale;
+    longPreview(thickness)
+      .then((url) => {
+        if (!long) {
+          if (url) URL.revokeObjectURL(url);
+          return;
+        }
+        if (long.preview) URL.revokeObjectURL(long.preview);
+        long = { ...long, preview: url };
+        previewRev = rev;
+      })
+      .catch(() => {})
+      .finally(() => {
+        previewBusy = false;
+        setTimeout(refreshPreview, 120);
+      });
+  }
+
+  // 工具条的位置报给 Rust：指针在上面时遮罩接收鼠标，别处鼠标落到页面上
+  $effect(() => {
+    if (!long || !longBarRect) return;
+    const r = longBarRect;
+    const k = mon.scale;
+    const pad = 6;
+    longHit([
+      {
+        x: Math.max(0, Math.floor((r.x - pad) * k)),
+        y: Math.max(0, Math.floor((r.y - pad - 34) * k)), // 上方的提示气泡也算
+        width: Math.ceil((r.width + 2 * pad) * k),
+        height: Math.ceil((r.height + 2 * pad + 34) * k),
+      },
+    ]);
+  });
 
   // ---------------------------------------------------------------- 公式卡片
 
@@ -855,6 +987,10 @@
     if (!session) return;
     // Esc 逐级退出：弹层 → 保存窗口 → 标注 → 截图（长截图 / 录屏、结果卡片随后续任务插入）
     if (ann.editing || confirmOpen) return; // 打字时、确认框打开时，按键交给它们
+    if (long) {
+      onLongKey(e);
+      return;
+    }
     if (e.key === 'Escape') {
       e.preventDefault();
       if (propsOpen) propsOpen = false;
@@ -952,7 +1088,31 @@
         e.preventDefault();
         updateConfig({ capture: { showHints: !config.value.capture.showHints } });
         break;
+      case 'l':
+        e.preventDefault();
+        if (!ann.tool) startLong();
+        break;
     }
+  }
+
+  /** 长截图时的按键：Enter 完成并复制、Ctrl+T 贴图、Ctrl+S 保存、Shift+C 识别文字、Esc 取消。 */
+  function onLongKey(e: KeyboardEvent) {
+    const ctrl = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    let act: LongFinish | 'cancel' | null = null;
+    if (e.key === 'Escape') act = 'cancel';
+    else if (e.key === 'Enter' || (ctrl && !e.shiftKey && k === 'c')) act = 'copy';
+    else if (ctrl && !e.shiftKey && k === 't') act = 'pin';
+    else if (ctrl && !e.shiftKey && k === 's') act = 'save';
+    else if (e.shiftKey && !ctrl && !e.altKey && k === 'c') act = 'ocr';
+    else if (k === 'h' && !ctrl && !e.altKey && !e.shiftKey) {
+      updateConfig({ capture: { showHints: !config.value.capture.showHints } });
+    }
+    if (!act) return;
+    e.preventDefault();
+    if (act === 'cancel') {
+      if (!long?.busy) cancelLong();
+    } else finishLong(act);
   }
 
   async function copyColor() {
@@ -972,6 +1132,11 @@
     const offClaim = onSelectionClaimed((index) => {
       if (session && index !== session.index) sel = null;
     });
+    const offLong = onLongProgress((p) => {
+      if (!long) return;
+      long = { ...long, progress: p };
+      refreshPreview();
+    });
     const offTask = onTaskEvent((e) => {
       if (card) card = reduce(card, e);
       if (mdCard) mdCard = reduce(mdCard, e);
@@ -988,6 +1153,7 @@
       offStart.then((f) => f());
       offClaim.then((f) => f());
       offTask.then((f) => f());
+      offLong.then((f) => f());
       offOcr.then((f) => f());
     };
   });
@@ -999,6 +1165,7 @@
   class="stage"
   class:active={session !== null}
   class:frame-ready={frameReady}
+  class:long={long !== null}
   style:cursor
   role="application"
   aria-label="截图区域"
@@ -1014,7 +1181,7 @@
   {#if overlayBlocks && cardRegion}
     <TranslateOverlay region={cardRegion} scale={mon.scale} blocks={overlayBlocks} fits={overlayFits} />
   {/if}
-  {#if sel}
+  {#if sel && !long}
     <AnnotationLayer shapes={ann.visible} draft={ann.draft} clip={sel} {mon} src={img} />
   {/if}
   {#if ann.editing}
@@ -1028,12 +1195,26 @@
   {#if selCss}
     <Selection
       rect={selCss}
-      label={sizeLabel}
-      handles={sel !== null && !ann.tool && (!drag || drag.kind !== 'create')}
+      label={long ? '长截图 · 滚动页面自动拼接' : sizeLabel}
+      handles={sel !== null && !ann.tool && !long && (!drag || drag.kind !== 'create')}
       animate={!sel && !drag}
     />
   {/if}
-  {#if showToolbar && selOnlyCss}
+  {#if long && selOnlyCss}
+    <LongBar
+      sel={selOnlyCss}
+      progress={long.progress}
+      axis={long.axis}
+      preview={long.preview}
+      busy={long.busy}
+      bind:rect={longBarRect}
+      onaxis={setLongAxis}
+      onauto={(on) => longAuto(on)}
+      onfinish={finishLong}
+      oncancel={cancelLong}
+    />
+  {/if}
+  {#if showToolbar && selOnlyCss && !long}
     <Toolbar
       sel={selOnlyCss}
       tool={ann.tool}
@@ -1164,6 +1345,8 @@
     visibility: hidden;
   }
   .frame-ready img { visibility: visible; }
+  /* 长截图：不显示冻结帧，选区里透出真实页面 */
+  .frame-ready.long img { visibility: hidden; }
   .scrim {
     position: absolute;
     inset: 0;

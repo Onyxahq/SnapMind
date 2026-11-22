@@ -16,15 +16,25 @@ pub fn show_no_activate(handle: isize) {
     imp::show_no_activate(handle)
 }
 
+/// 不让截屏抓到这个窗口（长截图时遮罩还在屏幕上，但每一帧都要抓到它下面的真实内容）。
+/// Windows 10 2004 起支持；返回是否成功。
+pub fn exclude_from_capture(handle: isize, on: bool) -> bool {
+    imp::exclude_from_capture(handle, on)
+}
+
 #[cfg(windows)]
 mod imp {
     use windows::core::BOOL;
     use windows::Win32::Foundation::HWND;
     use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongPtrW, SetWindowLongPtrW, ShowWindow, GWL_EXSTYLE, SW_SHOWNOACTIVATE,
-        WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
+        GetWindowLongPtrW, SetWindowDisplayAffinity, SetWindowLongPtrW, ShowWindow, GWL_EXSTYLE,
+        SW_SHOWNOACTIVATE, WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
     };
+
+    pub fn exclude_from_capture(handle: isize, on: bool) -> bool {
+        unsafe { SetWindowDisplayAffinity(hwnd(handle), if on { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }).is_ok() }
+    }
 
     fn hwnd(handle: isize) -> HWND {
         HWND(handle as *mut _)
@@ -62,4 +72,7 @@ mod imp {
     pub fn disable_transitions(_handle: isize) {}
     pub fn make_tool_window(_handle: isize) {}
     pub fn show_no_activate(_handle: isize) {}
+    pub fn exclude_from_capture(_handle: isize, _on: bool) -> bool {
+        false
+    }
 }

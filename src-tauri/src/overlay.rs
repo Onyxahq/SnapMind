@@ -284,6 +284,7 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>, intent: Intent) {
 
 /// 结束截图：把所有遮罩停回屏幕外，释放帧。
 pub fn end<R: Runtime>(app: &AppHandle<R>) {
+    crate::long::stop(app);
     let state = app.state::<CaptureState>();
     *state.inner.lock().expect("截图状态锁") = Session::default();
     for (label, w) in app.webview_windows() {

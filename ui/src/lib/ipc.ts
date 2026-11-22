@@ -744,6 +744,106 @@ d &= \sqrt{e^2 + f^2}
   return invoke('capture_formula', { id, index, region });
 }
 
+// ---- 长截图（见 src-tauri/src/long.rs）----
+
+export type LongAxis = 'vertical' | 'horizontal';
+export type LongFinish = 'copy' | 'pin' | 'save' | 'ocr';
+
+export interface LongProgress {
+  width: number;
+  height: number;
+  /** ok / lost（对不上）/ full（到上限）/ end（自动滚动到底） */
+  state: 'ok' | 'lost' | 'full' | 'end';
+  auto: boolean;
+  /** 内容版本：变了才需要刷新预览 */
+  rev: number;
+}
+
+const fakeLong = { timer: 0 as ReturnType<typeof setInterval> | 0, p: null as LongProgress | null, listeners: new Set<(p: LongProgress) => void>() };
+
+/** 开始长截图（再次调用 = 换方向从当前画面重新开始）。进度通过 onLongProgress 推来。 */
+export async function longStart(index: number, region: Region, axis: LongAxis): Promise<void> {
+  if (!inTauri()) {
+    if (fakeLong.timer) clearInterval(fakeLong.timer);
+    const along = axis === 'vertical' ? region.height : region.width;
+    fakeLong.p = { width: region.width, height: region.height, state: 'ok', auto: false, rev: 1 };
+    const emitFake = () => fakeLong.listeners.forEach((f) => f({ ...fakeLong.p! }));
+    emitFake();
+    let n = 0;
+    fakeLong.timer = setInterval(() => {
+      const p = fakeLong.p!;
+      if (!p.auto && n > 3) return;
+      n++;
+      const add = Math.round(along * 0.4);
+      if (axis === 'vertical') p.height += add;
+      else p.width += add;
+      p.rev++;
+      if (p.auto && n > 10) p.auto = false;
+      if (p.auto && n > 10) p.state = 'end';
+      emitFake();
+    }, 400);
+    return;
+  }
+  return invoke('long_start', { index, region, axis });
+}
+
+export async function onLongProgress(cb: (p: LongProgress) => void): Promise<() => void> {
+  if (!inTauri()) {
+    fakeLong.listeners.add(cb);
+    return () => fakeLong.listeners.delete(cb);
+  }
+  return listen<LongProgress>('long:progress', (e) => cb(e.payload));
+}
+
+/** 报告要接收鼠标的区域（长截图工具条，本屏物理像素）；其余地方鼠标落到下面的页面上。 */
+export async function longHit(rects: Region[]): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('long_hit', { rects });
+}
+
+export async function longAuto(on: boolean): Promise<void> {
+  if (!inTauri()) {
+    if (fakeLong.p) {
+      fakeLong.p.auto = on;
+      fakeLong.p.state = 'ok';
+      fakeLong.listeners.forEach((f) => f({ ...fakeLong.p! }));
+    }
+    return;
+  }
+  return invoke('long_auto', { on });
+}
+
+/** 把遮罩收到的滚轮转给选区下面的页面（delta 以 120 为一格；纵向负数向下、横向正数向右）。 */
+export async function longWheel(delta: number, horizontal: boolean): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('long_wheel', { delta, horizontal });
+}
+
+/** 拼接预览（PNG），返回 Blob 地址；浏览器开发页里没有真实画面，返回 null。 */
+export async function longPreview(thickness: number): Promise<string | null> {
+  if (!inTauri()) return null;
+  const buf = await invoke<ArrayBuffer>('long_preview', { thickness: Math.round(thickness) });
+  return URL.createObjectURL(new Blob([buf], { type: 'image/png' }));
+}
+
+export async function longCancel(): Promise<void> {
+  if (!inTauri()) {
+    if (fakeLong.timer) clearInterval(fakeLong.timer);
+    fakeLong.timer = 0;
+    return;
+  }
+  return invoke('long_cancel');
+}
+
+/** 完成长截图并结束截图：复制 / 贴图 / 保存（path：另存为选的路径）/ 识别文字（复制并贴出文字）。 */
+export async function longFinish(action: LongFinish, path?: string): Promise<string> {
+  if (!inTauri()) {
+    await longCancel();
+    return action === 'ocr' ? '（识别出的文字）' : 'demo.png';
+  }
+  return invoke('long_finish', { action, path: path ?? null });
+}
+
 // ---- 表格（见 src-tauri/src/translate.rs 的 capture_table、xlsx.rs）----
 
 export interface TableCellOut {

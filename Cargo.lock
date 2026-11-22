@@ -4410,7 +4410,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "reqwest",
  "rust_xlsxwriter",
@@ -4431,7 +4431,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-core"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "chrono",
  "image",
@@ -4445,7 +4445,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-ocr"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "image",
  "ort",
@@ -4454,7 +4454,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-platform"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "arboard",
  "keyring",
@@ -4464,7 +4464,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-providers"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "base64 0.22.1",
  "reqwest",

@@ -4,6 +4,7 @@ mod actions;
 mod commands;
 mod export;
 mod launch;
+mod long;
 mod overlay;
 mod pin;
 mod pintools;
@@ -61,6 +62,7 @@ pub fn run() {
         .manage(translate::TaskState::default())
         .manage(ocr::OcrState::default())
         .manage(selcard::SelState::default())
+        .manage(long::LongState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
@@ -182,6 +184,13 @@ pub fn run() {
             commands::tools_menu,
             commands::tools_layout,
             export::capture_set_annotations,
+            long::long_start,
+            long::long_hit,
+            long::long_auto,
+            long::long_wheel,
+            long::long_preview,
+            long::long_cancel,
+            long::long_finish,
             export::capture_save,
             export::capture_estimate,
             export::save_info,

@@ -9,7 +9,7 @@ export interface Hint {
 }
 
 /** 编辑态的阶段。标注、识别、长截图、录屏随对应任务加入。 */
-export type HintState = 'idle' | 'selected' | 'annotate' | 'ocr';
+export type HintState = 'idle' | 'selected' | 'annotate' | 'ocr' | 'long';
 
 /**
  * 提示内容。只列出已经能用的操作，后续任务实现了新快捷键再补进来，
@@ -41,6 +41,7 @@ export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
         { k: 'Shift+C', label: '识别文字' },
         { k: 'Shift+Alt+R', label: '识别为 Markdown' },
         { k: 'Ctrl+Q', label: '翻译' },
+        { k: 'L', label: '长截图' },
         { k: 'P / C', label: '颜色格式 / 复制颜色' },
         { k: '右键', label: '取消选区' },
         { k: 'Esc', label: '退出' },
@@ -61,6 +62,15 @@ export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
         { k: '右键单击', label: '恢复全部' },
         { k: 'Ctrl+C', label: '复制文字并结束' },
         { k: 'Esc', label: '关闭识别卡片' },
+      ];
+    case 'long':
+      return [
+        { k: '滚轮', label: '滚动页面，自动拼接' },
+        { k: 'Enter', label: '完成并复制' },
+        { k: 'Ctrl+T', label: '贴图' },
+        { k: 'Ctrl+S', label: '保存' },
+        { k: 'Shift+C', label: '识别文字' },
+        { k: 'Esc', label: '取消长截图' },
       ];
   }
 }

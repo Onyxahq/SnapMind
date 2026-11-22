@@ -115,6 +115,23 @@ pub fn create<R: Runtime>(
     create_with(app, image, None, source, at, scale)
 }
 
+/// 新建贴图并按 `zoom` 缩小显示（长截图：图片比屏幕还长）。
+pub fn create_zoomed<R: Runtime>(app: &AppHandle<R>, image: RgbaImage, at: (i32, i32), scale: f64, zoom: f64) -> tauri::Result<u32> {
+    let (w, h) = (image.width, image.height);
+    let id = create_with(app, image, None, PinSource::Capture, at, scale)?;
+    if zoom < 1.0 {
+        if let Some(win) = app.get_webview_window(&label(id)) {
+            let margin = (MARGIN_CSS * scale).round() as u32;
+            let size = PhysicalSize::new(
+                (w as f64 * zoom).round().max(1.0) as u32 + 2 * margin,
+                (h as f64 * zoom).round().max(1.0) as u32 + 2 * margin,
+            );
+            let _ = win.set_size(size);
+        }
+    }
+    Ok(id)
+}
+
 /// 新建文字卡片贴图：先用占位图建窗口，页面按主题把文字排成卡片后通过 [`set_image`] 交回。
 pub fn create_text<R: Runtime>(app: &AppHandle<R>, text: String, at: (i32, i32), scale: f64) -> tauri::Result<u32> {
     let placeholder = RgbaImage { width: 1, height: 1, data: vec![0, 0, 0, 0] };
