@@ -1,4 +1,4 @@
-// 下载本地 OCR 模型（PP-OCRv5 mobile 检测 + 识别，PaddlePaddle 官方 ONNX，Apache-2.0）到 models/ppocrv5/。
+// 下载本地 OCR 模型（PP-OCRv5 mobile 检测 + 识别、SLANet_plus 表格结构，PaddlePaddle 官方 ONNX，Apache-2.0）到 models/ppocrv5/。
 //
 // 用法：node scripts/fetch-models.mjs [--force]
 //
@@ -17,12 +17,15 @@ const OUT = join(ROOT, 'models', 'ppocrv5');
 const hf = (repo, rev, file) => `https://huggingface.co/PaddlePaddle/${repo}/resolve/${rev}/${file}`;
 const DET = ['PP-OCRv5_mobile_det_onnx', 'e6f4fa85f00e168c862bc462aebca69eef9b3d3d'];
 const REC = ['PP-OCRv5_mobile_rec_onnx', 'ed152b8b495f84de93cda5709d768548a9127622'];
+// 表格结构识别（M8.2）：SLANet_plus，输出 HTML 结构和每个单元格的框
+const TABLE = ['SLANet_plus_onnx', '7dbe640e127602bf506815e822c09758de73c482'];
 
 export const FILES = [
   { name: 'det.onnx', url: hf(...DET, 'inference.onnx'), sha256: 'a431985659dc921974177a95adcfbb90fd9e51989a5e04d70d0b75f597b6e61d' },
   { name: 'det.yml', url: hf(...DET, 'inference.yml'), sha256: '98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699' },
   { name: 'rec.onnx', url: hf(...REC, 'inference.onnx'), sha256: 'da72dc72ca4dc220df0dfde68c1dedc31c58d3e76a25871122e5056227d50092' },
   { name: 'rec.yml', url: hf(...REC, 'inference.yml'), sha256: '5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e' },
+  { name: 'table.onnx', url: hf(...TABLE, 'inference.onnx'), sha256: '7790c0c13ce064782c9d22ebeb16b4da8216f83d3ba576da962c106ef58386da' },
 ];
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');

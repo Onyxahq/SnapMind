@@ -11,6 +11,7 @@ mod providers;
 mod state;
 mod ocr;
 mod selcard;
+mod xlsx;
 mod translate;
 mod tray;
 mod wm;
@@ -147,6 +148,7 @@ pub fn run() {
             translate::capture_translate,
             translate::capture_translate_overlay,
             translate::capture_markdown,
+            translate::capture_table,
             translate::translate_text,
             translate::task_cancel,
             ocr::capture_ocr,
@@ -185,6 +187,7 @@ pub fn run() {
             export::pick_save_file,
             export::pick_folder,
             export::save_markdown,
+            xlsx::save_xlsx,
             export::open_folder,
             commands::ui_log,
             commands::prompt_defaults,

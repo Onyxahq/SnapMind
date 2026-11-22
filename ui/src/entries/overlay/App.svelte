@@ -4,7 +4,7 @@
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
   // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）；
   // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选；M6.2 翻译的原位覆盖；
-  // M8.1 识别为 Markdown（Shift+Alt+R）。
+  // M8.1 识别为 Markdown（Shift+Alt+R）；M8.2 表格识别（工具条「更多」）。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -15,6 +15,8 @@
     captureTranslateOverlay,
     captureMarkdown,
     saveMarkdown,
+    captureTable,
+    saveXlsx,
     captureOcr,
     ocrCompose,
     ocrDownload,
@@ -79,6 +81,8 @@
   import OcrBoxes from './OcrBoxes.svelte';
   import TranslateOverlay from './TranslateOverlay.svelte';
   import MarkdownCard from './MarkdownCard.svelte';
+  import TableCard from './TableCard.svelte';
+  import { parseHtml, toTsv, type TableCardState, type TableView } from '$lib/table';
   import { canvasMeasure, drawOverlay, drawable, fitText } from '$lib/overlay';
   import { newOcrCard, pickLines, type OcrCard } from '$lib/ocr';
 
@@ -115,6 +119,8 @@
   let card = $state<Card | null>(null);
   /** Markdown 卡片（复用任务卡片的状态，src 是 Markdown 源码）；结果卡片同一时间只开一张 */
   let mdCard = $state<Card | null>(null);
+  /** 表格卡片 */
+  let tableCard = $state<TableCardState | null>(null);
   /** 翻译时的选区（原位覆盖只在选区没动时画） */
   let cardRegion = $state<Rect | null>(null);
   /** 识别文字卡片（和翻译卡片同一时间只开一张） */
@@ -215,7 +221,7 @@
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard,
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard && !tableCard,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -267,6 +273,7 @@
     closeCard();
     closeOcr();
     closeMd();
+    tableCard = null;
     ann.reset();
     propsOpen = false;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
@@ -292,6 +299,7 @@
     closeCard();
     closeOcr();
     closeMd();
+    tableCard = null;
     session = null;
     sel = null;
     drag = null;
@@ -419,6 +427,7 @@
       case 'translate': return translate();
       case 'ocr': return recognizeText();
       case 'markdown': return recognizeMarkdown();
+      case 'table': return recognizeTable();
     }
   }
 
@@ -598,6 +607,55 @@
     }
   }
 
+  // ---------------------------------------------------------------- 表格卡片
+
+  /** 工具条「更多 → 表格识别」：按识别链识别选区里的表格。 */
+  async function recognizeTable() {
+    if (!session || drag) return;
+    if (!sel) sel = region();
+    closeCard();
+    closeOcr();
+    closeMd();
+    const id = `tb-${session.seq}-${++cardSeq}`;
+    const [index, r] = [session.index, sel];
+    tableCard = { id, stage: 'run', rows: [], meta: '', error: '' };
+    try {
+      const res = await captureTable(index, r);
+      if (tableCard?.id !== id) return;
+      const rows = res.rows ?? (res.html ? parseHtml(res.html) : null);
+      if (!rows?.length) tableCard = { ...tableCard, stage: 'error', error: '没有识别出表格' };
+      else tableCard = { ...tableCard, stage: 'done', rows, meta: res.meta };
+    } catch (e) {
+      if (tableCard?.id !== id) return;
+      const msg = String(e);
+      if (msg.includes('表格模型还没有下载')) {
+        ocrModel = await ocrStatus();
+        tableCard = { ...tableCard, stage: 'model' };
+      } else tableCard = { ...tableCard, stage: 'error', error: msg };
+    }
+  }
+
+  function downloadTableModel() {
+    if (ocrModel) ocrModel = { ...ocrModel, downloading: true, received: 0, error: null };
+    ocrDownload(true).catch((e) => log('warn', `下载表格模型失败：${e}`));
+  }
+
+  async function copyTable(view: TableView, source: string) {
+    if (!tableCard) return;
+    await clipboardWriteText(view === 'grid' ? toTsv(tableCard.rows) : source);
+    close();
+  }
+
+  async function exportTable() {
+    if (!tableCard) return;
+    try {
+      const path = await saveXlsx(tableCard.rows);
+      if (path) close(); // 取消另存为：留在截图里
+    } catch (e) {
+      toast(`导出失败：${e}`, { kind: 'error' });
+    }
+  }
+
   /** 贴图：在原位置钉一张贴图（带标注），结束截图。 */
   function pin() {
     if (drag) return;
@@ -762,6 +820,7 @@
       else if (card) closeCard();
       else if (ocr) closeOcr();
       else if (mdCard) closeMd();
+      else if (tableCard) tableCard = null;
       else if (ann.tool) exitAnnotate();
       else requestClose();
       return;
@@ -877,6 +936,7 @@
     // 模型下载完成：卡片还在等模型就接着识别
     const offOcr = onOcrDownload((s) => {
       ocrModel = s;
+      if (s.installed && s.tableInstalled && !s.downloading && tableCard?.stage === 'model') recognizeTable();
       if (s.installed && !s.downloading && ocr?.stage === 'model' && session) runOcr(ocr.id, session.index, ocr.region);
     });
     if (!inTauri()) devCapture().then(({ start: s, url }) => start(s, url));
@@ -957,6 +1017,18 @@
       oncopy={copyOcr}
       onpin={pinOcr}
       onclose={closeOcr}
+    />
+  {/if}
+  {#if tableCard && selOnlyCss && !saveOpen}
+    <TableCard
+      sel={unionRect(selOnlyCss, showToolbar ? toolbarRect : null)}
+      card={tableCard}
+      model={ocrModel}
+      onrows={(rows) => tableCard && (tableCard = { ...tableCard, rows })}
+      ondownload={downloadTableModel}
+      oncopy={copyTable}
+      onexport={exportTable}
+      onclose={() => (tableCard = null)}
     />
   {/if}
   {#if mdCard && selOnlyCss && !saveOpen}

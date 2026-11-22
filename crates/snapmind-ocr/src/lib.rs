@@ -14,6 +14,7 @@ pub mod markdown;
 pub mod models;
 pub mod overlay;
 pub mod rec;
+pub mod table;
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -81,7 +82,22 @@ pub struct Ocr {
     pub det_options: DetOptions,
 }
 
-fn session(env: &ort::environment::Environment, path: &Path, threads: usize) -> Result<Session, OcrError> {
+/// ONNX Runtime 一个进程只允许一个环境：识别和表格模型共用，第一次用到时建立。
+pub(crate) fn environment() -> Result<&'static ort::environment::Environment, OcrError> {
+    static ENV: std::sync::OnceLock<ort::environment::Environment> = std::sync::OnceLock::new();
+    static INIT: Mutex<()> = Mutex::new(());
+    if let Some(e) = ENV.get() {
+        return Ok(e);
+    }
+    let _guard = INIT.lock().expect("ONNX Runtime 初始化锁");
+    if let Some(e) = ENV.get() {
+        return Ok(e);
+    }
+    let env = ort::init().with_name("snapmind-ocr").build()?;
+    Ok(ENV.get_or_init(|| env))
+}
+
+pub(crate) fn session(env: &ort::environment::Environment, path: &Path, threads: usize) -> Result<Session, OcrError> {
     if !path.exists() {
         return Err(OcrError::MissingModel(path.display().to_string()));
     }
@@ -99,12 +115,12 @@ impl Ocr {
         let keys_path = dir.join("keys.txt");
         let keys = std::fs::read_to_string(&keys_path).map_err(|_| OcrError::MissingModel(keys_path.display().to_string()))?;
         let keys: Vec<String> = keys.split('\n').map(|s| s.trim_end_matches('\r').to_string()).collect();
-        let env = ort::init().with_name("snapmind-ocr").build()?;
+        let env = environment()?;
         // 留几个核给界面；小机器至少 2 个线程
         let (det_threads, rec_sessions, rec_threads) = plan_threads();
-        let det = session(&env, &dir.join("det.onnx"), det_threads)?;
+        let det = session(env, &dir.join("det.onnx"), det_threads)?;
         let rec = (0..rec_sessions)
-            .map(|_| session(&env, &dir.join("rec.onnx"), rec_threads).map(Mutex::new))
+            .map(|_| session(env, &dir.join("rec.onnx"), rec_threads).map(Mutex::new))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self { det: Mutex::new(det), rec, keys, det_options: DetOptions::default() })
     }

@@ -727,6 +727,48 @@ export async function captureMarkdown(id: string, index: number, region: Region)
   return invoke('capture_markdown', { id, index, region });
 }
 
+// ---- 表格（见 src-tauri/src/translate.rs 的 capture_table、xlsx.rs）----
+
+export interface TableCellOut {
+  text: string;
+  colspan: number;
+  rowspan: number;
+  header: boolean;
+}
+
+/** 表格识别结果：本地识别给出单元格，视觉模型给出 HTML（由界面解析）。 */
+export interface TableResult {
+  rows: TableCellOut[][] | null;
+  html: string | null;
+  meta: string;
+}
+
+/** 识别选区里的表格（按识别链）。本地模型没下载齐时报错「表格模型还没有下载」。 */
+export async function captureTable(index: number, region: Region): Promise<TableResult> {
+  if (!inTauri()) {
+    await new Promise((r) => setTimeout(r, 600));
+    if (!fakeOcr.tableInstalled) throw new Error('表格识别失败：本地 OCR：表格模型还没有下载');
+    const c = (text: string, colspan = 1, header = false) => ({ text, colspan, rowspan: 1, header });
+    return {
+      rows: [
+        [c('快捷键', 1, true), c('动作', 1, true), c('说明', 1, true)],
+        [c('Shift+F1'), c('截图'), c('进入编辑态')],
+        [c('Ctrl+Q'), c('翻译'), c('识别后翻译选区')],
+        [c('Shift+Alt+R'), c('识别为 Markdown', 2)],
+      ],
+      html: null,
+      meta: '本地 OCR · 0.6 s',
+    };
+  }
+  return invoke('capture_table', { index, region });
+}
+
+/** 导出 .xlsx（系统另存为），返回保存路径，取消时为 null。 */
+export async function saveXlsx(rows: TableCellOut[][]): Promise<string | null> {
+  if (!inTauri()) return 'C:\\Users\\demo\\Pictures\\SnapMind\\demo.xlsx';
+  return invoke('save_xlsx', { rows });
+}
+
 /** 把 Markdown 存成 .md（系统另存为），返回保存路径，取消时为 null。 */
 export async function saveMarkdown(text: string): Promise<string | null> {
   if (!inTauri()) return 'C:\\Users\\demo\\Pictures\\SnapMind\\demo.md';
@@ -825,6 +867,8 @@ export interface OcrResult {
 
 export interface OcrStatus {
   installed: boolean;
+  /** 表格模型（M8.2）也装好了 */
+  tableInstalled: boolean;
   downloading: boolean;
   received: number;
   total: number;
@@ -832,7 +876,7 @@ export interface OcrStatus {
 }
 
 const OCR_TOTAL = 21_510_548;
-let fakeOcr: OcrStatus = { installed: false, downloading: false, received: 0, total: OCR_TOTAL, error: null };
+let fakeOcr: OcrStatus = { installed: false, tableInstalled: false, downloading: false, received: 0, total: OCR_TOTAL, error: null };
 const fakeOcrListeners = new Set<(s: OcrStatus) => void>();
 const fakeOcrResults = new Map<string, OcrLine[]>();
 const fakeOcrParas = new Map<string, number[][]>();
@@ -903,8 +947,8 @@ export async function ocrStatus(): Promise<OcrStatus> {
   return invoke('ocr_status');
 }
 
-/** 下载 OCR 模型；进度通过 onOcrDownload 推来。 */
-export async function ocrDownload(): Promise<void> {
+/** 下载 OCR 模型（table 为 true 时连表格模型一起下）；进度通过 onOcrDownload 推来。 */
+export async function ocrDownload(table = false): Promise<void> {
   if (!inTauri()) {
     if (fakeOcr.downloading) return;
     fakeOcr = { ...fakeOcr, downloading: true, received: 0, error: null };
@@ -913,11 +957,11 @@ export async function ocrDownload(): Promise<void> {
       fakeOcr = { ...fakeOcr, received: Math.round((OCR_TOTAL * i) / 20) };
       fakeOcrListeners.forEach((f) => f(fakeOcr));
     }
-    fakeOcr = { ...fakeOcr, downloading: false, installed: true };
+    fakeOcr = { ...fakeOcr, downloading: false, installed: true, tableInstalled: fakeOcr.tableInstalled || table };
     fakeOcrListeners.forEach((f) => f(fakeOcr));
     return;
   }
-  return invoke('ocr_download');
+  return invoke('ocr_download', { table });
 }
 
 export async function onOcrDownload(cb: (s: OcrStatus) => void): Promise<() => void> {

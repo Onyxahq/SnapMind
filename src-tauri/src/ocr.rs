@@ -12,6 +12,7 @@ use std::time::Instant;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use snapmind_core::export::RgbaImage;
+use snapmind_ocr::table::{Table, TableModel};
 use snapmind_ocr::{layout, models, Image, Line, Ocr};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
@@ -25,6 +26,8 @@ const KEEP_RESULTS: usize = 4;
 #[serde(rename_all = "camelCase")]
 pub struct OcrStatus {
     pub installed: bool,
+    /// 表格模型（M8.2）也装好了
+    pub table_installed: bool,
     pub downloading: bool,
     pub received: u64,
     pub total: u64,
@@ -34,6 +37,7 @@ pub struct OcrStatus {
 #[derive(Default)]
 pub struct OcrState {
     engine: Mutex<Option<Arc<Ocr>>>,
+    table: Mutex<Option<Arc<TableModel>>>,
     download: Mutex<OcrStatus>,
     results: Mutex<Vec<(String, Arc<Vec<Line>>)>>,
 }
@@ -61,8 +65,12 @@ pub fn models_dir<R: Runtime>(app: &AppHandle<R>) -> PathBuf {
 pub fn status<R: Runtime>(app: &AppHandle<R>) -> OcrStatus {
     let s = app.state::<OcrState>();
     let mut st = s.download.lock().expect("OCR 状态锁").clone();
-    st.installed = models::installed(&models_dir(app));
-    st.total = models::total_size();
+    let dir = models_dir(app);
+    st.installed = models::installed(&dir);
+    st.table_installed = models::table_installed(&dir);
+    if !st.downloading {
+        st.total = models::total_size();
+    }
     st
 }
 
@@ -103,6 +111,39 @@ pub fn recognize<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Result<Vec<
 pub fn recognize_text<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Result<String, String> {
     let lines = recognize(app, img)?;
     Ok(layout::compose(&lines, &(0..lines.len()).collect::<Vec<_>>(), false))
+}
+
+/// 加载好的表格模型（第一次用时加载，阻塞）。
+fn table_model<R: Runtime>(app: &AppHandle<R>) -> Result<Arc<TableModel>, String> {
+    let state = app.state::<OcrState>();
+    let mut slot = state.table.lock().expect("表格模型锁");
+    if let Some(m) = slot.as_ref() {
+        return Ok(m.clone());
+    }
+    let dir = models_dir(app);
+    if !models::table_installed(&dir) {
+        return Err("表格模型还没有下载".into());
+    }
+    let m = Arc::new(TableModel::load(&dir.join("table.onnx")).map_err(|e| e.to_string())?);
+    *slot = Some(m.clone());
+    Ok(m)
+}
+
+/// 本地表格识别：SLANet 还原结构 + OCR 填字（阻塞）。
+pub fn recognize_table<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Result<Table, String> {
+    let model = table_model(app)?;
+    let image = Image { width: img.width, height: img.height, rgba: &img.data };
+    let t = Instant::now();
+    let s = model.structure(image).map_err(|e| e.to_string())?;
+    let lines = recognize(app, img)?;
+    eprintln!("表格结构 {:.0} ms，{} 个单元格", t.elapsed().as_secs_f64() * 1e3, s.cells.len());
+    Ok(snapmind_ocr::table::assemble(&s, &lines))
+}
+
+/// 本地表格识别要用的模型都在（识别 + 表格）。
+pub fn table_ready<R: Runtime>(app: &AppHandle<R>) -> bool {
+    let dir = models_dir(app);
+    models::installed(&dir) && models::table_installed(&dir)
 }
 
 /// 识别链里的「本地 OCR」做 Markdown：按版面转换（阻塞）。
@@ -254,19 +295,24 @@ pub fn ocr_status(app: AppHandle) -> OcrStatus {
     status(&app)
 }
 
-/// 下载模型。已经在下载时直接返回；进度和结果都通过 `ocr:download` 事件广播。
+/// 下载模型。`table` 为 true 时连表格模型一起下（已经下好、校验通过的文件跳过）。
+/// 已经在下载时直接返回；进度和结果都通过 `ocr:download` 事件广播。
 #[tauri::command]
-pub async fn ocr_download(app: AppHandle) -> Result<(), String> {
+pub async fn ocr_download(app: AppHandle, table: Option<bool>) -> Result<(), String> {
+    let mut files: Vec<&'static models::ModelFile> = models::FILES.iter().collect();
+    if table == Some(true) {
+        files.extend(models::TABLE_FILES.iter());
+    }
     {
         let state = app.state::<OcrState>();
         let mut d = state.download.lock().expect("OCR 状态锁");
         if d.downloading {
             return Ok(());
         }
-        *d = OcrStatus { downloading: true, ..Default::default() };
+        *d = OcrStatus { downloading: true, total: files.iter().map(|f| f.size).sum(), ..Default::default() };
     }
     let _ = app.emit(DOWNLOAD_EVENT, status(&app));
-    let r = download(&app).await;
+    let r = download(&app, &files).await;
     {
         let state = app.state::<OcrState>();
         let mut d = state.download.lock().expect("OCR 状态锁");
@@ -285,7 +331,7 @@ fn set_received<R: Runtime>(app: &AppHandle<R>, received: u64) {
     let _ = app.emit(DOWNLOAD_EVENT, status(app));
 }
 
-async fn download<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+async fn download<R: Runtime>(app: &AppHandle<R>, files: &[&models::ModelFile]) -> Result<(), String> {
     let dir = user_models_dir(app);
     std::fs::create_dir_all(&dir).map_err(|e| format!("建立模型目录失败：{e}"))?;
     let client = reqwest::Client::builder()
@@ -293,7 +339,7 @@ async fn download<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
     let mut received = 0u64;
-    for f in &models::FILES {
+    for &f in files {
         let path = dir.join(f.name);
         if std::fs::read(&path).is_ok_and(|b| hex(&Sha256::digest(&b)) == f.sha256) {
             received += f.size;

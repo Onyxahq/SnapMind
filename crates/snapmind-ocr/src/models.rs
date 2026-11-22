@@ -18,6 +18,11 @@ macro_rules! det {
         concat!("https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det_onnx/resolve/e6f4fa85f00e168c862bc462aebca69eef9b3d3d/", $f)
     };
 }
+macro_rules! table {
+    ($f:literal) => {
+        concat!("https://huggingface.co/PaddlePaddle/SLANet_plus_onnx/resolve/7dbe640e127602bf506815e822c09758de73c482/", $f)
+    };
+}
 macro_rules! rec {
     ($f:literal) => {
         concat!("https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec_onnx/resolve/ed152b8b495f84de93cda5709d768548a9127622/", $f)
@@ -52,9 +57,22 @@ pub const FILES: [ModelFile; 4] = [
     },
 ];
 
+/// 表格结构识别（M8.2）：SLANet_plus，和识别模型放在同一个目录。结构标记表固定在代码里（和这个版本一致）。
+pub const TABLE_FILES: [ModelFile; 1] = [ModelFile {
+    name: "table.onnx",
+    url: table!("inference.onnx"),
+    sha256: "7790c0c13ce064782c9d22ebeb16b4da8216f83d3ba576da962c106ef58386da",
+    size: 7_782_138,
+}];
+
 /// 下载总大小（字节）。
 pub fn total_size() -> u64 {
     FILES.iter().map(|f| f.size).sum()
+}
+
+/// 表格模型装好了（识别模型另外判断）。
+pub fn table_installed(dir: &Path) -> bool {
+    dir.join("table.onnx").is_file()
 }
 
 /// 模型目录里引擎要用的三个文件都在。
@@ -129,5 +147,6 @@ mod tests {
         assert!(FILES[2].url.contains("rec_onnx") && FILES[2].url.ends_with("inference.onnx"));
         assert!(FILES[3].url.contains("rec_onnx") && FILES[3].url.ends_with("inference.yml"));
         assert_eq!(total_size(), 21_510_548);
+        assert!(TABLE_FILES[0].url.contains("SLANet_plus_onnx") && TABLE_FILES[0].url.ends_with("inference.onnx"));
     }
 }

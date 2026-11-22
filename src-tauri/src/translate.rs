@@ -263,6 +263,94 @@ async fn recognize_as<R: Runtime>(
     Err(format!("识别失败：{}", describe_failures(&run.failures())))
 }
 
+/// 交给视觉模型做表格时的提示词（固定，不在设置里：输出格式要能被程序解析）。
+const TABLE_PROMPT: &str = "把图片中的表格还原成一个 HTML 表格：\n- 只输出 <table>…</table>，不要解释，不要代码块标记\n- 表头放在 <thead> 里\n- 合并单元格用 colspan / rowspan\n- 单元格里只放文字";
+
+/// 表格识别的结果：本地识别给出单元格，视觉模型给出 HTML（界面里解析成同样的单元格）。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableOut {
+    rows: Option<Vec<Vec<TableCellOut>>>,
+    html: Option<String>,
+    meta: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableCellOut {
+    text: String,
+    colspan: u32,
+    rowspan: u32,
+    header: bool,
+}
+
+/// 表格识别（需求 3.8、M8.2）：按识别链——本地 OCR 用 SLANet 还原结构再填字，视觉模型输出 HTML 表格。
+/// 链里只有本地 OCR 而模型没下载齐时返回错误「表格模型还没有下载」，界面据此提示下载。
+#[tauri::command]
+pub async fn capture_table(app: AppHandle, state: State<'_, AppState>, index: usize, region: Region) -> Result<TableOut, String> {
+    let img = std::sync::Arc::new(crate::export::crop_base(&app, index, region)?);
+    let cfg = state.config.get();
+    let t0 = Instant::now();
+    let chains = &cfg.chains;
+    let mut failures: Vec<String> = Vec::new();
+    for r in &chains.recognize {
+        match r {
+            BackendRef::LocalOcr => {
+                if !crate::ocr::table_ready(&app) {
+                    failures.push("本地 OCR：表格模型还没有下载".into());
+                    continue;
+                }
+                let (h, i) = (app.clone(), img.clone());
+                match tauri::async_runtime::spawn_blocking(move || crate::ocr::recognize_table(&h, &i)).await {
+                    Ok(Ok(t)) if !t.rows.is_empty() => {
+                        let rows = t
+                            .rows
+                            .into_iter()
+                            .map(|row| {
+                                row.into_iter()
+                                    .map(|c| TableCellOut { text: c.text, colspan: c.colspan, rowspan: c.rowspan, header: c.header })
+                                    .collect()
+                            })
+                            .collect();
+                        return Ok(TableOut { rows: Some(rows), html: None, meta: format!("本地 OCR · {}", secs(t0)) });
+                    }
+                    Ok(Ok(_)) => failures.push("本地 OCR：没有识别出表格".into()),
+                    Ok(Err(e)) => failures.push(format!("本地 OCR：{e}")),
+                    Err(e) => failures.push(format!("本地 OCR：{e}")),
+                }
+            }
+            other => {
+                let Some(b) = resolve(std::slice::from_ref(other), &cfg.providers, &cfg.mt, key_of).pop().filter(Backend::is_llm) else {
+                    continue;
+                };
+                let for_vision = img.clone();
+                let png = tauri::async_runtime::spawn_blocking(move || encode_for_vision(&for_vision))
+                    .await
+                    .map_err(|e| e.to_string())??;
+                let job = TextJob {
+                    messages: vec![Message::user(vec![Part::Image { mime: "image/png".into(), data: png }, Part::Text(TABLE_PROMPT.into())])],
+                    temperature: Some(0.0),
+                    ..Default::default()
+                };
+                match b.run_text(&job, chains.timeout(), &mut |_| {}).await {
+                    Ok(text) if text.contains("<table") || text.contains("<tr") => {
+                        return Ok(TableOut { rows: None, html: Some(text), meta: format!("{} · {}", b.label(), secs(t0)) });
+                    }
+                    Ok(_) => failures.push(format!("{}：没有按要求输出 HTML 表格", b.label())),
+                    Err(e) => failures.push(format!("{}：{e}", b.label())),
+                }
+            }
+        }
+        if !chains.fallback {
+            break;
+        }
+    }
+    if failures.is_empty() {
+        return Err("还没有识别后端：在设置的「备用链 · 识别」里添加本地 OCR 或视觉模型".into());
+    }
+    Err(format!("表格识别失败：{}", failures.join("；")))
+}
+
 /// 识别为 Markdown（需求 3.8、M8.1）：按识别链，结果流式推给卡片（src 事件，stage = markdown）。
 #[tauri::command]
 pub fn capture_markdown(

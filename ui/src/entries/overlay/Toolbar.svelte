@@ -5,6 +5,7 @@
   import { placeToolbar, type ToolbarAction as Action } from '$lib/toolbar';
   import { TOOL_INFO, type Tool, type ToolOpts } from '$lib/annotate';
   import IconButton from '$lib/ui/IconButton.svelte';
+  import Icon from '$lib/ui/Icon.svelte';
   import ToolButtons from '$lib/annot/ToolButtons.svelte';
   import ToolProps from '$lib/annot/ToolProps.svelte';
   import { popIn, popOut } from '$lib/motion';
@@ -34,6 +35,9 @@
     onundo: () => void;
   } = $props();
 
+  /** 「更多」菜单（需求 3.6：公式识别、表格识别收在这里） */
+  let moreOpen = $state(false);
+  let moreAnchor = $state<HTMLSpanElement>();
   let width = $state(420);
   let height = $state(38);
   const pos = $derived(placeToolbar(sel, { width, height }, { width: innerWidth, height: innerHeight }));
@@ -63,6 +67,10 @@
   <IconButton icon="markdown" label="识别为 Markdown  Shift+Alt+R" onclick={() => onaction('markdown')} />
   <IconButton icon="translate" label="翻译  Ctrl+Q" onclick={() => onaction('translate')} />
   <span class="sep" aria-hidden="true"></span>
+  <span class="anchor" bind:this={moreAnchor}>
+    <IconButton icon="more" label="更多" on={moreOpen} onclick={() => (moreOpen = !moreOpen)} />
+  </span>
+  <span class="sep" aria-hidden="true"></span>
   <IconButton icon="pin" label="贴图  Ctrl+T" onclick={() => onaction('pin')} />
   <IconButton icon="download" label="保存…  Ctrl+S" onclick={() => onaction('save')} />
   <span class="sep" aria-hidden="true"></span>
@@ -71,6 +79,20 @@
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
   </button>
 
+  {#if moreOpen}
+    <div class="more" class:up={popUp} style:left="{moreAnchor?.offsetLeft ?? 0}px" role="menu" aria-label="更多" in:popIn out:popOut>
+      <button
+        type="button"
+        role="menuitem"
+        onclick={() => {
+          moreOpen = false;
+          onaction('table');
+        }}
+      >
+        <Icon name="table" size={16} />表格识别
+      </button>
+    </div>
+  {/if}
   {#if propsOpen && tool && TOOL_INFO[tool].props}
     <div
       class="props"
@@ -134,6 +156,36 @@
     stroke-linecap: round;
     stroke-linejoin: round;
   }
+  .anchor { display: inline-flex; }
+  .more {
+    position: absolute;
+    top: calc(100% + 6px);
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    border-radius: var(--r-panel);
+    background: var(--glass2);
+    backdrop-filter: var(--blur-2);
+    box-shadow: var(--elev);
+    min-width: 140px;
+  }
+  .more.up { top: auto; bottom: calc(100% + 6px); }
+  .more button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--r-ctl);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background var(--d-hover) var(--ease-hover);
+  }
+  .more button:hover { background: var(--hover); }
   .props {
     position: absolute;
     top: calc(100% + 6px);

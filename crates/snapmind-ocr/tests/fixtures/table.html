@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- 表格识别的测试图（M8.2）。生成 table.png：
+     msedge --headless=new --disable-gpu --hide-scrollbars --window-size=760,300 --screenshot=table.png table.html
+     期望的结构见 tests/table.rs。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: #fff; }
+  body { padding: 24px 28px; font: 15px/1.5 "Segoe UI", "Microsoft YaHei UI", sans-serif; color: #1f2328; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #c8ccd2; padding: 7px 14px; text-align: left; }
+  th { background: #f3f4f6; font-weight: 600; }
+</style>
+</head>
+<body>
+<table>
+  <thead>
+    <tr><th>快捷键</th><th>动作</th><th>说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Shift+F1</td><td>截图</td><td>进入编辑态</td></tr>
+    <tr><td>Ctrl+Q</td><td>翻译</td><td>识别后翻译选区</td></tr>
+    <tr><td>Shift+Alt+R</td><td colspan="2">识别为 Markdown</td></tr>
+    <tr><td>Ctrl+Alt+D</td><td>划词</td><td>1.2 s</td></tr>
+  </tbody>
+</table>
+</body>
+</html>

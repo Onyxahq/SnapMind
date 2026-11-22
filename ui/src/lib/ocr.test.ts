@@ -37,7 +37,7 @@ describe('ocr card helpers', () => {
   });
 
   it('formats status text', () => {
-    expect(progressLabel({ installed: false, downloading: true, received: 8_703_180, total: 21_510_548, error: null })).toBe(
+    expect(progressLabel({ installed: false, tableInstalled: false, downloading: true, received: 8_703_180, total: 21_510_548, error: null })).toBe(
       '8.3 / 20.5 MB',
     );
     const c = { ...newOcrCard('x', { x: 0, y: 0, width: 1, height: 1 }), stage: 'done' as const, result };
