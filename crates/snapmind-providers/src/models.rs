@@ -6,38 +6,13 @@ use serde_json::Value;
 use snapmind_core::config::{ModelTag, ProviderKind};
 
 use crate::catalog::{meta, ApiFormat};
-
-/// 统一的错误类型，消息直接给用户看。
-#[derive(Debug, thiserror::Error, PartialEq)]
-pub enum ProviderError {
-    #[error("API Key 无效或没有权限（HTTP {0}）")]
-    Auth(u16),
-    #[error("服务返回错误（HTTP {status}）：{message}")]
-    Http { status: u16, message: String },
-    #[error("连接失败：{0}")]
-    Network(String),
-    #[error("返回内容无法解析：{0}")]
-    Parse(String),
-    #[error("请先填写 API Key")]
-    MissingKey,
-}
+use crate::error::{check, net, ProviderError};
 
 /// 获取模型列表的超时：测试连接时用户在等，不能太长。
 const TIMEOUT: Duration = Duration::from_secs(15);
 
 fn join(base: &str, path: &str) -> String {
     format!("{}/{}", base.trim_end_matches('/'), path.trim_start_matches('/'))
-}
-
-/// 从错误响应里尽量取出可读的错误信息（各家格式不同）。
-fn error_message(body: &str) -> String {
-    let v: Value = serde_json::from_str(body).unwrap_or(Value::Null);
-    let msg = v
-        .pointer("/error/message")
-        .or_else(|| v.pointer("/error"))
-        .or_else(|| v.pointer("/message"))
-        .and_then(|m| m.as_str().map(str::to_string));
-    msg.unwrap_or_else(|| body.chars().take(200).collect())
 }
 
 /// 获取模型列表，返回模型 id（按服务商原顺序，去重）。
@@ -51,7 +26,7 @@ pub async fn list_models(kind: ProviderKind, base_url: &str, key: Option<&str>) 
     if m.needs_key && key.is_none() {
         return Err(ProviderError::MissingKey);
     }
-    let client = reqwest::Client::builder().timeout(TIMEOUT).build().map_err(|e| ProviderError::Network(e.to_string()))?;
+    let client = reqwest::Client::builder().timeout(TIMEOUT).build().map_err(net)?;
     let req = match m.format {
         ApiFormat::OpenAi => {
             let r = client.get(join(base_url, "models"));
@@ -68,15 +43,8 @@ pub async fn list_models(kind: ProviderKind, base_url: &str, key: Option<&str>) 
             .get(join(base_url, "v1beta/models?pageSize=1000"))
             .header("x-goog-api-key", key.unwrap_or("")),
     };
-    let resp = req.send().await.map_err(|e| ProviderError::Network(e.to_string()))?;
-    let status = resp.status().as_u16();
-    let body = resp.text().await.map_err(|e| ProviderError::Network(e.to_string()))?;
-    if status == 401 || status == 403 {
-        return Err(ProviderError::Auth(status));
-    }
-    if !(200..300).contains(&status) {
-        return Err(ProviderError::Http { status, message: error_message(&body) });
-    }
+    let resp = check(req.send().await.map_err(net)?).await?;
+    let body = resp.text().await.map_err(net)?;
     let v: Value = serde_json::from_str(&body).map_err(|e| ProviderError::Parse(e.to_string()))?;
     let mut ids: Vec<String> = match m.format {
         ApiFormat::OpenAi | ApiFormat::Claude => v
