@@ -428,3 +428,24 @@ export async function pinSetAnnotations(
     headers: { 'x-x': h(layer?.x), 'x-y': h(layer?.y), 'x-width': h(layer?.width), 'x-height': h(layer?.height) },
   });
 }
+
+// ---- 历史记录 ----
+
+export interface PinRecord {
+  id: number;
+  createdAt: number;
+  closedAt: number;
+  width: number;
+  height: number;
+  imagePath: string;
+  thumbPath: string;
+  text: string;
+  source: 'capture' | 'clipboard' | 'text';
+  bytes: number;
+}
+
+/** 贴图历史（最近关闭的在前），query 按识别文字搜索。 */
+export async function historyPins(query?: string, limit?: number): Promise<PinRecord[]> {
+  if (!inTauri()) return [];
+  return invoke('history_pins', { query: query ?? null, limit: limit ?? null });
+}

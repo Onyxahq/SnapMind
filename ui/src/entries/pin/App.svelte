@@ -79,6 +79,13 @@
     if (!ann.tool) return;
     ann.exit();
     pinKeep(false);
+    syncAnnotations(); // Alt+F4 等直接关闭时，历史里也能带上标注
+  }
+
+  /** 关闭贴图：先把标注交给 Rust，历史记录里的图片才带标注。 */
+  async function close() {
+    await syncAnnotations();
+    await pinClose();
   }
 
   /** 导出前把标注按图片原始分辨率渲染好交给 Rust（没有标注时清除）。 */
@@ -162,7 +169,7 @@
       case 'undo': return ann.undo();
       case 'copy': return copy();
       case 'save': return save();
-      case 'close': return pinClose();
+      case 'close': return close();
       case 'through': return pinThrough();
       case 'zoom100':
         pinZoom({ absolute: 1, x: innerWidth / 2, y: innerHeight / 2 });
@@ -207,7 +214,7 @@
     }
     if (e.key === 'Escape') {
       e.preventDefault();
-      pinClose();
+      close();
     } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'c') {
       e.preventDefault();
       copy();
@@ -305,7 +312,7 @@
     press = null;
     if (ann.gesture) ann.up();
   }}
-  ondblclick={() => !ann.tool && pinClose()}
+  ondblclick={() => !ann.tool && close()}
   onwheel={onWheel}
 >
   {#if src}

@@ -249,3 +249,14 @@ pub fn pin_set_annotations(app: AppHandle, window: tauri::WebviewWindow, request
     crate::pin::set_annotations(&app, id, Some((at, layer)));
     Ok(())
 }
+
+/// 贴图历史（最近关闭的在前），query 按识别文字搜索。M10.3 的历史页面使用。
+#[tauri::command]
+pub fn history_pins(
+    state: State<'_, AppState>,
+    query: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<snapmind_core::history::PinRecord>, String> {
+    let history = state.history.as_ref().ok_or("历史记录不可用")?;
+    history.list_pins(query.as_deref(), limit.unwrap_or(200)).map_err(|e| e.to_string())
+}

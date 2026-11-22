@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use snapmind_core::export::RgbaImage;
+use snapmind_core::history::{NewPin, PinSource};
 use snapmind_platform::bmp::Frame;
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
@@ -37,6 +38,16 @@ pub struct Pin {
     pub text: Option<String>,
     /// 贴图上的标注层（相对图片左上角的偏移 + RGBA），复制 / 保存时叠到图片上
     pub annotations: Option<((u32, u32), Arc<RgbaImage>)>,
+    /// 贴出时间（Unix 毫秒）和来源，关闭时写进历史
+    pub created_at: i64,
+    pub source: PinSource,
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
 }
 
 #[derive(Default)]
@@ -91,20 +102,27 @@ fn rgba_to_bgra(img: &RgbaImage) -> Vec<u8> {
 }
 
 /// 新建贴图。`at` 是图片左上角的虚拟桌面物理坐标，`scale` 是所在显示器的缩放。
-pub fn create<R: Runtime>(app: &AppHandle<R>, image: RgbaImage, at: (i32, i32), scale: f64) -> tauri::Result<u32> {
-    create_with(app, image, None, at, scale)
+pub fn create<R: Runtime>(
+    app: &AppHandle<R>,
+    image: RgbaImage,
+    source: PinSource,
+    at: (i32, i32),
+    scale: f64,
+) -> tauri::Result<u32> {
+    create_with(app, image, None, source, at, scale)
 }
 
 /// 新建文字卡片贴图：先用占位图建窗口，页面按主题把文字排成卡片后通过 [`set_image`] 交回。
 pub fn create_text<R: Runtime>(app: &AppHandle<R>, text: String, at: (i32, i32), scale: f64) -> tauri::Result<u32> {
     let placeholder = RgbaImage { width: 1, height: 1, data: vec![0, 0, 0, 0] };
-    create_with(app, placeholder, Some(text), at, scale)
+    create_with(app, placeholder, Some(text), PinSource::Text, at, scale)
 }
 
 fn create_with<R: Runtime>(
     app: &AppHandle<R>,
     image: RgbaImage,
     text: Option<String>,
+    source: PinSource,
     at: (i32, i32),
     scale: f64,
 ) -> tauri::Result<u32> {
@@ -116,7 +134,15 @@ fn create_with<R: Runtime>(
         .pins
         .lock()
         .expect("贴图锁")
-        .insert(id, Pin { frame, image: Arc::new(image), through: false, text, annotations: None });
+        .insert(id, Pin {
+            frame,
+            image: Arc::new(image),
+            through: false,
+            text,
+            annotations: None,
+            created_at: now_ms(),
+            source,
+        });
 
     let margin = (MARGIN_CSS * scale).round() as i32;
     let win = WebviewWindowBuilder::new(app, label(id), WebviewUrl::App("pin/index.html".into()))
@@ -285,14 +311,36 @@ pub fn toggle_through<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// 关闭贴图：销毁窗口、释放图片；没有贴图了就注销穿透快捷键。M3.4 起关闭时写入历史。
+/// 关闭贴图：写入历史（后台线程编码图片）、销毁窗口、释放图片；没有贴图了就注销穿透快捷键。
 pub fn close<R: Runtime>(app: &AppHandle<R>, id: u32) {
-    let (empty, any_through) = {
+    // 先取出带标注的图片，再从表里移除
+    let image = image(app, id);
+    let (removed, empty, any_through) = {
         let state = app.state::<PinState>();
         let mut pins = state.pins.lock().expect("贴图锁");
-        pins.remove(&id);
-        (pins.is_empty(), pins.values().any(|p| p.through))
+        let removed = pins.remove(&id);
+        (removed, pins.is_empty(), pins.values().any(|p| p.through))
     };
+    if let (Some(pin), Some(image)) = (removed, image) {
+        // 文字卡片排版前（1×1 占位图）就被关掉的不记
+        if image.width > 1 || image.height > 1 {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                let state = app.state::<crate::state::AppState>();
+                let Some(history) = state.history.as_ref() else { return };
+                let rec = NewPin {
+                    image: &image,
+                    text: pin.text.as_deref().unwrap_or(""),
+                    source: pin.source,
+                    created_at: pin.created_at,
+                    closed_at: now_ms(),
+                };
+                if let Err(e) = history.add_pin(rec) {
+                    eprintln!("贴图写入历史失败：{e}");
+                }
+            });
+        }
+    }
     crate::tray::sync_through(app, any_through);
     crate::pintools::forget(app, id);
     if let Some(w) = app.get_webview_window(&label(id)) {

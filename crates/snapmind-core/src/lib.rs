@@ -4,6 +4,7 @@
 
 pub mod config;
 pub mod export;
+pub mod history;
 
 /// 应用名，用于配置目录、窗口标题等。
 pub const APP_NAME: &str = "SnapMind";

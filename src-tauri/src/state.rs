@@ -1,6 +1,7 @@
 //! 全局状态与配置变更广播。
 
 use snapmind_core::config::{Config, ConfigStore, ThemeMode};
+use snapmind_core::history::History;
 use tauri::{AppHandle, Emitter, Manager, Runtime, Theme};
 
 /// 配置变更事件名，所有窗口订阅。负载是完整的新配置。
@@ -8,6 +9,13 @@ pub const CONFIG_CHANGED: &str = "config-changed";
 
 pub struct AppState {
     pub config: ConfigStore,
+    /// 历史记录；打不开时为 None（不影响其他功能）
+    pub history: Option<History>,
+}
+
+/// 历史记录目录：配置目录下的 history。
+pub fn history_dir<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<std::path::PathBuf> {
+    Ok(config_dir(app)?.join("history"))
 }
 
 /// 配置目录：Windows 为 `%APPDATA%\SnapMind`，Linux 为 `~/.config/SnapMind`。

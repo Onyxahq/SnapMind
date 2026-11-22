@@ -138,7 +138,7 @@ pub async fn capture_pin(app: AppHandle, index: usize, region: Region) -> Result
     let mon = overlay::monitor(&app, index).ok_or("截图已结束")?;
     overlay::end(&app);
     let at = (mon.x + region.x as i32, mon.y + region.y as i32);
-    crate::pin::create(&app, img, at, mon.scale).map_err(err)
+    crate::pin::create(&app, img, snapmind_core::history::PinSource::Capture, at, mon.scale).map_err(err)
 }
 
 /// 保存到哪里：

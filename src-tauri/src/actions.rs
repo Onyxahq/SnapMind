@@ -24,7 +24,7 @@ pub fn pin_clipboard<R: Runtime>(app: &AppHandle<R>) {
         ClipContent::Image { width, height, rgba } => {
             let at = (cx - width as i32 / 2, cy - height as i32 / 2);
             let img = snapmind_core::export::RgbaImage { width, height, data: rgba };
-            crate::pin::create(app, img, at, scale)
+            crate::pin::create(app, img, snapmind_core::history::PinSource::Clipboard, at, scale)
         }
         // 文字卡片的尺寸要等页面排版后才知道，先把左上角放在鼠标附近
         ClipContent::Text(text) => crate::pin::create_text(app, text, (cx - 40, cy - 30), scale),

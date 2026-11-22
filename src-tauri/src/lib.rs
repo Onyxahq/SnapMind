@@ -55,7 +55,14 @@ pub fn run() {
                 eprintln!("配置文件损坏，已备份到 {} 并恢复默认", backup.display());
             }
             state::apply_native_theme(handle, &config.get());
-            app.manage(state::AppState { config });
+            let history = match snapmind_core::history::History::open(&state::history_dir(handle)?) {
+                Ok(h) => Some(h),
+                Err(e) => {
+                    eprintln!("打开历史记录失败：{e}");
+                    None
+                }
+            };
+            app.manage(state::AppState { config, history });
 
             tray::create(handle)?;
             overlay::prewarm(handle);
@@ -118,6 +125,7 @@ pub fn run() {
             commands::pin_set_image,
             commands::pin_keep,
             commands::pin_set_annotations,
+            commands::history_pins,
             commands::tools_hover,
             commands::tools_menu,
             commands::tools_layout,
