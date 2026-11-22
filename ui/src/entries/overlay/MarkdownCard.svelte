@@ -177,7 +177,9 @@
   .md :global(code) { font-family: var(--font-mono, Consolas, monospace); font-size: 12.5px; padding: 1px 5px; border-radius: 4px; background: var(--sunken); }
   .md :global(pre) { padding: 8px 10px; border-radius: 8px; background: var(--sunken); overflow: auto; }
   .md :global(pre code) { padding: 0; background: none; }
-  .md :global(pre.math), .md :global(code.math) { color: var(--accent); }
+  .md :global(div.math) { margin: 0 0 10px; overflow-x: auto; overflow-y: hidden; }
+  .md :global(div.math .katex-display) { margin: 4px 0; }
+  .md :global(.math.bad) { color: var(--danger); }
   .md :global(table) { border-collapse: collapse; font-size: 13px; }
   .md :global(th), .md :global(td) { border: 1px solid var(--line2); padding: 3px 8px; }
   .md :global(blockquote) { padding: 4px 12px; border-left: 3px solid var(--line2); color: var(--text2); }

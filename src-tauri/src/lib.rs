@@ -149,6 +149,7 @@ pub fn run() {
             translate::capture_translate_overlay,
             translate::capture_markdown,
             translate::capture_table,
+            translate::capture_formula,
             translate::translate_text,
             translate::task_cancel,
             ocr::capture_ocr,

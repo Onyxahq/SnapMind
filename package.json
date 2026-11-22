@@ -1,7 +1,7 @@
 {
   "name": "snapmind",
   "private": true,
-  "version": "0.9.2",
+  "version": "0.9.3",
   "type": "module",
   "scripts": {
     "dev": "vite --config ui/vite.config.ts",
@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.5",
+    "katex": "0.16.22",
     "marked": "15.0.12"
   },
   "devDependencies": {

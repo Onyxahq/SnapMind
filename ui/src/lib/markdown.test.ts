@@ -32,8 +32,10 @@ describe('markdown preview', () => {
     expect(h).toContain('<mark>重点</mark>');
     expect(h).toContain('<span class="wikilink" title="笔记">别名</span>');
     expect(h).toContain('价格 $5 和 $10');
-    expect(h).toContain('<code class="math">a^2</code>');
-    expect(h).toContain('<pre class="math">E=mc^2</pre>');
+    expect(h).toMatch(/<span class="math"><span class="katex">/);
+    expect(h).toMatch(/<div class="math"><span class="katex-display">/);
+    // 写错的公式按源码显示
+    expect(renderMarkdown('$\\frac{a$')).toContain('<code class="math bad"');
     expect(h).toContain('class="callout" data-type="tip"');
     expect(h).toContain('<strong class="callout-title">提示</strong>');
   });

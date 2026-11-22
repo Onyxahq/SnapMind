@@ -37,6 +37,10 @@
 
   /** 「更多」菜单（需求 3.6：公式识别、表格识别收在这里） */
   let moreOpen = $state(false);
+  const MORE = [
+    { a: 'formula', icon: 'formula', label: '公式识别' },
+    { a: 'table', icon: 'table', label: '表格识别' },
+  ] as const;
   let moreAnchor = $state<HTMLSpanElement>();
   let width = $state(420);
   let height = $state(38);
@@ -81,16 +85,18 @@
 
   {#if moreOpen}
     <div class="more" class:up={popUp} style:left="{moreAnchor?.offsetLeft ?? 0}px" role="menu" aria-label="更多" in:popIn out:popOut>
-      <button
-        type="button"
-        role="menuitem"
-        onclick={() => {
-          moreOpen = false;
-          onaction('table');
-        }}
-      >
-        <Icon name="table" size={16} />表格识别
-      </button>
+      {#each MORE as m (m.a)}
+        <button
+          type="button"
+          role="menuitem"
+          onclick={() => {
+            moreOpen = false;
+            onaction(m.a);
+          }}
+        >
+          <Icon name={m.icon} size={16} />{m.label}
+        </button>
+      {/each}
     </div>
   {/if}
   {#if propsOpen && tool && TOOL_INFO[tool].props}

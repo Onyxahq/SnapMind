@@ -4,7 +4,7 @@
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
   // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）；
   // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选；M6.2 翻译的原位覆盖；
-  // M8.1 识别为 Markdown（Shift+Alt+R）；M8.2 表格识别（工具条「更多」）。
+  // M8.1 识别为 Markdown（Shift+Alt+R）；M8.2 表格识别、M8.3 公式识别（工具条「更多」）。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -14,6 +14,7 @@
     captureTranslate,
     captureTranslateOverlay,
     captureMarkdown,
+    captureFormula,
     saveMarkdown,
     captureTable,
     saveXlsx,
@@ -81,6 +82,8 @@
   import OcrBoxes from './OcrBoxes.svelte';
   import TranslateOverlay from './TranslateOverlay.svelte';
   import MarkdownCard from './MarkdownCard.svelte';
+  import FormulaCard from './FormulaCard.svelte';
+  import { toDisplayMath } from '$lib/formula';
   import TableCard from './TableCard.svelte';
   import { parseHtml, toTsv, type TableCardState, type TableView } from '$lib/table';
   import { canvasMeasure, drawOverlay, drawable, fitText } from '$lib/overlay';
@@ -119,6 +122,8 @@
   let card = $state<Card | null>(null);
   /** Markdown 卡片（复用任务卡片的状态，src 是 Markdown 源码）；结果卡片同一时间只开一张 */
   let mdCard = $state<Card | null>(null);
+  /** 公式卡片（src 是 LaTeX） */
+  let fxCard = $state<Card | null>(null);
   /** 表格卡片 */
   let tableCard = $state<TableCardState | null>(null);
   /** 翻译时的选区（原位覆盖只在选区没动时画） */
@@ -221,7 +226,7 @@
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard && !tableCard,
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard && !fxCard && !tableCard,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -273,6 +278,7 @@
     closeCard();
     closeOcr();
     closeMd();
+    closeFormula();
     tableCard = null;
     ann.reset();
     propsOpen = false;
@@ -299,6 +305,7 @@
     closeCard();
     closeOcr();
     closeMd();
+    closeFormula();
     tableCard = null;
     session = null;
     sel = null;
@@ -428,6 +435,7 @@
       case 'ocr': return recognizeText();
       case 'markdown': return recognizeMarkdown();
       case 'table': return recognizeTable();
+      case 'formula': return recognizeFormula();
     }
   }
 
@@ -441,6 +449,7 @@
     if (!sel) sel = region();
     closeOcr();
     closeMd();
+    closeFormula();
     if (card) taskCancel(card.id);
     const id = `tr-${session.seq}-${++cardSeq}`;
     card = newCard(id);
@@ -503,6 +512,7 @@
     closeCard();
     closeOcr();
     closeMd();
+    closeFormula();
     const id = `ocr-${session.seq}-${++cardSeq}`;
     const [index, r] = [session.index, sel];
     ocr = newOcrCard(id, r);
@@ -579,6 +589,7 @@
     closeCard();
     closeOcr();
     closeMd();
+    closeFormula();
     const id = `md-${session.seq}-${++cardSeq}`;
     mdCard = newCard(id, '', 'markdown');
     captureMarkdown(id, session.index, sel).catch((e) => {
@@ -607,6 +618,36 @@
     }
   }
 
+  // ---------------------------------------------------------------- 公式卡片
+
+  /** 工具条「更多 → 公式识别」：按识别链里的视觉模型识别成 LaTeX。 */
+  function recognizeFormula() {
+    if (!session || drag) return;
+    if (!sel) sel = region();
+    closeCard();
+    closeOcr();
+    closeMd();
+    closeFormula();
+    tableCard = null;
+    const id = `fx-${session.seq}-${++cardSeq}`;
+    fxCard = newCard(id, '', 'formula');
+    captureFormula(id, session.index, sel).catch((e) => {
+      if (fxCard?.id === id) fxCard = { ...fxCard, stage: 'error', error: String(e) };
+    });
+  }
+
+  function closeFormula() {
+    if (fxCard) taskCancel(fxCard.id);
+    fxCard = null;
+  }
+
+  async function copyFormula(dollars: boolean) {
+    const tex = fxCard?.src.trim();
+    if (!tex) return;
+    await clipboardWriteText(dollars ? toDisplayMath(tex) : tex);
+    close();
+  }
+
   // ---------------------------------------------------------------- 表格卡片
 
   /** 工具条「更多 → 表格识别」：按识别链识别选区里的表格。 */
@@ -616,6 +657,7 @@
     closeCard();
     closeOcr();
     closeMd();
+    closeFormula();
     const id = `tb-${session.seq}-${++cardSeq}`;
     const [index, r] = [session.index, sel];
     tableCard = { id, stage: 'run', rows: [], meta: '', error: '' };
@@ -820,6 +862,7 @@
       else if (card) closeCard();
       else if (ocr) closeOcr();
       else if (mdCard) closeMd();
+      else if (fxCard) closeFormula();
       else if (tableCard) tableCard = null;
       else if (ann.tool) exitAnnotate();
       else requestClose();
@@ -932,6 +975,7 @@
     const offTask = onTaskEvent((e) => {
       if (card) card = reduce(card, e);
       if (mdCard) mdCard = reduce(mdCard, e);
+      if (fxCard) fxCard = reduce(fxCard, e);
     });
     // 模型下载完成：卡片还在等模型就接着识别
     const offOcr = onOcrDownload((s) => {
@@ -1029,6 +1073,15 @@
       oncopy={copyTable}
       onexport={exportTable}
       onclose={() => (tableCard = null)}
+    />
+  {/if}
+  {#if fxCard && selOnlyCss && !saveOpen}
+    <FormulaCard
+      sel={unionRect(selOnlyCss, showToolbar ? toolbarRect : null)}
+      card={fxCard}
+      onsrc={(v) => fxCard && (fxCard = { ...fxCard, src: v })}
+      oncopy={copyFormula}
+      onclose={closeFormula}
     />
   {/if}
   {#if mdCard && selOnlyCss && !saveOpen}

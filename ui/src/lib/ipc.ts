@@ -631,7 +631,7 @@ export async function languages(): Promise<Lang[]> {
 export interface TaskEvent {
   id: string;
   kind: 'stage' | 'src' | 'src-reset' | 'dst' | 'dst-reset' | 'done' | 'error' | 'overlay';
-  stage: 'recognize' | 'oneshot' | 'translate' | 'markdown';
+  stage: 'recognize' | 'oneshot' | 'translate' | 'markdown' | 'formula';
   text: string;
 }
 
@@ -725,6 +725,23 @@ export async function captureMarkdown(id: string, index: number, region: Region)
     ]);
   }
   return invoke('capture_markdown', { id, index, region });
+}
+
+/** 公式识别（按识别链里的视觉模型）：LaTeX 通过 onTaskEvent 流式推来，stage 为 formula。 */
+export async function captureFormula(id: string, index: number, region: Region): Promise<void> {
+  if (!inTauri()) {
+    const tex = String.raw`f(x) = \int_{-\infty}^{\infty} \hat f(\xi)\, e^{2\pi i \xi x} \, d\xi
+\begin{aligned}
+a &= b + c \\
+d &= \sqrt{e^2 + f^2}
+\end{aligned}`;
+    return fakeRun(id, [
+      { kind: 'stage', stage: 'formula', text: 'qwen-vl' },
+      ...tex.match(/[\s\S]{1,12}/g)!.map((t) => ({ kind: 'src' as const, stage: 'formula' as const, text: t })),
+      { kind: 'done', stage: 'formula', text: 'qwen-vl · 1.8 s' },
+    ]);
+  }
+  return invoke('capture_formula', { id, index, region });
 }
 
 // ---- 表格（见 src-tauri/src/translate.rs 的 capture_table、xlsx.rs）----

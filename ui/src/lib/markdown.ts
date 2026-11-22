@@ -3,8 +3,9 @@
 // 内容来自大模型或 OCR，渲染在有调用 Rust 权限的页面里，所以按「不信任」处理：
 // - 原样 HTML 一律转义，只放行 <sup> <sub> <br> <mark> <kbd>（提示词要求上下标用 HTML）；
 // - 链接不生成 href（点了不会让页面跳走），地址放在 title 里；图片只显示替代文字，不去网上取图。
-// Obsidian 扩展：==高亮==、[[双链|别名]]、$行内公式$ / $$公式块$$（M8.3 之前按源码显示）、> [!note] 提示块。
+// Obsidian 扩展：==高亮==、[[双链|别名]]、$行内公式$ / $$公式块$$（KaTeX 渲染，写错的按源码显示）、> [!note] 提示块。
 import { Marked, type TokenizerAndRendererExtension, type Tokens } from 'marked';
+import { renderLatex } from './formula';
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -46,7 +47,8 @@ const mathBlock: TokenizerAndRendererExtension = {
     if (m) return { type: 'mathBlock', raw: m[0], text: m[1].trim() };
   },
   renderer(t) {
-    return `<pre class="math">${esc(t.text)}</pre>\n`;
+    const r = renderLatex(t.text, true);
+    return r.html ? `<div class="math">${r.html}</div>\n` : `<pre class="math bad" title="${esc(r.error)}">${esc(t.text)}</pre>\n`;
   },
 };
 
@@ -60,7 +62,8 @@ const mathInline: TokenizerAndRendererExtension = {
     if (m) return { type: 'mathInline', raw: m[0], text: m[1] };
   },
   renderer(t) {
-    return `<code class="math">${esc(t.text)}</code>`;
+    const r = renderLatex(t.text, false);
+    return r.html ? `<span class="math">${r.html}</span>` : `<code class="math bad" title="${esc(r.error)}">${esc(t.text)}</code>`;
   },
 };
 

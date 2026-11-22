@@ -263,6 +263,101 @@ async fn recognize_as<R: Runtime>(
     Err(format!("识别失败：{}", describe_failures(&run.failures())))
 }
 
+/// 公式识别的提示词（固定：输出要能直接交给 KaTeX 渲染）。
+const FORMULA_PROMPT: &str = "识别图片中的数学公式，输出 LaTeX：\n- 只输出公式本身，不要 $ 或 \\[ \\] 定界符，不要代码块标记，不要解释\n- 多行公式用 aligned 环境，矩阵用 matrix / pmatrix / bmatrix\n- 图片里有多个独立的公式时，每个公式占一行";
+
+/// 去掉大模型常加的包装：代码块标记、$$ / $ / \[ \] / \( \) 定界符、首尾空白。
+pub fn clean_latex(text: &str) -> String {
+    let mut t = text.trim();
+    if let Some(rest) = t.strip_prefix("```") {
+        // ```latex … ``` 或 ``` … ```
+        let rest = rest.split_once('\n').map(|(_, r)| r).unwrap_or("");
+        t = rest.trim_end().strip_suffix("```").unwrap_or(rest).trim();
+    }
+    for (a, b) in [("$$", "$$"), ("\\[", "\\]"), ("\\(", "\\)"), ("$", "$")] {
+        if t.len() > a.len() + b.len() && t.starts_with(a) && t.ends_with(b) {
+            let inner = &t[a.len()..t.len() - b.len()];
+            // 里面还有同样的定界符（「$a$ 和 $b$」）就不是一对，不剥
+            if inner.contains(a) || inner.contains(b) {
+                break;
+            }
+            t = inner.trim();
+            break;
+        }
+    }
+    t.to_string()
+}
+
+/// 公式识别（需求 3.8、M8.3）：按识别链里的视觉模型依次尝试（本地没有可用的公式模型，见决策记录），
+/// LaTeX 流式推给卡片（src 事件，stage = formula），完成时给出整理过的 LaTeX（done 前先 src-reset 再 src）。
+#[tauri::command]
+pub fn capture_formula(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    id: String,
+    index: usize,
+    region: Region,
+) -> Result<(), String> {
+    let img = crate::export::crop_base(&app, index, region)?;
+    let cfg = state.config.get();
+    let out = Emit { win: window, id: id.clone() };
+    spawn(&app, id, async move {
+        let t0 = Instant::now();
+        let backends: Vec<Backend> = cfg
+            .chains
+            .recognize
+            .iter()
+            .filter_map(|r| match r {
+                BackendRef::LocalOcr => None,
+                other => resolve(std::slice::from_ref(other), &cfg.providers, &cfg.mt, key_of).pop().filter(Backend::is_llm),
+            })
+            .collect();
+        if backends.is_empty() {
+            return out.send(
+                "error",
+                "formula",
+                "公式识别要用视觉模型：在设置的「备用链 · 识别」里添加一个视觉模型（本地 OCR 认不了公式）",
+            );
+        }
+        let png = match tauri::async_runtime::spawn_blocking(move || encode_for_vision(&img)).await {
+            Ok(Ok(p)) => p,
+            Ok(Err(e)) => return out.send("error", "formula", e),
+            Err(e) => return out.send("error", "formula", e.to_string()),
+        };
+        let job = TextJob {
+            messages: vec![Message::user(vec![Part::Image { mime: "image/png".into(), data: png }, Part::Text(FORMULA_PROMPT.into())])],
+            temperature: Some(0.0),
+            ..Default::default()
+        };
+        let r = run_text_chain(
+            &backends,
+            cfg.chains.fallback,
+            &job,
+            cfg.chains.timeout(),
+            |d| out.send("src", "formula", d),
+            |e| match e {
+                ChainEvent::Start { label, .. } => out.send("stage", "formula", label),
+                ChainEvent::Failed(_) => out.send("src-reset", "formula", ""),
+            },
+        )
+        .await;
+        match r {
+            Ok(s) => {
+                let latex = clean_latex(&s.value);
+                if latex.is_empty() {
+                    return out.send("error", "formula", "没有识别出公式");
+                }
+                out.send("src-reset", "formula", "");
+                out.send("src", "formula", latex);
+                out.send("done", "formula", format!("{} · {}", s.describe(), secs(t0)))
+            }
+            Err(f) => out.send("error", "formula", format!("公式识别失败：{}", describe_failures(&f))),
+        }
+    });
+    Ok(())
+}
+
 /// 交给视觉模型做表格时的提示词（固定，不在设置里：输出格式要能被程序解析）。
 const TABLE_PROMPT: &str = "把图片中的表格还原成一个 HTML 表格：\n- 只输出 <table>…</table>，不要解释，不要代码块标记\n- 表头放在 <thead> 里\n- 合并单元格用 colspan / rowspan\n- 单元格里只放文字";
 
@@ -757,6 +852,17 @@ mod tests {
         t.target_lang = "en".into();
         t.second_lang = "en".into();
         assert_eq!(plan(&t, "This is a test of the system"), Plan::Skip);
+    }
+
+    #[test]
+    fn cleans_model_latex() {
+        assert_eq!(clean_latex("```latex\nE = mc^2\n```"), "E = mc^2");
+        assert_eq!(clean_latex("$$\\frac{a}{b}$$"), "\\frac{a}{b}");
+        assert_eq!(clean_latex("\\[ x^2 \\]"), "x^2");
+        assert_eq!(clean_latex(" $a+b$ "), "a+b");
+        assert_eq!(clean_latex("a + b = c"), "a + b = c");
+        // 两个独立的行内公式不能被当成一对定界符剥掉
+        assert_eq!(clean_latex("$a$ 和 $b$"), "$a$ 和 $b$");
     }
 
     #[test]
