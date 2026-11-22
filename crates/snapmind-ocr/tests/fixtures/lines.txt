@@ -1,0 +1,4 @@
+SnapMind 截图翻译 2026
+The quick brown fox jumps over the lazy dog.
+本地 OCR 识别中文和英文，速度要快。
+Settings · 设置 · 保存

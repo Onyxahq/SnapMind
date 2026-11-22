@@ -3,5 +3,15 @@ name = "snapmind-ocr"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "本地 OCR：ONNX Runtime + PP-OCRv5（检测、识别、段落、评测）"
 
 [dependencies]
+# Windows 上 pyke 提供的是静态库（编进程序，不需要 onnxruntime.dll）；只用 CPU 推理。
+# 不要 copy-dylibs：DirectML.dll 是延迟加载的（见 build.rs），用不到就不需要随程序发布。
+ort = { version = "2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-rustls", "api-31"] }
+thiserror = { workspace = true }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
+
+[[bin]]
+name = "snapmind-ocr"
+path = "src/main.rs"

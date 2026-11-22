@@ -1,4 +1,6 @@
 # 依赖与构建产物
+# OCR 模型（node scripts/fetch-models.mjs 下载，带 SHA-256 校验）
+models/
 node_modules/
 dist/
 target/
