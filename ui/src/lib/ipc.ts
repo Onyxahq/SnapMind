@@ -17,6 +17,25 @@ export interface Config {
   appearance: { theme: ThemeMode; accent: Accent };
   capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean };
   save: SaveConfig;
+  providers: ProviderConfig[];
+}
+
+export type ProviderKind = 'deepseek' | 'anthropic' | 'gemini' | 'openai' | 'openrouter' | 'ollama' | 'custom';
+export type ModelTag = 'vision' | 'text' | 'reasoning' | 'local';
+
+export interface ModelConfig {
+  id: string;
+  tags: ModelTag[];
+  enabled: boolean;
+}
+
+/** 已添加的服务商；API Key 不在这里，存在系统凭据库（账户名 = id）。 */
+export interface ProviderConfig {
+  id: string;
+  kind: ProviderKind;
+  name: string;
+  baseUrl: string;
+  models: ModelConfig[];
 }
 
 export type ImageFormat = 'png' | 'jpg' | 'webp';
@@ -45,6 +64,7 @@ export const DEFAULT_CONFIG: Config = {
     ctrlS: 'window',
     extraDirs: [],
   },
+  providers: [],
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -448,4 +468,66 @@ export interface PinRecord {
 export async function historyPins(query?: string, limit?: number): Promise<PinRecord[]> {
   if (!inTauri()) return [];
   return invoke('history_pins', { query: query ?? null, limit: limit ?? null });
+}
+
+// ---- 模型服务 ----
+
+export interface ProviderMeta {
+  kind: ProviderKind;
+  name: string;
+  mono: string;
+  color: string;
+  format: 'openAi' | 'claude' | 'gemini';
+  defaultUrl: string;
+  needsKey: boolean;
+  desc: string;
+}
+
+export interface FetchedModel {
+  id: string;
+  tags: ModelTag[];
+}
+
+// 浏览器里调界面用的假数据（真实目录在 Rust 的 snapmind-providers::catalog）
+const FAKE_CATALOG: ProviderMeta[] = [
+  { kind: 'deepseek', name: 'DeepSeek', mono: 'DS', color: '#4D6BFE', format: 'openAi', defaultUrl: 'https://api.deepseek.com/v1', needsKey: true, desc: '性价比高的中文文本模型' },
+  { kind: 'anthropic', name: 'Anthropic', mono: 'AN', color: '#C2410C', format: 'claude', defaultUrl: 'https://api.anthropic.com', needsKey: true, desc: 'Claude 系列，支持图片输入' },
+  { kind: 'ollama', name: 'Ollama（本地）', mono: 'OL', color: '#334155', format: 'openAi', defaultUrl: 'http://localhost:11434/v1', needsKey: false, desc: '在本机运行模型，不需要 Key' },
+  { kind: 'custom', name: '自定义服务', mono: '+', color: '#64748B', format: 'openAi', defaultUrl: 'https://', needsKey: true, desc: '任意 OpenAI 兼容接口' },
+];
+const fakeKeys = new Set<string>();
+
+export async function providerCatalog(): Promise<ProviderMeta[]> {
+  if (!inTauri()) return FAKE_CATALOG;
+  return invoke('provider_catalog');
+}
+
+/** 哪些服务商已保存 Key（不回传 Key 本身）。 */
+export async function providerKeyStatus(ids: string[]): Promise<Record<string, boolean>> {
+  if (!inTauri()) return Object.fromEntries(ids.map((id) => [id, fakeKeys.has(id)]));
+  return invoke('provider_key_status', { ids });
+}
+
+/** 保存 Key 到系统凭据库；空字符串表示删除。 */
+export async function providerSetKey(id: string, key: string): Promise<void> {
+  if (!inTauri()) {
+    if (key.trim()) fakeKeys.add(id);
+    else fakeKeys.delete(id);
+    return;
+  }
+  return invoke('provider_set_key', { id, key });
+}
+
+/** 获取模型列表（同时就是测试连接）；失败时抛出可直接展示的中文错误。 */
+export async function providerFetchModels(p: Pick<ProviderConfig, 'id' | 'kind' | 'baseUrl'>): Promise<FetchedModel[]> {
+  if (!inTauri()) {
+    await new Promise((r) => setTimeout(r, 500));
+    if (p.kind !== 'ollama' && !fakeKeys.has(p.id)) throw '请先填写 API Key';
+    return [
+      { id: `${p.kind}-chat`, tags: ['text'] },
+      { id: `${p.kind}-reasoner`, tags: ['text', 'reasoning'] },
+      { id: `${p.kind}-vl`, tags: ['vision'] },
+    ];
+  }
+  return invoke('provider_fetch_models', { id: p.id, kind: p.kind, baseUrl: p.baseUrl });
 }

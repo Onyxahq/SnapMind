@@ -1,5 +1,5 @@
 <script lang="ts">
-  // 设置窗口。完整的分页布局在 M10.1 实现；这里先放已经用得上的几项：外观、截图。
+  // 设置窗口。完整的分页布局在 M10.1 实现；这里先放已经用得上的几项：外观、截图、模型服务。
   import { onMount } from 'svelte';
   import { appInfo, type AppInfo } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';
@@ -13,6 +13,7 @@
   import Field from '$lib/ui/Field.svelte';
   import type { SaveConfig } from '$lib/ipc';
   import ToastHost from '$lib/ui/ToastHost.svelte';
+  import Providers from './Providers.svelte';
   import { toast } from '$lib/ui/toast.svelte';
 
   let info = $state<AppInfo | null>(null);
@@ -97,6 +98,12 @@
     </Row>
   </Card>
 
+  <div class="head">
+    <h1 class="t-title">模型服务</h1>
+    <p class="t-note">先添加服务商并填写 Key，再勾选要显示的模型。勾选的模型才会出现在下拉框和备用链里。</p>
+  </div>
+  <Providers />
+
   {#if info}
     <p class="t-note foot">SnapMind v{info.version}</p>
   {/if}
@@ -106,7 +113,7 @@
 
 <style>
   main {
-    max-width: 720px;
+    max-width: 820px;
     margin: 0 auto;
     padding: 32px 32px 24px;
     display: flex;
@@ -114,5 +121,6 @@
     gap: 16px;
   }
   h1 { margin: 0; }
+  .head p { margin: 2px 0 0; }
   .foot { margin: 8px 0 0; color: var(--text3); }
 </style>

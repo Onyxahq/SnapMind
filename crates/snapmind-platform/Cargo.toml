@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 arboard = { version = "3.7.0", default-features = false, features = ["image-data"] }
+keyring = "4.2.0"
 thiserror = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]

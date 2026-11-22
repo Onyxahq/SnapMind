@@ -28,6 +28,8 @@ pub struct Config {
     pub appearance: Appearance,
     pub capture: CaptureConfig,
     pub save: SaveConfig,
+    /// 已添加的大模型服务商（需求 1.4）。API Key 不在这里，存在系统凭据库。
+    pub providers: Vec<ProviderConfig>,
 }
 
 impl Default for Config {
@@ -37,6 +39,7 @@ impl Default for Config {
             appearance: Appearance::default(),
             capture: CaptureConfig::default(),
             save: SaveConfig::default(),
+            providers: Vec::new(),
         }
     }
 }
@@ -134,6 +137,52 @@ pub enum CtrlSAction {
     System,
     /// 直接保存到默认目录
     Direct,
+}
+
+/// 内置服务商种类（需求 1.4）。Ollama 和自定义服务都走 OpenAI 兼容接口。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProviderKind {
+    Deepseek,
+    Anthropic,
+    Gemini,
+    Openai,
+    Openrouter,
+    Ollama,
+    Custom,
+}
+
+/// 模型标签：识别和一步到位只能选带「视觉」的模型。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ModelTag {
+    Vision,
+    Text,
+    Reasoning,
+    Local,
+}
+
+/// 服务商下的一个模型：只有勾选（enabled）的才出现在下拉框和备用链里。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelConfig {
+    pub id: String,
+    #[serde(default)]
+    pub tags: Vec<ModelTag>,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+/// 一个已添加的服务商。`id` 在列表内唯一，也是系统凭据库里 Key 的账户名。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderConfig {
+    pub id: String,
+    pub kind: ProviderKind,
+    pub name: String,
+    pub base_url: String,
+    #[serde(default)]
+    pub models: Vec<ModelConfig>,
 }
 
 // ---------------------------------------------------------------- 错误
@@ -321,7 +370,8 @@ mod tests {
                     "filenameTemplate": "SnapMind_{yyyyMMdd_HHmmss}",
                     "ctrlS": "window",
                     "extraDirs": []
-                }
+                },
+                "providers": []
             })
         );
     }
@@ -366,6 +416,22 @@ mod tests {
         assert_eq!(c.appearance.accent, Accent::Green);
         assert_eq!(c.appearance.theme, ThemeMode::System);
         assert_eq!(c.version, CURRENT_VERSION);
+    }
+
+    #[test]
+    fn providers_roundtrip_and_patch_replaces_list() {
+        let base = Config::default();
+        let patch = json!({ "providers": [{
+            "id": "deepseek", "kind": "deepseek", "name": "DeepSeek", "baseUrl": "https://api.deepseek.com/v1",
+            "models": [{ "id": "deepseek-chat", "tags": ["text"], "enabled": true }]
+        }]});
+        let c = apply_patch(&base, &patch).unwrap();
+        assert_eq!(c.providers[0].kind, ProviderKind::Deepseek);
+        assert_eq!(c.providers[0].models[0].tags, vec![ModelTag::Text]);
+        // 数组整体替换：传空数组就是全部移除
+        let c2 = apply_patch(&c, &json!({ "providers": [] })).unwrap();
+        assert!(c2.providers.is_empty());
+        assert!(apply_patch(&base, &json!({ "providers": [{ "id": "x", "kind": "nope", "name": "", "baseUrl": "" }] })).is_err());
     }
 
     #[test]

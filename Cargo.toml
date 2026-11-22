@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.4.4"
+version = "0.6.1"
 edition = "2021"
 license = "UNLICENSED"
 
@@ -20,6 +20,7 @@ thiserror = "2"
 tempfile = "3"
 snapmind-core = { path = "crates/snapmind-core" }
 snapmind-platform = { path = "crates/snapmind-platform" }
+snapmind-providers = { path = "crates/snapmind-providers" }
 
 # 截屏、图像编码在调试版里也要够快，否则测不出真实耗时：本项目的平台层和所有依赖都优化编译
 [profile.dev.package.snapmind-platform]

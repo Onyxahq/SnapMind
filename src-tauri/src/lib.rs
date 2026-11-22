@@ -7,6 +7,7 @@ mod launch;
 mod overlay;
 mod pin;
 mod pintools;
+mod providers;
 mod state;
 mod tray;
 mod wm;
@@ -137,6 +138,10 @@ pub fn run() {
             export::pick_folder,
             export::open_folder,
             commands::ui_log,
+            providers::provider_catalog,
+            providers::provider_key_status,
+            providers::provider_set_key,
+            providers::provider_fetch_models,
         ])
         .run(tauri::generate_context!())
         .expect("SnapMind 启动失败");
