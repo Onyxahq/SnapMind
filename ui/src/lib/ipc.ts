@@ -18,7 +18,10 @@ export interface Config {
   capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean };
   save: SaveConfig;
   providers: ProviderConfig[];
+  mt: { microsoftRegion: string };
 }
+
+export type MtKind = 'deepl' | 'google' | 'microsoft';
 
 export type ProviderKind = 'deepseek' | 'anthropic' | 'gemini' | 'openai' | 'openrouter' | 'ollama' | 'custom';
 export type ModelTag = 'vision' | 'text' | 'reasoning' | 'local';
@@ -65,6 +68,7 @@ export const DEFAULT_CONFIG: Config = {
     extraDirs: [],
   },
   providers: [],
+  mt: { microsoftRegion: '' },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -530,4 +534,14 @@ export async function providerFetchModels(p: Pick<ProviderConfig, 'id' | 'kind' 
     ];
   }
   return invoke('provider_fetch_models', { id: p.id, kind: p.kind, baseUrl: p.baseUrl });
+}
+
+/** 测试机器翻译（用已保存的 Key 把一句英文翻成简体中文），返回译文。 */
+export async function mtTest(kind: MtKind): Promise<string> {
+  if (!inTauri()) {
+    await new Promise((r) => setTimeout(r, 400));
+    if (!fakeKeys.has(`mt-${kind}`)) throw '请先填写 API Key';
+    return '你好，世界！';
+  }
+  return invoke('mt_test', { kind });
 }

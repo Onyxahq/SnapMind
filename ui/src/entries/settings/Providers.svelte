@@ -15,7 +15,8 @@
     type ProviderMeta,
   } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';
-  import { FORMAT_LABEL, TAGS, canAdd, mergeModels, newProviderId, toggleTag, visibleModels } from '$lib/providers';
+  import { FORMAT_LABEL, MT_SERVICES, TAGS, canAdd, mergeModels, mtAccount, newProviderId, toggleTag, visibleModels } from '$lib/providers';
+  import MtDetail from './MtDetail.svelte';
   import Card from '$lib/ui/Card.svelte';
   import Row from '$lib/ui/Row.svelte';
   import Field from '$lib/ui/Field.svelte';
@@ -37,14 +38,15 @@
   const providers = $derived(config.value.providers);
   const metaOf = (kind: ProviderKind) => catalog.find((m) => m.kind === kind);
   const cur = $derived(providers.find((p) => p.id === sel));
-  const curMeta = $derived(cur ? metaOf(cur.kind) : metaOf(sel.slice(4) as ProviderKind));
+  const curMeta = $derived(cur ? metaOf(cur.kind) : sel.startsWith('add:') ? metaOf(sel.slice(4) as ProviderKind) : undefined);
+  const curMt = $derived(MT_SERVICES.find((s) => sel === `mt:${s.kind}`));
   const addable = $derived(catalog.filter((m) => canAdd(m.kind, providers)));
   const shown = $derived(cur ? visibleModels(cur.models, filter) : []);
   const st = $derived(cur ? status[cur.id] : undefined);
 
   onMount(async () => {
     catalog = await providerCatalog();
-    keys = await providerKeyStatus(providers.map((p) => p.id));
+    keys = await providerKeyStatus([...providers.map((p) => p.id), ...MT_SERVICES.map((s) => mtAccount(s.kind))]);
     sel = providers[0]?.id ?? `add:${catalog[0]?.kind ?? 'deepseek'}`;
   });
 
@@ -183,6 +185,16 @@
         </button>
       {/each}
     {/if}
+    <span class="cap">机器翻译</span>
+    {#each MT_SERVICES as s (s.kind)}
+      <button type="button" class="prov" class:on={sel === `mt:${s.kind}`} onclick={() => pick(`mt:${s.kind}`)}>
+        <span class="logo" class:dim={!keys[mtAccount(s.kind)]} style:background={s.color}>{s.mono}</span>
+        <span class="pt">
+          <b>{s.name}</b>
+          <small>{keys[mtAccount(s.kind)] ? '已填 Key' : '还没填 Key'}</small>
+        </span>
+      </button>
+    {/each}
   </nav>
 
   {#key sel}
@@ -322,6 +334,8 @@
             </form>
           </Card>
         {/if}
+      {:else if curMt}
+        <MtDetail svc={curMt} hasKey={!!keys[mtAccount(curMt.kind)]} onkey={(has) => (keys[mtAccount(curMt.kind)] = has)} />
       {/if}
     </div>
   {/key}

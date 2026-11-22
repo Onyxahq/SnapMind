@@ -46,3 +46,15 @@ pub async fn provider_fetch_models(id: String, kind: ProviderKind, base_url: Str
         .map(|m| FetchedModel { tags: snapmind_providers::infer_tags(kind, &m), id: m })
         .collect())
 }
+
+/// 测试机器翻译：用已保存的 Key 把一句英文翻成简体中文，返回译文。
+#[tauri::command]
+pub async fn mt_test(state: tauri::State<'_, crate::state::AppState>, kind: snapmind_core::config::MtKind) -> Result<String, String> {
+    let key = secrets::get(kind.secret_account()).map_err(|e| e.to_string())?.ok_or("请先填写 API Key")?;
+    let region = state.config.get().mt.microsoft_region;
+    let ep = snapmind_providers::MtEndpoint { kind, key: &key, region: Some(&region), base_url: None };
+    snapmind_providers::translate(&ep, "Hello, world!", Some("en"), "zh-Hans", std::time::Duration::from_secs(15))
+        .await
+        .map(|r| r.text)
+        .map_err(|e| e.to_string())
+}

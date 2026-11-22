@@ -30,6 +30,8 @@ pub struct Config {
     pub save: SaveConfig,
     /// 已添加的大模型服务商（需求 1.4）。API Key 不在这里，存在系统凭据库。
     pub providers: Vec<ProviderConfig>,
+    /// 机器翻译服务的非敏感设置；Key 同样在系统凭据库（账户名见 [`MtKind::secret_account`]）。
+    pub mt: MtConfig,
 }
 
 impl Default for Config {
@@ -40,6 +42,7 @@ impl Default for Config {
             capture: CaptureConfig::default(),
             save: SaveConfig::default(),
             providers: Vec::new(),
+            mt: MtConfig::default(),
         }
     }
 }
@@ -183,6 +186,35 @@ pub struct ProviderConfig {
     pub base_url: String,
     #[serde(default)]
     pub models: Vec<ModelConfig>,
+}
+
+/// 机器翻译服务（需求 1.1）。都用官方接口，需要各自的 Key。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MtKind {
+    Deepl,
+    Google,
+    Microsoft,
+}
+
+impl MtKind {
+    pub const ALL: [MtKind; 3] = [MtKind::Deepl, MtKind::Google, MtKind::Microsoft];
+
+    /// 系统凭据库里的账户名（与大模型服务商的 id 分开，不会撞名）。
+    pub fn secret_account(self) -> &'static str {
+        match self {
+            MtKind::Deepl => "mt-deepl",
+            MtKind::Google => "mt-google",
+            MtKind::Microsoft => "mt-microsoft",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct MtConfig {
+    /// 微软翻译资源所在区域（如 eastasia）；全局资源留空。
+    pub microsoft_region: String,
 }
 
 // ---------------------------------------------------------------- 错误
@@ -371,7 +403,8 @@ mod tests {
                     "ctrlS": "window",
                     "extraDirs": []
                 },
-                "providers": []
+                "providers": [],
+                "mt": { "microsoftRegion": "" }
             })
         );
     }

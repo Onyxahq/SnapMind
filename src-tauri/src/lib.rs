@@ -142,6 +142,7 @@ pub fn run() {
             providers::provider_key_status,
             providers::provider_set_key,
             providers::provider_fetch_models,
+            providers::mt_test,
         ])
         .run(tauri::generate_context!())
         .expect("SnapMind 启动失败");
