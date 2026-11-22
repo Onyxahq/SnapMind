@@ -138,6 +138,8 @@ pub fn run() {
             export::pick_folder,
             export::open_folder,
             commands::ui_log,
+            commands::prompt_defaults,
+            commands::languages,
             providers::provider_catalog,
             providers::provider_key_status,
             providers::provider_set_key,

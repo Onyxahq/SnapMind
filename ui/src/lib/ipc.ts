@@ -20,7 +20,11 @@ export interface Config {
   providers: ProviderConfig[];
   mt: { microsoftRegion: string };
   chains: ChainsConfig;
+  /** 空字符串表示用默认提示词 */
+  prompts: Record<PromptKind, string>;
 }
+
+export type PromptKind = 'recognize' | 'translate' | 'oneshot' | 'markdown';
 
 /** 备用链里的一项（与 snapmind-core::config::BackendRef 对应）。 */
 export type BackendRef =
@@ -88,6 +92,7 @@ export const DEFAULT_CONFIG: Config = {
   providers: [],
   mt: { microsoftRegion: '' },
   chains: { fallback: true, timeoutSecs: 8, translate: [], recognize: [{ type: 'localOcr' }], oneshot: [] },
+  prompts: { recognize: '', translate: '', oneshot: '', markdown: '' },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -563,4 +568,29 @@ export async function mtTest(kind: MtKind): Promise<string> {
     return '你好，世界！';
   }
   return invoke('mt_test', { kind });
+}
+
+// ---- 提示词与语言 ----
+
+/** 四套默认提示词（以 Rust 端 snapmind-core::prompts 为准）。 */
+export async function promptDefaults(): Promise<Record<PromptKind, string>> {
+  if (!inTauri()) {
+    return {
+      recognize: '（开发页）识别图片中的全部文字，按阅读顺序输出。',
+      translate: '（开发页）把下面的文字翻译成 {target_lang}。\n- 以下术语保持原样：{glossary}\n- 只输出译文\n\n{text}',
+      oneshot: '（开发页）识别图片中的全部文字，并翻译成 {target_lang}。',
+      markdown: '（开发页）把图片内容整理成 Markdown。',
+    };
+  }
+  return invoke('prompt_defaults');
+}
+
+export interface Lang {
+  code: string;
+  name: string;
+}
+
+export async function languages(): Promise<Lang[]> {
+  if (!inTauri()) return [{ code: 'zh-Hans', name: '简体中文' }, { code: 'en', name: 'English' }, { code: 'ja', name: '日语' }];
+  return invoke('languages');
 }

@@ -15,6 +15,7 @@
   import ToastHost from '$lib/ui/ToastHost.svelte';
   import Providers from './Providers.svelte';
   import Chains from './Chains.svelte';
+  import Prompts from './Prompts.svelte';
   import { toast } from '$lib/ui/toast.svelte';
 
   let info = $state<AppInfo | null>(null);
@@ -105,6 +106,12 @@
   </div>
   <Providers />
   <Chains />
+
+  <div class="head">
+    <h1 class="t-title">提示词</h1>
+    <p class="t-note">只在用到大模型时生效。每种任务一套提示词，可以随时恢复默认。</p>
+  </div>
+  <Prompts />
 
   {#if info}
     <p class="t-note foot">SnapMind v{info.version}</p>

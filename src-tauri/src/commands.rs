@@ -260,3 +260,18 @@ pub fn history_pins(
     let history = state.history.as_ref().ok_or("历史记录不可用")?;
     history.list_pins(query.as_deref(), limit.unwrap_or(200)).map_err(|e| e.to_string())
 }
+
+/// 四套默认提示词（设置页显示、判断是否改过、恢复默认都以这里为准）。
+#[tauri::command]
+pub fn prompt_defaults() -> std::collections::HashMap<snapmind_core::prompts::PromptKind, &'static str> {
+    snapmind_core::prompts::PromptKind::ALL
+        .into_iter()
+        .map(|k| (k, snapmind_core::prompts::default_prompt(k)))
+        .collect()
+}
+
+/// 支持的语言（代码和名字）。
+#[tauri::command]
+pub fn languages() -> Vec<snapmind_core::lang::Lang> {
+    snapmind_core::lang::LANGS.to_vec()
+}

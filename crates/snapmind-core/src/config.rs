@@ -34,6 +34,8 @@ pub struct Config {
     pub mt: MtConfig,
     /// 翻译、识别、一步到位三条备用链（需求 1.2）。
     pub chains: ChainsConfig,
+    /// 四套提示词；空字符串表示用默认值（需求 1.3）。
+    pub prompts: PromptsConfig,
 }
 
 impl Default for Config {
@@ -46,6 +48,7 @@ impl Default for Config {
             providers: Vec::new(),
             mt: MtConfig::default(),
             chains: ChainsConfig::default(),
+            prompts: PromptsConfig::default(),
         }
     }
 }
@@ -265,6 +268,30 @@ impl ChainsConfig {
     }
 }
 
+/// 用户改过的提示词；空字符串 = 用默认值。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct PromptsConfig {
+    pub recognize: String,
+    pub translate: String,
+    pub oneshot: String,
+    pub markdown: String,
+}
+
+impl PromptsConfig {
+    /// 实际使用的模板（没改过就是默认值）。
+    pub fn template(&self, kind: crate::prompts::PromptKind) -> &str {
+        use crate::prompts::PromptKind::*;
+        let custom = match kind {
+            Recognize => &self.recognize,
+            Translate => &self.translate,
+            Oneshot => &self.oneshot,
+            Markdown => &self.markdown,
+        };
+        crate::prompts::effective(custom, kind)
+    }
+}
+
 // ---------------------------------------------------------------- 错误
 
 #[derive(Debug, thiserror::Error)]
@@ -459,7 +486,8 @@ mod tests {
                     "translate": [],
                     "recognize": [{ "type": "localOcr" }],
                     "oneshot": []
-                }
+                },
+                "prompts": { "recognize": "", "translate": "", "oneshot": "", "markdown": "" }
             })
         );
     }
@@ -534,6 +562,19 @@ mod tests {
         assert_eq!(c.chains.recognize, vec![BackendRef::LocalOcr]);
         assert_eq!(c.chains.timeout(), std::time::Duration::from_secs(60));
         assert!(c.chains.fallback);
+    }
+
+    #[test]
+    fn prompts_default_until_customized_and_null_resets() {
+        use crate::prompts::{default_prompt, PromptKind};
+        let base = Config::default();
+        assert_eq!(base.prompts.template(PromptKind::Translate), default_prompt(PromptKind::Translate));
+        let c = apply_patch(&base, &json!({ "prompts": { "translate": "译成 {target_lang}：{text}" } })).unwrap();
+        assert_eq!(c.prompts.template(PromptKind::Translate), "译成 {target_lang}：{text}");
+        assert_eq!(c.prompts.template(PromptKind::Recognize), default_prompt(PromptKind::Recognize));
+        // 恢复默认：传 null 删除该键
+        let r = apply_patch(&c, &json!({ "prompts": { "translate": null } })).unwrap();
+        assert_eq!(r.prompts.template(PromptKind::Translate), default_prompt(PromptKind::Translate));
     }
 
     #[test]
