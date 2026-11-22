@@ -37,6 +37,22 @@ fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
+/// 从会话里的冻结帧裁出选区原图（不带标注），识别和翻译用。
+pub fn crop_base<R: Runtime>(app: &AppHandle<R>, index: usize, r: Region) -> Result<RgbaImage, String> {
+    let frame = overlay::frame(app, index).ok_or("截图已结束")?;
+    export::crop_bgra(frame.pixels(), frame.width, frame.height, r.x, r.y, r.width, r.height).map_err(err)
+}
+
+/// 把文字贴成文字卡片（翻译卡片里的「贴图」），放在选区左上角，然后结束截图。
+/// 必须是 async 命令：同步命令跑在主线程上，在里面建窗口会卡死。
+#[tauri::command]
+pub async fn capture_pin_text(app: AppHandle, index: usize, region: Region, text: String) -> Result<u32, String> {
+    let mon = overlay::monitor(&app, index).ok_or("截图已结束")?;
+    overlay::end(&app);
+    let at = (mon.x + region.x as i32, mon.y + region.y as i32);
+    crate::pin::create_text(&app, text, at, mon.scale).map_err(err)
+}
+
 /// 从会话里的冻结帧裁出选区，有标注时按原始分辨率叠上标注层。
 fn crop<R: Runtime>(app: &AppHandle<R>, index: usize, r: Region) -> Result<RgbaImage, String> {
     let frame = overlay::frame(app, index).ok_or("截图已结束")?;

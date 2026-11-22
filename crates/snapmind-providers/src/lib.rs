@@ -14,7 +14,7 @@ pub mod models;
 pub mod mt;
 pub mod sse;
 
-pub use chain::{describe_failures, mt_name, resolve, run_chain, run_text_chain, Backend, ChainEvent, ChainSuccess, Failure, TextJob};
+pub use chain::{describe_failures, mt_name, resolve, run_text_chain, Backend, ChainEvent, ChainRun, ChainSuccess, Failure, TextJob};
 pub use catalog::{meta, ApiFormat, ProviderMeta, CATALOG};
 pub use chat::{stream_chat, ChatRequest, Endpoint, Message, Part, Role};
 pub use error::ProviderError;

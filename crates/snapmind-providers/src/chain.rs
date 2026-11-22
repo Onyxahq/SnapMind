@@ -38,7 +38,7 @@ impl Backend {
     }
 
     /// 执行一次文本任务。大模型流式输出；机器翻译一次性交出全文。
-    pub async fn run_text(&self, job: &TextJob, timeout: Duration, on_delta: &mut dyn FnMut(&str)) -> Result<String, ProviderError> {
+    pub async fn run_text(&self, job: &TextJob, timeout: Duration, on_delta: &mut (dyn FnMut(&str) + Send)) -> Result<String, ProviderError> {
         match self {
             Backend::Llm { kind, base_url, key, model } => {
                 let ep = Endpoint { kind: *kind, base_url, key: key.as_deref() };
@@ -138,27 +138,53 @@ pub fn describe_failures(failures: &[Failure]) -> String {
     failures.iter().map(|f| format!("{} {}", f.label, f.error.short())).collect::<Vec<_>>().join("；")
 }
 
-/// 通用执行器：依次调用 `attempt(index)`；`fallback` 关掉时只试第 1 项。
-/// 链为空时返回空的失败列表。
-pub async fn run_chain<T>(
-    labels: &[String],
-    fallback: bool,
-    mut attempt: impl AsyncFnMut(usize) -> Result<T, ProviderError>,
-    mut on_event: impl FnMut(ChainEvent<'_>),
-) -> Result<ChainSuccess<T>, Vec<Failure>> {
-    let n = if fallback { labels.len() } else { labels.len().min(1) };
-    let mut failures = Vec::new();
-    for (index, label) in labels.iter().enumerate().take(n) {
-        on_event(ChainEvent::Start { index, label });
-        match attempt(index).await {
-            Ok(value) => return Ok(ChainSuccess { value, index, label: label.clone(), failures }),
-            Err(error) => {
-                failures.push(Failure { index, label: label.clone(), error });
-                on_event(ChainEvent::Failed(failures.last().expect("刚放进去")));
-            }
-        }
+/// 一次链式执行的记录。调用方自己写循环（`for i in 0..run.len()`），每项成功就 `succeed`、
+/// 失败就 `fail`；这样每一步的 `.await` 都写在普通 async 函数里，
+/// 不用把借用了回调的异步闭包传来传去（那样的 future 很难满足跨线程的 Send 要求）。
+#[derive(Debug)]
+pub struct ChainRun {
+    labels: Vec<String>,
+    n: usize,
+    failures: Vec<Failure>,
+}
+
+impl ChainRun {
+    /// `fallback` 关掉时只试第 1 项。
+    pub fn new(labels: Vec<String>, fallback: bool) -> Self {
+        let n = if fallback { labels.len() } else { labels.len().min(1) };
+        Self { labels, n, failures: Vec::new() }
     }
-    Err(failures)
+
+    /// 要尝试的项数。
+    pub fn len(&self) -> usize {
+        self.n
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
+    }
+
+    pub fn label(&self, index: usize) -> &str {
+        &self.labels[index]
+    }
+
+    pub fn start(&self, index: usize) -> ChainEvent<'_> {
+        ChainEvent::Start { index, label: &self.labels[index] }
+    }
+
+    /// 记下第 `index` 项失败，返回这条记录（用来发 `Failed` 事件）。
+    pub fn fail(&mut self, index: usize, error: ProviderError) -> &Failure {
+        self.failures.push(Failure { index, label: self.labels[index].clone(), error });
+        self.failures.last().expect("刚放进去")
+    }
+
+    pub fn succeed<T>(self, index: usize, value: T) -> ChainSuccess<T> {
+        ChainSuccess { value, index, label: self.labels[index].clone(), failures: self.failures }
+    }
+
+    pub fn failures(self) -> Vec<Failure> {
+        self.failures
+    }
 }
 
 /// 文本任务走备用链：大模型和机器翻译可以混排。
@@ -167,17 +193,19 @@ pub async fn run_text_chain(
     fallback: bool,
     job: &TextJob,
     timeout: Duration,
-    mut on_delta: impl FnMut(&str),
+    mut on_delta: impl FnMut(&str) + Send,
     on_event: impl FnMut(ChainEvent<'_>),
 ) -> Result<ChainSuccess<String>, Vec<Failure>> {
-    let labels: Vec<String> = backends.iter().map(Backend::label).collect();
-    run_chain(
-        &labels,
-        fallback,
-        async |i| backends[i].run_text(job, timeout, &mut on_delta).await,
-        on_event,
-    )
-    .await
+    let mut on_event = on_event;
+    let mut run = ChainRun::new(backends.iter().map(Backend::label).collect(), fallback);
+    for i in 0..run.len() {
+        on_event(run.start(i));
+        match backends[i].run_text(job, timeout, &mut on_delta).await {
+            Ok(value) => return Ok(run.succeed(i, value)),
+            Err(e) => on_event(ChainEvent::Failed(run.fail(i, e))),
+        }
+    }
+    Err(run.failures())
 }
 
 #[cfg(test)]
@@ -318,20 +346,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn generic_executor_counts_attempts() {
+    async fn chain_run_records_failures() {
         let labels: Vec<String> = ["a", "b", "c"].iter().map(|s| s.to_string()).collect();
-        let mut tried = Vec::new();
-        let r = run_chain(
-            &labels,
-            true,
-            async |i| {
-                tried.push(i);
-                if i < 2 { Err(ProviderError::Empty) } else { Ok(i * 10) }
-            },
-            |_| {},
-        )
-        .await
-        .unwrap();
-        assert_eq!((r.value, tried), (20, vec![0, 1, 2]));
+        let mut run = ChainRun::new(labels.clone(), true);
+        assert_eq!(run.len(), 3);
+        run.fail(0, ProviderError::Empty);
+        run.fail(1, ProviderError::Timeout);
+        let ok = run.succeed(2, 20);
+        assert_eq!((ok.value, ok.label.as_str(), ok.failures.len()), (20, "c", 2));
+        assert_eq!(ok.describe(), "a 返回空结果，b 超时，已切换到 c");
+        assert_eq!(ChainRun::new(labels, false).len(), 1);
+        assert!(ChainRun::new(vec![], true).is_empty());
     }
 }

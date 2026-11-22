@@ -15,6 +15,7 @@
     opts,
     canUndo,
     propsOpen = $bindable(false),
+    rect = $bindable(),
     onaction,
     ontool,
     onopts,
@@ -25,6 +26,8 @@
     opts: Record<Tool, ToolOpts>;
     canUndo: boolean;
     propsOpen?: boolean;
+    /** 工具条当前占的位置（CSS 像素），结果卡片据此避开 */
+    rect?: Rect;
     onaction: (a: Action) => void;
     ontool: (t: Tool) => void;
     onopts: (t: Tool, o: Partial<ToolOpts>) => void;
@@ -38,6 +41,9 @@
   const popUp = $derived(pos.y + height + 150 > innerHeight);
   /** 弹层对齐当前工具按钮 */
   let popLeft = $state(4);
+  $effect(() => {
+    rect = { x: pos.x, y: pos.y, width, height };
+  });
 </script>
 
 <div
@@ -52,6 +58,8 @@
   onpointerdown={(e) => e.stopPropagation()}
 >
   <ToolButtons {tool} {canUndo} bind:propsOpen {ontool} {onundo} onanchor={(x) => (popLeft = x)} />
+  <span class="sep" aria-hidden="true"></span>
+  <IconButton icon="translate" label="翻译  Ctrl+Q" onclick={() => onaction('translate')} />
   <span class="sep" aria-hidden="true"></span>
   <IconButton icon="pin" label="贴图  Ctrl+T" onclick={() => onaction('pin')} />
   <IconButton icon="download" label="保存…  Ctrl+S" onclick={() => onaction('save')} />

@@ -1,7 +1,7 @@
 <script lang="ts">
   // 设置窗口。完整的分页布局在 M10.1 实现；这里先放已经用得上的几项：外观、截图、模型服务。
   import { onMount } from 'svelte';
-  import { appInfo, type AppInfo } from '$lib/ipc';
+  import { appInfo, languages, type AppInfo, type Lang } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';
   import type { ThemeMode } from '$lib/theme';
   import Card from '$lib/ui/Card.svelte';
@@ -19,8 +19,10 @@
   import { toast } from '$lib/ui/toast.svelte';
 
   let info = $state<AppInfo | null>(null);
+  let langs = $state<Lang[]>([]);
   onMount(async () => {
     info = await appInfo();
+    langs = await languages();
   });
 
   const THEMES: { value: ThemeMode; label: string }[] = [
@@ -96,6 +98,19 @@
         aria-label="文件名模板"
         value={config.value.save.filenameTemplate}
         onchange={(e) => save({ save: { filenameTemplate: e.currentTarget.value.trim() || 'SnapMind_{yyyyMMdd_HHmmss}' } })}
+      />
+    </Row>
+  </Card>
+
+  <h1 class="t-title">翻译</h1>
+  <Card>
+    <Row title="目标语言" desc="截图翻译（Ctrl+Q、Ctrl+Shift+O）把文字翻译成这种语言">
+      <Select
+        aria-label="目标语言"
+        width="160px"
+        options={langs.map((l) => ({ value: l.code, label: l.name }))}
+        value={config.value.translation.targetLang}
+        onchange={(e) => save({ translation: { targetLang: e.currentTarget.value } })}
       />
     </Row>
   </Card>

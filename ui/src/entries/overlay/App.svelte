@@ -2,12 +2,17 @@
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
-  // M2.3 按原始分辨率导出标注、未保存标注的退出确认。
+  // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
     captureCopy,
     capturePin,
+    capturePinText,
+    captureTranslate,
+    onTaskEvent,
+    taskCancel,
+    translateText,
     captureSetAnnotations,
     captureSave,
     pickSaveFile,
@@ -28,7 +33,7 @@
   } from '$lib/ipc';
   import { containsPoint, keepLevel, toLocalChain, wheelLevel } from '$lib/snap';
   import { log } from '$lib/log';
-  import { physicalToCss, type Point, type Rect } from '$lib/geometry';
+  import { physicalToCss, unionRect, type Point, type Rect } from '$lib/geometry';
   import { formatColor, nextFormat, wasdDelta, type RGB } from '$lib/color';
   import { config, updateConfig } from '$lib/config.svelte';
   import ToastHost from '$lib/ui/ToastHost.svelte';
@@ -56,6 +61,8 @@
   import { TOOL_INFO, renderLayer, toolForKey, type Tool } from '$lib/annotate';
   import { Annotator } from '$lib/annotator.svelte';
   import { devCapture, devChain } from './devFrame';
+  import TranslateCard from './TranslateCard.svelte';
+  import { newCard, reduce, type TranslateCard as Card } from '$lib/task';
 
   /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
   const CLICK_SLOP = 3;
@@ -86,6 +93,10 @@
   let saveOpen = $state(false);
   /** 放弃标注的确认框（逐级退出的一级）。 */
   let confirmOpen = $state(false);
+  /** 翻译结果卡片（打开卡片不会结束截图） */
+  let card = $state<Card | null>(null);
+  /** 工具条位置：结果卡片要避开它 */
+  let toolbarRect = $state<Rect>();
 
   // ---- 标注（状态与交互在共用的 Annotator 里；坐标是本屏截图像素）----
   /** 遮罩窗口常驻，所以各工具的样式整个运行期间都记得。 */
@@ -147,7 +158,7 @@
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool,
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -196,6 +207,7 @@
     snapLevel = 0;
     saveOpen = false;
     confirmOpen = false;
+    closeCard();
     ann.reset();
     propsOpen = false;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
@@ -218,6 +230,7 @@
 
   /** 清空本窗口的画面和状态。 */
   function resetView() {
+    closeCard();
     session = null;
     sel = null;
     drag = null;
@@ -331,7 +344,52 @@
       case 'save': return save();
       case 'exit': return requestClose();
       case 'pin': return pin();
+      case 'translate': return translate();
     }
+  }
+
+  // ---------------------------------------------------------------- 翻译卡片
+
+  let cardSeq = 0;
+
+  /** Ctrl+Q / 工具条「翻译」：识别选区（还没有选区时用高亮元素或整屏）并翻译。 */
+  function translate() {
+    if (!session || drag) return;
+    if (!sel) sel = region();
+    if (card) taskCancel(card.id);
+    const id = `tr-${session.seq}-${++cardSeq}`;
+    card = newCard(id);
+    captureTranslate(id, session.index, sel).catch((e) => {
+      if (card?.id === id) card = { ...card, stage: 'error', error: String(e) };
+    });
+  }
+
+  function retranslate() {
+    if (!card || !card.src.trim()) return;
+    card = { ...card, dst: '', stage: 'translate', backend: '', meta: '', error: '' };
+    translateText(card.id, card.src).catch((e) => {
+      if (card) card = { ...card, stage: 'error', error: String(e) };
+    });
+  }
+
+  function closeCard() {
+    if (card) taskCancel(card.id);
+    card = null;
+  }
+
+  /** 复制译文：交出结果，结束截图（不再询问未保存的标注）。 */
+  async function copyTranslation() {
+    if (!card) return;
+    await clipboardWriteText(card.dst.trim());
+    close();
+  }
+
+  /** 把译文贴成文字卡片，结束截图。 */
+  function pinTranslation() {
+    if (!card || !session || !sel) return;
+    const [i, r, text] = [session.index, sel, card.dst.trim()];
+    resetView();
+    capturePinText(i, r, text).catch((e) => log('error', `贴译文失败：${e}`));
   }
 
   /** 贴图：在原位置钉一张贴图（带标注），结束截图。 */
@@ -417,6 +475,8 @@
     }
     drag = null;
     hover = sel ? hitTest(sel, toPx(e.clientX, e.clientY), HIT_TOL * mon.scale) : null;
+    // Ctrl+Shift+O：选好区域就直接识别并翻译
+    if (sel && session?.intent === 'translate' && !card) translate();
   }
 
   /** 右键：标注时退出标注；有选区时取消选区（已有标注时不取消，免得标注丢失）；没有选区时退出截图。 */
@@ -467,12 +527,21 @@
       e.preventDefault();
       if (propsOpen) propsOpen = false;
       else if (saveOpen) saveOpen = false;
+      else if (card) closeCard();
       else if (ann.tool) exitAnnotate();
       else requestClose();
       return;
     }
     if (saveOpen) return; // 保存窗口打开时，其他快捷键交给它
+    // 在卡片的文本框里打字、选择、Ctrl+C 时，按键交给文本框
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return;
     const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'q') {
+      e.preventDefault();
+      translate();
+      return;
+    }
     if ((ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') || (e.key === 'Enter' && !ctrl)) {
       e.preventDefault();
       if (!drag) copy();
@@ -553,10 +622,14 @@
     const offClaim = onSelectionClaimed((index) => {
       if (session && index !== session.index) sel = null;
     });
+    const offTask = onTaskEvent((e) => {
+      if (card) card = reduce(card, e);
+    });
     if (!inTauri()) devCapture().then(({ start: s, url }) => start(s, url));
     return () => {
       offStart.then((f) => f());
       offClaim.then((f) => f());
+      offTask.then((f) => f());
     };
   });
 </script>
@@ -605,10 +678,23 @@
       opts={ann.opts}
       canUndo={ann.canUndo}
       bind:propsOpen
+      bind:rect={toolbarRect}
       onaction={onAction}
       ontool={setTool}
       onopts={(t, o) => ann.setOpts(t, o)}
       onundo={() => ann.undo()}
+    />
+  {/if}
+  {#if card && selOnlyCss && !saveOpen}
+    <TranslateCard
+      sel={unionRect(selOnlyCss, showToolbar ? toolbarRect : null)}
+      {card}
+      onsrc={(v) => card && (card = { ...card, src: v })}
+      ondst={(v) => card && (card = { ...card, dst: v })}
+      onretranslate={retranslate}
+      oncopy={copyTranslation}
+      onpin={pinTranslation}
+      onclose={closeCard}
     />
   {/if}
   {#if saveOpen && sel && session}

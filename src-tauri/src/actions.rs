@@ -5,10 +5,16 @@ use tauri::{AppHandle, Runtime};
 /// 默认快捷键（需求第 2 节）。M10.1 起可在设置里修改。
 pub const CAPTURE_SHORTCUT: &str = "Shift+F1";
 pub const PIN_CLIPBOARD_SHORTCUT: &str = "Shift+F3";
+pub const TRANSLATE_SHORTCUT: &str = "Ctrl+Shift+O";
 
 /// 截图并进入编辑态。
 pub fn capture<R: Runtime>(app: &AppHandle<R>) {
-    crate::overlay::begin(app);
+    crate::overlay::begin(app, crate::overlay::Intent::Capture);
+}
+
+/// 截图 → 识别 → 翻译：选好区域后直接打开翻译卡片。
+pub fn capture_translate<R: Runtime>(app: &AppHandle<R>) {
+    crate::overlay::begin(app, crate::overlay::Intent::Translate);
 }
 
 /// 贴剪贴板内容：图片贴图片，文字渲染成文字卡片；贴图以鼠标位置为中心出现。

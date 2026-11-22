@@ -9,6 +9,7 @@ mod pin;
 mod pintools;
 mod providers;
 mod state;
+mod translate;
 mod tray;
 mod wm;
 
@@ -38,6 +39,8 @@ pub fn run() {
                         pin::toggle_through(app);
                     } else if is(actions::PIN_CLIPBOARD_SHORTCUT) {
                         actions::pin_clipboard(app);
+                    } else if is(actions::TRANSLATE_SHORTCUT) {
+                        actions::capture_translate(app);
                     } else {
                         actions::capture(app);
                     }
@@ -48,6 +51,7 @@ pub fn run() {
         .manage(overlay::CaptureState::default())
         .manage(pin::PinState::default())
         .manage(pintools::ToolsState::default())
+        .manage(translate::TaskState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
@@ -69,7 +73,7 @@ pub fn run() {
             overlay::prewarm(handle);
             pintools::prewarm(handle);
             std::thread::spawn(export::cleanup_clip_files);
-            for key in [actions::CAPTURE_SHORTCUT, actions::PIN_CLIPBOARD_SHORTCUT] {
+            for key in [actions::CAPTURE_SHORTCUT, actions::PIN_CLIPBOARD_SHORTCUT, actions::TRANSLATE_SHORTCUT] {
                 if let Err(e) = handle.global_shortcut().register(key) {
                     // 被别的程序占用时不影响启动；M10.1 在设置页标红提示。
                     eprintln!("注册快捷键 {key} 失败：{e}");
@@ -114,6 +118,10 @@ pub fn run() {
             commands::clipboard_write_text,
             export::capture_copy,
             export::capture_pin,
+            export::capture_pin_text,
+            translate::capture_translate,
+            translate::translate_text,
+            translate::task_cancel,
             commands::pin_info,
             commands::pin_ready,
             commands::pin_zoom,

@@ -25,6 +25,14 @@ export interface Rect {
   height: number;
 }
 
+/** 两个矩形的外接矩形（b 为空时返回 a）。 */
+export function unionRect(a: Rect, b?: Rect | null): Rect {
+  if (!b) return a;
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y };
+}
+
 /** 窗口内 CSS 坐标 → 虚拟桌面物理坐标（取整到像素）。 */
 export function cssToPhysical(m: MonitorGeom, p: Point): Point {
   return { x: m.x + Math.round(p.x * m.scale), y: m.y + Math.round(p.y * m.scale) };

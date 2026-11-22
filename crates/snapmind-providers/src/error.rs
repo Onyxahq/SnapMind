@@ -23,6 +23,9 @@ pub enum ProviderError {
     Parse(String),
     #[error("模型返回了空结果")]
     Empty,
+    /// 后端暂时用不了（如本地 OCR 还没安装）
+    #[error("{0}")]
+    Unavailable(String),
 }
 
 impl ProviderError {
@@ -38,6 +41,7 @@ impl ProviderError {
             ProviderError::Timeout => "超时".into(),
             ProviderError::Parse(_) => "返回格式不对".into(),
             ProviderError::Empty => "返回空结果".into(),
+            ProviderError::Unavailable(_) => "不可用".into(),
         }
     }
 }

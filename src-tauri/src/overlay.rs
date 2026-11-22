@@ -68,6 +68,16 @@ struct StartPayload {
     has_cursor: bool,
     /// 截图时的鼠标位置（物理像素），仅在这块屏上时提供
     cursor: Option<CursorPos>,
+    /// 选好区域后要直接做什么：`capture`（只截图）/ `translate`（Ctrl+Shift+O）
+    intent: Intent,
+}
+
+/// 截图的目的。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Intent {
+    Capture,
+    Translate,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -208,7 +218,7 @@ pub fn prewarm<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// 开始一次截图（全局快捷键、托盘左键都走这里）。
-pub fn begin<R: Runtime>(app: &AppHandle<R>) {
+pub fn begin<R: Runtime>(app: &AppHandle<R>, intent: Intent) {
     let t0 = Instant::now();
     let t0_epoch = epoch_ms();
     let state = app.state::<CaptureState>();
@@ -254,7 +264,7 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>) {
                 && c.y < m.y as f64 + m.height as f64
         });
         let cursor_here = cursor.filter(|_| has_cursor).map(|c| CursorPos { x: c.x as i32, y: c.y as i32 });
-        let payload = StartPayload { seq, index: i, monitor: *m, has_cursor, cursor: cursor_here };
+        let payload = StartPayload { seq, index: i, monitor: *m, has_cursor, cursor: cursor_here, intent };
         let _ = app.emit_to(w.label(), EVENT_START, payload);
         place(w, m);
         if has_cursor {

@@ -36,6 +36,8 @@ pub struct Config {
     pub chains: ChainsConfig,
     /// 四套提示词；空字符串表示用默认值（需求 1.3）。
     pub prompts: PromptsConfig,
+    /// 翻译偏好（需求第 8 节；M6.3 继续补充）。
+    pub translation: TranslationConfig,
 }
 
 impl Default for Config {
@@ -49,6 +51,7 @@ impl Default for Config {
             mt: MtConfig::default(),
             chains: ChainsConfig::default(),
             prompts: PromptsConfig::default(),
+            translation: TranslationConfig::default(),
         }
     }
 }
@@ -292,6 +295,19 @@ impl PromptsConfig {
     }
 }
 
+/// 翻译偏好。语言用统一代码（见 [`crate::lang`]）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct TranslationConfig {
+    pub target_lang: String,
+}
+
+impl Default for TranslationConfig {
+    fn default() -> Self {
+        Self { target_lang: "zh-Hans".into() }
+    }
+}
+
 // ---------------------------------------------------------------- 错误
 
 #[derive(Debug, thiserror::Error)]
@@ -487,7 +503,8 @@ mod tests {
                     "recognize": [{ "type": "localOcr" }],
                     "oneshot": []
                 },
-                "prompts": { "recognize": "", "translate": "", "oneshot": "", "markdown": "" }
+                "prompts": { "recognize": "", "translate": "", "oneshot": "", "markdown": "" },
+                "translation": { "targetLang": "zh-Hans" }
             })
         );
     }

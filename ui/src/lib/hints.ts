@@ -38,6 +38,7 @@ export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
         { k: 'Ctrl+C', label: '复制并结束' },
         { k: 'Ctrl+S', label: '保存…' },
         { k: 'Ctrl+T', label: '贴图并结束' },
+        { k: 'Ctrl+Q', label: '翻译' },
         { k: 'P / C', label: '颜色格式 / 复制颜色' },
         { k: '右键', label: '取消选区' },
         { k: 'Esc', label: '退出' },

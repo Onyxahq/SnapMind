@@ -22,6 +22,7 @@ export interface Config {
   chains: ChainsConfig;
   /** 空字符串表示用默认提示词 */
   prompts: Record<PromptKind, string>;
+  translation: { targetLang: string };
 }
 
 export type PromptKind = 'recognize' | 'translate' | 'oneshot' | 'markdown';
@@ -93,6 +94,7 @@ export const DEFAULT_CONFIG: Config = {
   mt: { microsoftRegion: '' },
   chains: { fallback: true, timeoutSecs: 8, translate: [], recognize: [{ type: 'localOcr' }], oneshot: [] },
   prompts: { recognize: '', translate: '', oneshot: '', markdown: '' },
+  translation: { targetLang: 'zh-Hans' },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -156,6 +158,8 @@ export interface CaptureStart {
   hasCursor: boolean;
   /** 截图时的鼠标位置（虚拟桌面物理坐标），放大镜一出现就能定位 */
   cursor: import('./geometry').Point | null;
+  /** 选好区域后要直接做什么：capture 只截图；translate 是 Ctrl+Shift+O（截图 → 识别 → 翻译） */
+  intent?: 'capture' | 'translate';
 }
 
 /** 订阅「开始截图」（只有遮罩窗口会收到）。 */
@@ -593,4 +597,78 @@ export interface Lang {
 export async function languages(): Promise<Lang[]> {
   if (!inTauri()) return [{ code: 'zh-Hans', name: '简体中文' }, { code: 'en', name: 'English' }, { code: 'ja', name: '日语' }];
   return invoke('languages');
+}
+
+// ---- 识别 / 翻译任务 ----
+
+/** Rust 推来的任务事件（见 src-tauri/src/translate.rs）。 */
+export interface TaskEvent {
+  id: string;
+  kind: 'stage' | 'src' | 'src-reset' | 'dst' | 'dst-reset' | 'done' | 'error';
+  stage: 'recognize' | 'translate';
+  text: string;
+}
+
+const fakeTaskListeners = new Set<(e: TaskEvent) => void>();
+const fakeTimers = new Map<string, ReturnType<typeof setTimeout>[]>();
+
+/** 浏览器开发页里模拟一次流式输出（含一次切换后端）。 */
+function fakeRun(id: string, steps: Omit<TaskEvent, 'id'>[]) {
+  fakeTimers.get(id)?.forEach(clearTimeout);
+  fakeTimers.set(
+    id,
+    steps.map((s, i) => setTimeout(() => fakeTaskListeners.forEach((f) => f({ id, ...s })), 120 * (i + 1))),
+  );
+}
+
+const fakeTranslate = (text: string): Omit<TaskEvent, 'id'>[] => [
+  { kind: 'stage', stage: 'translate', text: 'deepseek-chat' },
+  { kind: 'dst', stage: 'translate', text: '半截' },
+  { kind: 'dst-reset', stage: 'translate', text: '' },
+  { kind: 'stage', stage: 'translate', text: 'DeepL' },
+  ...`（译文）${text}`.match(/.{1,6}/gs)!.map((t) => ({ kind: 'dst' as const, stage: 'translate' as const, text: t })),
+  { kind: 'done', stage: 'translate', text: 'deepseek-chat 超时，已切换到 DeepL · 1.4 s' },
+];
+
+export async function onTaskEvent(cb: (e: TaskEvent) => void): Promise<() => void> {
+  if (!inTauri()) {
+    fakeTaskListeners.add(cb);
+    return () => fakeTaskListeners.delete(cb);
+  }
+  return listen<TaskEvent>('task:event', (e) => cb(e.payload));
+}
+
+/** 截图翻译：识别选区（原图，不带标注）再翻译，进度通过 onTaskEvent 推来。 */
+export async function captureTranslate(id: string, index: number, region: Region): Promise<void> {
+  if (!inTauri()) {
+    const src = 'Translation is not just about swapping words.\nA good translation keeps intent and tone.';
+    return fakeRun(id, [
+      { kind: 'stage', stage: 'recognize', text: '' },
+      { kind: 'stage', stage: 'recognize', text: 'qwen-vl' },
+      ...src.match(/.{1,12}/gs)!.map((t) => ({ kind: 'src' as const, stage: 'recognize' as const, text: t })),
+      ...fakeTranslate(src),
+    ]);
+  }
+  return invoke('capture_translate', { id, index, region });
+}
+
+/** 按（改过的）原文重新翻译。 */
+export async function translateText(id: string, text: string): Promise<void> {
+  if (!inTauri()) return fakeRun(id, fakeTranslate(text));
+  return invoke('translate_text', { id, text });
+}
+
+export async function taskCancel(id: string): Promise<void> {
+  if (!inTauri()) {
+    fakeTimers.get(id)?.forEach(clearTimeout);
+    fakeTimers.delete(id);
+    return;
+  }
+  return invoke('task_cancel', { id });
+}
+
+/** 把文字贴成文字卡片（放在选区左上角）并结束截图。 */
+export async function capturePinText(index: number, region: Region, text: string): Promise<number> {
+  if (!inTauri()) return 0;
+  return invoke('capture_pin_text', { index, region, text });
 }
