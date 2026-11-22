@@ -58,6 +58,52 @@ pub fn set_image(clip: &ImageClip) -> Result<(), ClipboardError> {
     imp::set_image(clip)
 }
 
+/// 剪贴板当时的全部内容（每种格式的原始字节），划词时模拟复制前存下、取完词再放回去。
+/// 位图句柄、图元文件这类 GDI 格式存不下来，跳过（系统会从 CF_DIB 重新合成位图）。
+#[derive(Debug, Default, Clone)]
+pub struct Snapshot {
+    pub formats: Vec<(u32, Vec<u8>)>,
+}
+
+/// 存下剪贴板的全部内容。打不开剪贴板时返回 None。
+pub fn snapshot() -> Option<Snapshot> {
+    imp::snapshot()
+}
+
+/// 放回存下的内容（原来是空的就清空）。
+pub fn restore(s: &Snapshot) -> Result<(), ClipboardError> {
+    imp::restore(s)
+}
+
+/// 系统会互相合成的格式族：文字（CF_UNICODETEXT / CF_TEXT / CF_OEMTEXT）、位图
+/// （CF_BITMAP / CF_DIB / CF_DIBV5）。原程序放进去的那个排在前面，合成出来的排在后面。
+/// 每族只留原来那个——连合成的一起放回去，读的程序可能取到转换过一次的数据（位图会错位）。
+/// 原来那个是存不下来的 GDI 位图（CF_BITMAP）时，留系统合成的 CF_DIB，让系统再从它合成其余的。
+pub fn without_synthesized(formats: Vec<(u32, Vec<u8>)>, order: &[u32]) -> Vec<(u32, Vec<u8>)> {
+    const FAMILIES: [[u32; 3]; 2] = [[13, 1, 7], [2, 8, 17]];
+    let mut drop: Vec<u32> = Vec::new();
+    for fam in FAMILIES {
+        let Some(&first) = order.iter().find(|f| fam.contains(f)) else { continue };
+        let keep = if first == 2 {
+            [8, 17].into_iter().find(|f| formats.iter().any(|(g, _)| g == f)).unwrap_or(0)
+        } else {
+            first
+        };
+        drop.extend(fam.iter().copied().filter(|&f| f != keep));
+    }
+    formats.into_iter().filter(|(f, _)| !drop.contains(f)).collect()
+}
+
+/// 剪贴板的序号：内容每变一次加一，用来判断模拟复制有没有生效。
+pub fn sequence() -> u32 {
+    imp::sequence()
+}
+
+/// 读出剪贴板里的文字（没有文字时为 None）。
+pub fn text() -> Option<String> {
+    arboard::Clipboard::new().ok()?.get_text().ok()
+}
+
 /// CF_DIB 数据：BITMAPINFOHEADER + 自下而上的 32 位 BGRA 像素。
 pub fn dib_bytes(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
     let row = (width * 4) as usize;
@@ -97,9 +143,85 @@ mod imp {
     use windows::core::w;
     use windows::Win32::Foundation::{GlobalFree, HANDLE, HGLOBAL};
     use windows::Win32::System::DataExchange::{
-        CloseClipboard, EmptyClipboard, OpenClipboard, RegisterClipboardFormatW, SetClipboardData,
+        CloseClipboard, EmptyClipboard, EnumClipboardFormats, GetClipboardData, GetClipboardSequenceNumber,
+        OpenClipboard, RegisterClipboardFormatW, SetClipboardData,
     };
-    use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+    use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock, GMEM_MOVEABLE};
+
+    /// 不是 HGLOBAL 的格式（GDI 句柄、所有者绘制），存不下来
+    const HANDLE_FORMATS: [u32; 8] = [2, 3, 9, 14, 0x80, 0x82, 0x83, 0x8E];
+
+    fn open_retry() -> bool {
+        for _ in 0..10 {
+            if unsafe { OpenClipboard(None) }.is_ok() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        false
+    }
+
+    pub fn sequence() -> u32 {
+        unsafe { GetClipboardSequenceNumber() }
+    }
+
+    pub fn snapshot() -> Option<Snapshot> {
+        if !open_retry() {
+            return None;
+        }
+        let _guard = Open;
+        let mut out = Snapshot::default();
+        let mut fmt = 0u32;
+        loop {
+            fmt = unsafe { EnumClipboardFormats(fmt) };
+            if fmt == 0 {
+                break;
+            }
+            if HANDLE_FORMATS.contains(&fmt) {
+                continue;
+            }
+            unsafe {
+                let Ok(h) = GetClipboardData(fmt) else { continue };
+                let mem = HGLOBAL(h.0);
+                let size = GlobalSize(mem);
+                let p = GlobalLock(mem) as *const u8;
+                if p.is_null() || size == 0 {
+                    continue;
+                }
+                let bytes = std::slice::from_raw_parts(p, size).to_vec();
+                let _ = GlobalUnlock(mem);
+                out.formats.push((fmt, bytes));
+            }
+        }
+        let order = enumerated();
+        out.formats = without_synthesized(out.formats, &order);
+        Some(out)
+    }
+
+    /// 剪贴板里所有格式的编号，按枚举顺序（调用方已打开剪贴板）。
+    fn enumerated() -> Vec<u32> {
+        let mut v = Vec::new();
+        let mut fmt = 0u32;
+        loop {
+            fmt = unsafe { EnumClipboardFormats(fmt) };
+            if fmt == 0 {
+                return v;
+            }
+            v.push(fmt);
+        }
+    }
+
+    pub fn restore(s: &Snapshot) -> Result<(), ClipboardError> {
+        if !open_retry() {
+            return Err(ClipboardError("剪贴板被其他程序占用".into()));
+        }
+        let _guard = Open;
+        unsafe { EmptyClipboard() }.map_err(|e| ClipboardError(format!("EmptyClipboard：{e}")))?;
+        for (fmt, bytes) in &s.formats {
+            put(*fmt, bytes)?;
+        }
+        Ok(())
+    }
 
     const CF_DIB: u32 = 8;
     const CF_HDROP: u32 = 15;
@@ -169,6 +291,20 @@ mod imp {
 mod imp {
     use super::*;
 
+    // Linux（M12）：先只存文字
+    pub fn sequence() -> u32 {
+        0
+    }
+    pub fn snapshot() -> Option<Snapshot> {
+        Some(Snapshot { formats: super::text().map(|t| vec![(13, t.into_bytes())]).unwrap_or_default() })
+    }
+    pub fn restore(s: &Snapshot) -> Result<(), ClipboardError> {
+        match s.formats.first() {
+            Some((_, b)) => super::set_text(&String::from_utf8_lossy(b)),
+            None => Ok(()),
+        }
+    }
+
     pub fn set_image(clip: &ImageClip) -> Result<(), ClipboardError> {
         let mut cb = arboard::Clipboard::new().map_err(|e| ClipboardError(e.to_string()))?;
         cb.set_image(arboard::ImageData {
@@ -193,6 +329,21 @@ mod tests {
         assert_eq!(i32::from_le_bytes(d[8..12].try_into().unwrap()), 2);
         assert_eq!(&d[40..44], &[255, 0, 0, 255], "第一行是最下面的蓝色（BGRA）");
         assert_eq!(&d[44..48], &[0, 0, 255, 255]);
+    }
+
+    #[test]
+    fn keeps_only_original_of_synthesized_families() {
+        let f = |ids: &[u32]| ids.iter().map(|&i| (i, vec![i as u8])).collect::<Vec<_>>();
+        let ids = |v: Vec<(u32, Vec<u8>)>| v.into_iter().map(|(i, _)| i).collect::<Vec<_>>();
+        // .NET 放了 CF_UNICODETEXT 和 GDI 位图：合成的 CF_TEXT / OEMTEXT / DIBV5 去掉，位图留 CF_DIB
+        let order = [49161, 13, 2, 50089, 16, 1, 7, 8, 17];
+        let saved = f(&[49161, 13, 50089, 16, 1, 7, 8, 17]); // CF_BITMAP 本来就存不下
+        assert_eq!(ids(without_synthesized(saved, &order)), vec![49161, 13, 50089, 16, 8]);
+        // 程序直接放的 CF_DIB 和 PNG：DIBV5 是合成的
+        let order = [8, 49300, 2, 17];
+        assert_eq!(ids(without_synthesized(f(&[8, 49300, 17]), &order)), vec![8, 49300]);
+        // 只有 ANSI 文字的老程序：留 CF_TEXT
+        assert_eq!(ids(without_synthesized(f(&[1, 16, 13, 7]), &[1, 16, 13, 7])), vec![1, 16]);
     }
 
     #[test]

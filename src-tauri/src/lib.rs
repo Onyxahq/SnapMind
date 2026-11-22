@@ -44,6 +44,8 @@ pub fn run() {
                         actions::capture_translate(app);
                     } else if is(actions::RECOGNIZE_SHORTCUT) {
                         actions::capture_recognize(app);
+                    } else if is(actions::SELECTION_SHORTCUT) {
+                        actions::translate_selection(app);
                     } else {
                         actions::capture(app);
                     }
@@ -82,6 +84,7 @@ pub fn run() {
                 actions::PIN_CLIPBOARD_SHORTCUT,
                 actions::TRANSLATE_SHORTCUT,
                 actions::RECOGNIZE_SHORTCUT,
+                actions::SELECTION_SHORTCUT,
             ] {
                 if let Err(e) = handle.global_shortcut().register(key) {
                     // 被别的程序占用时不影响启动；M10.1 在设置页标红提示。
