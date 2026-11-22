@@ -21,7 +21,15 @@ pub fn capture_rect(r: Rect) -> Result<Frame, CaptureError> {
     if r.width == 0 || r.height == 0 {
         return Err(CaptureError::Empty);
     }
-    imp::capture_rect(r)
+    imp::capture_rect(r, false)
+}
+
+/// 抓取一块矩形，并把鼠标指针画上去（录屏用；截图本身不带指针）。
+pub fn capture_rect_with_cursor(r: Rect) -> Result<Frame, CaptureError> {
+    if r.width == 0 || r.height == 0 {
+        return Err(CaptureError::Empty);
+    }
+    imp::capture_rect(r, true)
 }
 
 /// 并行抓取多块矩形（每个显示器一块），结果顺序与输入一致。
@@ -40,6 +48,35 @@ mod imp {
     use super::*;
     use std::ffi::c_void;
     use windows::Win32::Graphics::Gdi::*;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        DrawIconEx, GetCursorInfo, GetIconInfo, CURSORINFO, CURSOR_SHOWING, DI_NORMAL, ICONINFO,
+    };
+
+    /// 把当前鼠标指针画到内存 DC 上（坐标相对抓取区域左上角）。
+    unsafe fn draw_cursor(mem: HDC, r: Rect) {
+        let mut ci = CURSORINFO { cbSize: std::mem::size_of::<CURSORINFO>() as u32, ..Default::default() };
+        unsafe {
+            if GetCursorInfo(&mut ci).is_err() || ci.flags.0 & CURSOR_SHOWING.0 == 0 || ci.hCursor.is_invalid() {
+                return;
+            }
+            let mut ii = ICONINFO::default();
+            let (hx, hy) = if GetIconInfo(ci.hCursor.into(), &mut ii).is_ok() {
+                // GetIconInfo 交出两张位图，用完要删掉
+                if !ii.hbmMask.is_invalid() {
+                    let _ = DeleteObject(ii.hbmMask.into());
+                }
+                if !ii.hbmColor.is_invalid() {
+                    let _ = DeleteObject(ii.hbmColor.into());
+                }
+                (ii.xHotspot as i32, ii.yHotspot as i32)
+            } else {
+                (0, 0)
+            };
+            let x = ci.ptScreenPos.x - hx - r.x;
+            let y = ci.ptScreenPos.y - hy - r.y;
+            let _ = DrawIconEx(mem, x, y, ci.hCursor.into(), 0, 0, 0, None, DI_NORMAL);
+        }
+    }
 
     /// 释放 GDI 资源的守卫，任何一步出错都不会泄漏句柄。
     struct Gdi {
@@ -68,7 +105,7 @@ mod imp {
         }
     }
 
-    pub fn capture_rect(r: Rect) -> Result<Frame, CaptureError> {
+    pub fn capture_rect(r: Rect, cursor: bool) -> Result<Frame, CaptureError> {
         let (w, h) = (r.width as i32, r.height as i32);
         unsafe {
             let mut g = Gdi {
@@ -102,6 +139,9 @@ mod imp {
             g.old = SelectObject(g.mem, g.bitmap.into());
             BitBlt(g.mem, 0, 0, w, h, Some(g.screen), r.x, r.y, SRCCOPY | CAPTUREBLT)
                 .map_err(|e| CaptureError::Os(format!("BitBlt：{e}")))?;
+            if cursor {
+                draw_cursor(g.mem, r);
+            }
             let _ = GdiFlush();
             let len = r.width as usize * r.height as usize * 4;
             let pixels = std::slice::from_raw_parts(bits as *const u8, len);
@@ -114,7 +154,7 @@ mod imp {
 mod imp {
     use super::*;
 
-    pub fn capture_rect(_r: Rect) -> Result<Frame, CaptureError> {
+    pub fn capture_rect(_r: Rect, _cursor: bool) -> Result<Frame, CaptureError> {
         Err(CaptureError::Unsupported)
     }
 }

@@ -58,6 +58,11 @@ pub fn set_image(clip: &ImageClip) -> Result<(), ClipboardError> {
     imp::set_image(clip)
 }
 
+/// 把一个文件放进剪贴板（在资源管理器、聊天软件里粘贴成文件）。录屏保存后用。
+pub fn set_file(path: &Path) -> Result<(), ClipboardError> {
+    imp::set_file(path)
+}
+
 /// 剪贴板当时的全部内容（每种格式的原始字节），划词时模拟复制前存下、取完词再放回去。
 /// 位图句柄、图元文件这类 GDI 格式存不下来，跳过（系统会从 CF_DIB 重新合成位图）。
 #[derive(Debug, Default, Clone)]
@@ -256,8 +261,8 @@ mod imp {
         Ok(())
     }
 
-    pub fn set_image(clip: &ImageClip) -> Result<(), ClipboardError> {
-        // 别的程序可能正占着剪贴板，稍等重试
+    /// 打开并清空剪贴板（别的程序可能正占着，稍等重试）。
+    fn open_empty() -> Result<Open, ClipboardError> {
         let mut opened = false;
         for _ in 0..10 {
             if unsafe { OpenClipboard(None) }.is_ok() {
@@ -269,21 +274,36 @@ mod imp {
         if !opened {
             return Err(ClipboardError("剪贴板被其他程序占用".into()));
         }
-        let _guard = Open;
+        let guard = Open;
         unsafe { EmptyClipboard() }.map_err(|e| ClipboardError(format!("EmptyClipboard：{e}")))?;
+        Ok(guard)
+    }
+
+    fn put_file(file: &Path) -> Result<(), ClipboardError> {
+        put(CF_HDROP, &hdrop_bytes(file))?;
+        let effect = unsafe { RegisterClipboardFormatW(w!("Preferred DropEffect")) };
+        if effect != 0 {
+            put(effect, &1u32.to_le_bytes())?; // DROPEFFECT_COPY：粘贴是复制而不是移动
+        }
+        Ok(())
+    }
+
+    pub fn set_image(clip: &ImageClip) -> Result<(), ClipboardError> {
+        let _guard = open_empty()?;
         put(CF_DIB, &dib_bytes(clip.width, clip.height, clip.rgba))?;
         let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
         if png != 0 {
             put(png, clip.png)?;
         }
         if let Some(file) = clip.file {
-            put(CF_HDROP, &hdrop_bytes(file))?;
-            let effect = unsafe { RegisterClipboardFormatW(w!("Preferred DropEffect")) };
-            if effect != 0 {
-                put(effect, &1u32.to_le_bytes())?; // DROPEFFECT_COPY：粘贴是复制而不是移动
-            }
+            put_file(file)?;
         }
         Ok(())
+    }
+
+    pub fn set_file(path: &Path) -> Result<(), ClipboardError> {
+        let _guard = open_empty()?;
+        put_file(path)
     }
 }
 
@@ -303,6 +323,10 @@ mod imp {
             Some((_, b)) => super::set_text(&String::from_utf8_lossy(b)),
             None => Ok(()),
         }
+    }
+
+    pub fn set_file(path: &Path) -> Result<(), ClipboardError> {
+        super::set_text(&path.to_string_lossy())
     }
 
     pub fn set_image(clip: &ImageClip) -> Result<(), ClipboardError> {

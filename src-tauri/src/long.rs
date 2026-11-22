@@ -1,9 +1,8 @@
 //! 长截图（需求 3.9、M9.1）。
 //!
 //! 进入长截图后：
-//! - 遮罩窗口不再显示冻结帧（选区里透出真实页面），并且不让截屏抓到自己（WDA_EXCLUDEFROMCAPTURE）；
-//! - 遮罩对鼠标「透明」，滚轮和点击落到下面的页面上；只有指针移到长截图工具条上时才接收鼠标
-//!   （后台线程按前端报来的工具条位置随时切换）。键盘焦点留在遮罩上，Enter / Esc 照常可用；
+//! - 遮罩进入「透出真实画面」模式（见 [`crate::live`]）：选区里透出真实页面、截屏抓不到遮罩、
+//!   滚轮和点击落到下面的页面上，只有长截图工具条接收鼠标；键盘焦点留在遮罩上；
 //! - 后台线程每 ~40 ms 抓一次选区，交给 [`Stitcher`] 拼接，长度变化或对不上时通知前端；
 //! - 「自动滚动」给选区下面的窗口一格一格地发滚轮消息（不动用户的指针），等画面停稳再滚下一格，
 //!   连续几格都不动就是到底了。
@@ -22,6 +21,7 @@ use snapmind_platform::{capture, cursor, Rect};
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow};
 
 use crate::export::Region;
+use crate::live::{self, Live};
 use crate::overlay;
 use crate::state::AppState;
 
@@ -40,7 +40,6 @@ pub struct LongState {
 }
 
 struct Running {
-    window: WebviewWindow,
     shared: Arc<Shared>,
     /// 选区左上角（虚拟桌面物理像素）和所在显示器
     origin: (i32, i32),
@@ -50,10 +49,6 @@ struct Running {
 
 struct Shared {
     stitcher: Mutex<Stitcher>,
-    /// 已停止。切换鼠标穿透时也拿着这把锁，保证停止后线程不会再把遮罩设回「穿透」
-    stopped: Mutex<bool>,
-    /// 工具条等要接收鼠标的区域（本屏物理像素）
-    hit: Mutex<Vec<Region>>,
     auto: AtomicBool,
 }
 
@@ -69,37 +64,16 @@ struct Progress {
     rev: u64,
 }
 
-fn contains(r: &Region, x: i32, y: i32) -> bool {
-    x >= r.x as i32 && y >= r.y as i32 && x < (r.x + r.width) as i32 && y < (r.y + r.height) as i32
-}
-
-/// 恢复遮罩窗口：接收鼠标、允许被截屏。可以在任何线程调用（窗口操作都交给主线程，不等待）。
-fn restore<R: Runtime>(app: &AppHandle<R>, w: &WebviewWindow<R>) {
-    let _ = w.set_ignore_cursor_events(false);
-    if let Ok(h) = w.hwnd() {
-        let h = h.0 as isize;
-        let _ = app.run_on_main_thread(move || {
-            snapmind_platform::window::exclude_from_capture(h, false);
-        });
-    }
-}
-
-/// 停止当前的长截图（如果有），恢复遮罩窗口。返回停下来的会话。
-fn take<R: Runtime>(app: &AppHandle<R>) -> Option<Running> {
+/// 停止当前的长截图（如果有），退出透出模式。`unpark`：回到普通截图编辑态时把其他屏的遮罩放回去。
+fn take<R: Runtime>(app: &AppHandle<R>, unpark: bool) -> Option<Running> {
     let run = app.state::<LongState>().inner.lock().expect("长截图锁").take()?;
-    {
-        let mut stopped = run.shared.stopped.lock().expect("长截图停止锁");
-        *stopped = true;
-        let app2 = run.window.app_handle().clone();
-        restore(&app2, &run.window);
-    }
-    let _ = app;
+    live::exit(app, unpark);
     Some(run)
 }
 
 /// 结束截图时调用：有长截图就停掉。
 pub fn stop<R: Runtime>(app: &AppHandle<R>) {
-    let _ = take(app);
+    let _ = take(app, false);
 }
 
 #[tauri::command]
@@ -108,7 +82,7 @@ pub fn long_start(app: AppHandle, window: WebviewWindow, index: usize, region: R
     if region.width < 16 || region.height < 16 {
         return Err("选区太小".into());
     }
-    let _ = take(&app); // 切换方向 = 从当前画面重新开始
+    let _ = take(&app, false); // 切换方向 = 从当前画面重新开始
     let span = match axis {
         Axis::Vertical => region.width,
         Axis::Horizontal => region.height,
@@ -116,42 +90,30 @@ pub fn long_start(app: AppHandle, window: WebviewWindow, index: usize, region: R
     let max = MAX_LEN.min(MAX_PIXELS / span.max(1));
     let shared = Arc::new(Shared {
         stitcher: Mutex::new(Stitcher::new(axis, region.width, region.height, max)),
-        stopped: Mutex::new(false),
-        hit: Mutex::new(Vec::new()),
         auto: AtomicBool::new(false),
     });
     let origin = (mon.x + region.x as i32, mon.y + region.y as i32);
-    if let Ok(h) = window.hwnd() {
-        let h = h.0 as isize;
-        let _ = app.run_on_main_thread(move || {
-            if !snapmind_platform::window::exclude_from_capture(h, true) {
-                eprintln!("长截图：系统不支持把遮罩排除在截屏之外（需要 Windows 10 2004 及以上）");
-            }
-        });
-    }
-    let _ = window.set_ignore_cursor_events(true);
+    let live = Live::enter(&app, &window, (mon.x, mon.y));
     {
         let shared = shared.clone();
-        let window = window.clone();
+        let live = live.clone();
         let rect = Rect { x: origin.0, y: origin.1, width: region.width, height: region.height };
-        let mon_origin = (mon.x, mon.y);
         std::thread::Builder::new()
             .name("long-capture".into())
-            .spawn(move || run(window, shared, rect, mon_origin, axis))
+            .spawn(move || run(window, live, shared, rect, axis))
             .map_err(|e| e.to_string())?;
     }
-    *app.state::<LongState>().inner.lock().expect("长截图锁") = Some(Running { window, shared, origin, mon, region });
+    *app.state::<LongState>().inner.lock().expect("长截图锁") = Some(Running { shared, origin, mon, region });
     Ok(())
 }
 
 /// 后台线程：鼠标穿透切换、抓帧拼接、自动滚动。
-fn run(window: WebviewWindow, shared: Arc<Shared>, rect: Rect, mon: (i32, i32), axis: Axis) {
+fn run(window: WebviewWindow, live: Arc<Live>, shared: Arc<Shared>, rect: Rect, axis: Axis) {
     let horizontal = axis == Axis::Horizontal;
     let along = if horizontal { rect.width } else { rect.height };
     // 每次滚多少：大约选区长度的三分之一（一格 120 通常滚 100 像素左右），选区很短时用三分之一格，
     // 免得一下滚出整个选区；重叠部分留得足，拼接才稳
     let notch = if along < 300 { 40 } else { 120 * (along / 350).clamp(1, 4) as i32 } * if horizontal { 1 } else { -1 };
-    let mut ignoring = true;
     let mut rev = 0u64;
     let mut lost = 0u32;
     let mut sent: Option<Progress> = None;
@@ -165,19 +127,8 @@ fn run(window: WebviewWindow, shared: Arc<Shared>, rect: Rect, mon: (i32, i32), 
 
     loop {
         let t0 = Instant::now();
-        let cur = cursor::position();
-        {
-            let stopped = shared.stopped.lock().expect("长截图停止锁");
-            if *stopped {
-                break;
-            }
-            if let Some((cx, cy)) = cur {
-                let over = shared.hit.lock().expect("长截图区域锁").iter().any(|r| contains(r, cx - mon.0, cy - mon.1));
-                if over == ignoring {
-                    ignoring = !over;
-                    let _ = window.set_ignore_cursor_events(ignoring);
-                }
-            }
+        if !live.poll() {
+            break;
         }
 
         let step = match capture::capture_rect(rect) {
@@ -257,14 +208,6 @@ fn run(window: WebviewWindow, shared: Arc<Shared>, rect: Rect, mon: (i32, i32), 
     }
 }
 
-/// 前端报来要接收鼠标的区域（工具条），本屏物理像素。
-#[tauri::command]
-pub fn long_hit(state: State<'_, LongState>, rects: Vec<Region>) {
-    if let Some(r) = state.inner.lock().expect("长截图锁").as_ref() {
-        *r.shared.hit.lock().expect("长截图区域锁") = rects;
-    }
-}
-
 /// 给选区中央下面的窗口（跳过本程序的遮罩）发一次滚轮。
 fn wheel_under(rect: &Rect, delta: i32, horizontal: bool) -> bool {
     let (x, y) = (rect.x + rect.width as i32 / 2, rect.y + rect.height as i32 / 2);
@@ -321,7 +264,7 @@ pub async fn long_preview(app: AppHandle, thickness: u32) -> Result<tauri::ipc::
 /// 取消长截图，回到普通的截图编辑态。
 #[tauri::command]
 pub fn long_cancel(app: AppHandle) {
-    stop(&app);
+    let _ = take(&app, true);
 }
 
 /// 完成长截图要做什么。
@@ -346,7 +289,7 @@ pub async fn long_finish(
     if action == Finish::Ocr && !crate::ocr::installed(&app) {
         return Err("识别文字要用本地 OCR 模型：先退出长截图，按 Shift+C 下载模型".into());
     }
-    let run = take(&app).ok_or("长截图已结束")?;
+    let run = take(&app, false).ok_or("长截图已结束")?;
     let img = run.shared.stitcher.lock().expect("拼接锁").image(1.0);
     if img.width == 0 || img.height == 0 {
         return Err("还没有拼接到内容".into());

@@ -284,12 +284,40 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>, intent: Intent) {
 
 /// 结束截图：把所有遮罩停回屏幕外，释放帧。
 pub fn end<R: Runtime>(app: &AppHandle<R>) {
+    crate::record::stop_and_keep(app);
     crate::long::stop(app);
+    crate::live::exit(app, false);
     let state = app.state::<CaptureState>();
     *state.inner.lock().expect("截图状态锁") = Session::default();
     for (label, w) in app.webview_windows() {
         if is_overlay(&label) {
             let _ = w.set_position(PARK);
+        }
+    }
+}
+
+/// 透出模式（长截图、录屏）：其他显示器上的遮罩停到屏幕外，让出那几块屏。
+pub fn park_except<R: Runtime>(app: &AppHandle<R>, keep: &str) {
+    for (label, w) in app.webview_windows() {
+        if is_overlay(&label) && label != keep {
+            let _ = w.set_position(PARK);
+        }
+    }
+}
+
+/// 回到普通截图编辑态：把各显示器的遮罩放回原位（截图已结束时什么都不做）。
+pub fn unpark<R: Runtime>(app: &AppHandle<R>) {
+    let mons = {
+        let state = app.state::<CaptureState>();
+        let s = state.inner.lock().expect("截图状态锁");
+        if !s.active {
+            return;
+        }
+        s.monitors.clone()
+    };
+    for (i, m) in mons.iter().enumerate() {
+        if let Some(w) = app.get_webview_window(&label(i)) {
+            place(&w, m);
         }
     }
 }

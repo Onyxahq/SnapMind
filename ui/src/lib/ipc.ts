@@ -24,6 +24,15 @@ export interface Config {
   /** 空字符串表示用默认提示词 */
   prompts: Record<PromptKind, string>;
   translation: TranslationConfig;
+  record: RecordConfig;
+}
+
+export interface RecordConfig {
+  format: 'mp4' | 'gif';
+  /** 15 / 30 / 60（GIF 最多 30） */
+  fps: number;
+  /** 录制系统声音（只对 MP4 有效） */
+  audio: boolean;
 }
 
 export interface TranslationConfig {
@@ -121,6 +130,7 @@ export const DEFAULT_CONFIG: Config = {
     oneshot: false,
     overlay: false,
   },
+  record: { format: 'mp4', fps: 30, audio: true },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -795,10 +805,10 @@ export async function onLongProgress(cb: (p: LongProgress) => void): Promise<() 
   return listen<LongProgress>('long:progress', (e) => cb(e.payload));
 }
 
-/** 报告要接收鼠标的区域（长截图工具条，本屏物理像素）；其余地方鼠标落到下面的页面上。 */
-export async function longHit(rects: Region[]): Promise<void> {
+/** 透出模式（长截图、录屏）：报告要接收鼠标的区域（工具条，本屏物理像素）；其余地方鼠标落到下面的程序上。 */
+export async function liveHit(rects: Region[]): Promise<void> {
   if (!inTauri()) return;
-  return invoke('long_hit', { rects });
+  return invoke('live_hit', { rects });
 }
 
 export async function longAuto(on: boolean): Promise<void> {
@@ -842,6 +852,34 @@ export async function longFinish(action: LongFinish, path?: string): Promise<str
     return action === 'ocr' ? '（识别出的文字）' : 'demo.png';
   }
   return invoke('long_finish', { action, path: path ?? null });
+}
+
+// ---- 录屏（见 src-tauri/src/record.rs）----
+
+export interface RecordOptions {
+  format: 'mp4' | 'gif';
+  fps: number;
+  audio: boolean;
+}
+
+/** 开始录制选区，返回要保存到的文件路径。 */
+export async function recordStart(index: number, region: Region, options: RecordOptions): Promise<string> {
+  if (!inTauri()) return `C:\\Users\\demo\\Pictures\\SnapMind\\demo.${options.format}`;
+  return invoke('record_start', { index, region, options });
+}
+
+export async function recordPause(paused: boolean): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('record_pause', { paused });
+}
+
+/** 停止录制：save 为 true 时保存（返回路径，文件已放进剪贴板），false 时放弃。 */
+export async function recordStop(save: boolean): Promise<string | null> {
+  if (!inTauri()) {
+    await new Promise((r) => setTimeout(r, 500));
+    return save ? 'C:\\Users\\demo\\Pictures\\SnapMind\\demo.mp4' : null;
+  }
+  return invoke('record_stop', { save });
 }
 
 // ---- 表格（见 src-tauri/src/translate.rs 的 capture_table、xlsx.rs）----

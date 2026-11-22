@@ -468,7 +468,7 @@ mod tests {
     fn expected(pg: &[[u8; 4]], w: usize, h: usize, last: usize, head: usize, foot: usize) -> Vec<[u8; 4]> {
         let mid = h - head - foot;
         let mut rows = Vec::new();
-        for y in 0..head {
+        for _ in 0..head {
             for x in 0..w {
                 rows.push([30, 60, (x % 256) as u8, 255]);
             }

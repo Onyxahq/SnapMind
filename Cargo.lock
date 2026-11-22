@@ -663,6 +663,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
+name = "color_quant"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
 name = "combine"
 version = "4.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1601,6 +1607,16 @@ dependencies = [
  "r-efi 6.0.0",
  "rand_core",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "gif"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ae047235e33e2829703574b54fdec96bfbad892062d97fed2f76022287de61b"
+dependencies = [
+ "color_quant",
+ "weezl",
 ]
 
 [[package]]
@@ -4410,7 +4426,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "reqwest",
  "rust_xlsxwriter",
@@ -4431,9 +4447,10 @@ dependencies = [
 
 [[package]]
 name = "snapmind-core"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "chrono",
+ "gif",
  "image",
  "rusqlite",
  "serde",
@@ -4445,7 +4462,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-ocr"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "image",
  "ort",
@@ -4454,7 +4471,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-platform"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "arboard",
  "keyring",
@@ -4464,7 +4481,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-providers"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "base64 0.22.1",
  "reqwest",

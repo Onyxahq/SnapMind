@@ -4,6 +4,7 @@
 
 pub mod config;
 pub mod export;
+pub mod gifenc;
 pub mod history;
 pub mod lang;
 pub mod prompts;

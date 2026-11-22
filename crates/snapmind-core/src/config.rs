@@ -38,6 +38,8 @@ pub struct Config {
     pub prompts: PromptsConfig,
     /// 翻译偏好（需求第 8 节；M6.3 继续补充）。
     pub translation: TranslationConfig,
+    /// 录屏（需求 3.10）：录制前在工具条上选，选过的记住，下次沿用
+    pub record: RecordConfig,
 }
 
 impl Default for Config {
@@ -52,6 +54,7 @@ impl Default for Config {
             chains: ChainsConfig::default(),
             prompts: PromptsConfig::default(),
             translation: TranslationConfig::default(),
+            record: RecordConfig::default(),
         }
     }
 }
@@ -305,6 +308,31 @@ pub enum SameLang {
     Skip,
 }
 
+/// 录屏格式。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RecordFormat {
+    Mp4,
+    Gif,
+}
+
+/// 录屏偏好。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct RecordConfig {
+    pub format: RecordFormat,
+    /// 帧率：15 / 30 / 60（GIF 最多 30）
+    pub fps: u32,
+    /// 录制系统声音（只对 MP4 有效）
+    pub audio: bool,
+}
+
+impl Default for RecordConfig {
+    fn default() -> Self {
+        Self { format: RecordFormat::Mp4, fps: 30, audio: true }
+    }
+}
+
 /// 翻译偏好（需求第 8 节）。语言用统一代码（见 [`crate::lang`]）。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -549,7 +577,8 @@ mod tests {
                     "glossary": [],
                     "oneshot": false,
                     "overlay": false
-                }
+                },
+                "record": { "format": "mp4", "fps": 30, "audio": true }
             })
         );
     }

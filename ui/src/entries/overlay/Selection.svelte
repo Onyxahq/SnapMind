@@ -9,12 +9,14 @@
     label,
     handles = true,
     animate = false,
-  }: { rect: Rect; label: string; handles?: boolean; animate?: boolean } = $props();
+    recording = false,
+  }: { rect: Rect; label: string; handles?: boolean; animate?: boolean; recording?: boolean } = $props();
 </script>
 
 <div
   class="sel"
   class:animate
+  class:recording
   style:left="{rect.x}px"
   style:top="{rect.y}px"
   style:width="{rect.width}px"
@@ -35,6 +37,12 @@
     /* 描边画在选区外侧，不遮住被截的内容 */
     box-shadow: 0 0 0 1.5px var(--accent);
     pointer-events: none;
+  }
+  /* 录制中：红色虚线，画在选区外侧（遮罩不会被录进去，外侧也不挡内容） */
+  .sel.recording {
+    box-shadow: none;
+    outline: 2px dashed #ef4444;
+    outline-offset: 1px;
   }
   /* 悬停吸附：高亮框滑到新元素上（120ms）；选区本身逐帧跟手，不加过渡 */
   .animate {

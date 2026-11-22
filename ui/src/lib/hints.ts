@@ -9,7 +9,7 @@ export interface Hint {
 }
 
 /** 编辑态的阶段。标注、识别、长截图、录屏随对应任务加入。 */
-export type HintState = 'idle' | 'selected' | 'annotate' | 'ocr' | 'long';
+export type HintState = 'idle' | 'selected' | 'annotate' | 'ocr' | 'long' | 'rec-setup' | 'rec';
 
 /**
  * 提示内容。只列出已经能用的操作，后续任务实现了新快捷键再补进来，
@@ -41,7 +41,7 @@ export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
         { k: 'Shift+C', label: '识别文字' },
         { k: 'Shift+Alt+R', label: '识别为 Markdown' },
         { k: 'Ctrl+Q', label: '翻译' },
-        { k: 'L', label: '长截图' },
+        { k: 'L / R', label: '长截图 / 录屏' },
         { k: 'P / C', label: '颜色格式 / 复制颜色' },
         { k: '右键', label: '取消选区' },
         { k: 'Esc', label: '退出' },
@@ -71,6 +71,17 @@ export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
         { k: 'Ctrl+S', label: '保存' },
         { k: 'Shift+C', label: '识别文字' },
         { k: 'Esc', label: '取消长截图' },
+      ];
+    case 'rec-setup':
+      return [
+        { k: 'R', label: '开始录制' },
+        { k: 'Esc', label: '返回' },
+      ];
+    case 'rec':
+      return [
+        { k: 'R', label: '停止并保存' },
+        { k: '空格', label: '暂停 / 继续' },
+        { k: 'Esc', label: '放弃录屏' },
       ];
   }
 }

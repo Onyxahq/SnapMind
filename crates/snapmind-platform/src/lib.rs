@@ -6,6 +6,7 @@
 pub mod bmp;
 pub mod capture;
 pub mod clipboard;
+pub mod record;
 pub mod cursor;
 pub mod secrets;
 pub mod selection;

@@ -4,7 +4,7 @@
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
   // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）；
   // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选；M6.2 翻译的原位覆盖；
-  // M8.1 识别为 Markdown（Shift+Alt+R）；M8.2 表格识别、M8.3 公式识别（工具条「更多」）；M9.1 长截图（L）。
+  // M8.1 识别为 Markdown（Shift+Alt+R）；M8.2 表格识别、M8.3 公式识别（工具条「更多」）；M9.1 长截图（L）；M9.2 录屏（R）。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -25,7 +25,11 @@
     ocrStatus,
     onOcrDownload,
     longStart,
-    longHit,
+    liveHit,
+    recordStart,
+    recordPause,
+    recordStop,
+    type RecordOptions,
     longAuto,
     longWheel,
     longPreview,
@@ -95,6 +99,7 @@
   import MarkdownCard from './MarkdownCard.svelte';
   import FormulaCard from './FormulaCard.svelte';
   import LongBar from './LongBar.svelte';
+  import RecordBar, { type RecPhase } from './RecordBar.svelte';
   import { toDisplayMath } from '$lib/formula';
   import TableCard from './TableCard.svelte';
   import { parseHtml, toTsv, type TableCardState, type TableView } from '$lib/table';
@@ -138,7 +143,12 @@
   let fxCard = $state<Card | null>(null);
   /** 长截图（选区里透出真实页面，滚动时自动拼接） */
   let long = $state<{ axis: LongAxis; progress: LongProgress | null; preview: string | null; busy: boolean } | null>(null);
-  let longBarRect = $state<Rect>();
+  /** 录屏（setup：录制前选格式；rec / paused：录制中；saving / saved：停止后） */
+  let rec = $state<{ phase: RecPhase; options: RecordOptions; elapsed: number; savedName: string } | null>(null);
+  /** 透出模式：长截图或录制中（选区里是真实画面，遮罩对鼠标透明，只有工具条接收鼠标） */
+  const live = $derived(long !== null || (rec !== null && rec.phase !== 'setup'));
+  /** 透出模式下工具条的位置 */
+  let liveBarRect = $state<Rect>();
   /** 表格卡片 */
   let tableCard = $state<TableCardState | null>(null);
   /** 翻译时的选区（原位覆盖只在选区没动时画） */
@@ -234,14 +244,14 @@
   /** 操作提示：内容随状态变化，避开已有选区（悬停高亮不算）。 */
   const hintList = $derived(
     hintsFor(
-      long ? 'long' : ann.tool ? 'annotate' : ocrBoxes ? 'ocr' : sel ? 'selected' : 'idle',
+      rec ? (rec.phase === 'setup' ? 'rec-setup' : 'rec') : long ? 'long' : ann.tool ? 'annotate' : ocrBoxes ? 'ocr' : sel ? 'selected' : 'idle',
       ann.tool ? TOOL_INFO[ann.tool].label : '',
     ),
   );
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard && !fxCard && !tableCard && !long,
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard && !fxCard && !tableCard && !long && !rec,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -304,6 +314,7 @@
     closeFormula();
     tableCard = null;
     dropLong();
+    dropRec();
     ann.reset();
     propsOpen = false;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
@@ -332,6 +343,7 @@
     closeFormula();
     tableCard = null;
     dropLong();
+    dropRec();
     session = null;
     sel = null;
     drag = null;
@@ -462,6 +474,7 @@
       case 'table': return recognizeTable();
       case 'formula': return recognizeFormula();
       case 'long': return startLong();
+      case 'record': return openRecord();
     }
   }
 
@@ -660,6 +673,7 @@
     propsOpen = false;
     saveOpen = false;
     dropLong();
+    rec = null;
     long = { axis, progress: null, preview: null, busy: false };
     try {
       await longStart(session.index, sel, axis);
@@ -734,13 +748,13 @@
       });
   }
 
-  // 工具条的位置报给 Rust：指针在上面时遮罩接收鼠标，别处鼠标落到页面上
+  // 透出模式下工具条的位置报给 Rust：指针在上面时遮罩接收鼠标，别处鼠标落到下面的程序上
   $effect(() => {
-    if (!long || !longBarRect) return;
-    const r = longBarRect;
+    if (!live || !liveBarRect) return;
+    const r = liveBarRect;
     const k = mon.scale;
     const pad = 6;
-    longHit([
+    liveHit([
       {
         x: Math.max(0, Math.floor((r.x - pad) * k)),
         y: Math.max(0, Math.floor((r.y - pad - 34) * k)), // 上方的提示气泡也算
@@ -749,6 +763,125 @@
       },
     ]);
   });
+
+  // ---------------------------------------------------------------- 录屏
+
+  let recTimer: ReturnType<typeof setInterval> | undefined;
+  /** 暂停前累计的毫秒数、这一段开始的时刻 */
+  let recBase = 0;
+  let recFrom = 0;
+
+  /** R / 工具条「录屏」：先在工具条上选格式、帧率、声音（沿用上次的选择）。 */
+  function openRecord() {
+    if (!session || drag) return;
+    if (!sel) sel = region();
+    closeCard();
+    closeOcr();
+    closeMd();
+    closeFormula();
+    tableCard = null;
+    ann.commitText();
+    if (ann.tool) exitAnnotate();
+    propsOpen = false;
+    saveOpen = false;
+    if (long) cancelLong();
+    rec = { phase: 'setup', options: { ...config.value.record }, elapsed: 0, savedName: '' };
+  }
+
+  function setRecOptions(o: Partial<RecordOptions>) {
+    if (!rec) return;
+    const options = { ...rec.options, ...o };
+    rec = { ...rec, options };
+    updateConfig({ record: options });
+  }
+
+  function dropRec() {
+    if (recTimer) clearInterval(recTimer);
+    recTimer = undefined;
+    rec = null;
+  }
+
+  async function startRecording() {
+    if (!rec || rec.phase !== 'setup' || !session || !sel) return;
+    try {
+      await recordStart(session.index, sel, rec.options);
+    } catch (e) {
+      toast(`录屏失败：${e}`, { kind: 'error' });
+      return;
+    }
+    rec = { ...rec, phase: 'rec', elapsed: 0 };
+    recBase = 0;
+    recFrom = performance.now();
+    recTimer = setInterval(() => {
+      if (rec?.phase === 'rec') rec = { ...rec, elapsed: recBase + performance.now() - recFrom };
+    }, 250);
+  }
+
+  function pauseRecording(paused: boolean) {
+    if (!rec || (rec.phase !== 'rec' && rec.phase !== 'paused')) return;
+    recordPause(paused);
+    if (paused) {
+      recBase += performance.now() - recFrom;
+      rec = { ...rec, phase: 'paused', elapsed: recBase };
+    } else {
+      recFrom = performance.now();
+      rec = { ...rec, phase: 'rec' };
+    }
+  }
+
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  /** 停止：保存后显示一下「已保存」再结束截图；放弃则回到截图编辑态。 */
+  async function stopRecording(save: boolean) {
+    if (!rec || (rec.phase !== 'rec' && rec.phase !== 'paused')) return;
+    if (recTimer) clearInterval(recTimer);
+    recTimer = undefined;
+    if (!save) {
+      await recordStop(false).catch((e) => log('warn', `放弃录屏：${e}`));
+      rec = null;
+      return;
+    }
+    rec = { ...rec, phase: 'saving' };
+    try {
+      const path = await recordStop(true);
+      if (rec) rec = { ...rec, phase: 'saved', savedName: path ?? '' };
+      await wait(1400);
+    } catch (e) {
+      toast(String(e), { kind: 'error' });
+      await wait(2500);
+    }
+    close();
+  }
+
+  /** 录屏时的按键：R 开始 / 停止并保存，空格暂停 / 继续，Esc 返回或放弃。 */
+  function onRecKey(e: KeyboardEvent) {
+    if (!rec || e.ctrlKey || e.altKey || e.metaKey) return;
+    const k = e.key.toLowerCase();
+    if (rec.phase === 'setup') {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        rec = null;
+      } else if (k === 'r') {
+        e.preventDefault();
+        startRecording();
+      }
+      return;
+    }
+    if (rec.phase === 'rec' || rec.phase === 'paused') {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        stopRecording(false);
+      } else if (k === 'r') {
+        e.preventDefault();
+        stopRecording(true);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        pauseRecording(rec.phase === 'rec');
+      }
+      return;
+    }
+    e.preventDefault(); // 保存中：按键都不响应
+  }
 
   // ---------------------------------------------------------------- 公式卡片
 
@@ -987,6 +1120,10 @@
     if (!session) return;
     // Esc 逐级退出：弹层 → 保存窗口 → 标注 → 截图（长截图 / 录屏、结果卡片随后续任务插入）
     if (ann.editing || confirmOpen) return; // 打字时、确认框打开时，按键交给它们
+    if (rec) {
+      onRecKey(e);
+      return;
+    }
     if (long) {
       onLongKey(e);
       return;
@@ -1092,6 +1229,10 @@
         e.preventDefault();
         if (!ann.tool) startLong();
         break;
+      case 'r':
+        e.preventDefault();
+        if (!ann.tool) openRecord();
+        break;
     }
   }
 
@@ -1165,7 +1306,7 @@
   class="stage"
   class:active={session !== null}
   class:frame-ready={frameReady}
-  class:long={long !== null}
+  class:live
   style:cursor
   role="application"
   aria-label="截图区域"
@@ -1181,7 +1322,7 @@
   {#if overlayBlocks && cardRegion}
     <TranslateOverlay region={cardRegion} scale={mon.scale} blocks={overlayBlocks} fits={overlayFits} />
   {/if}
-  {#if sel && !long}
+  {#if sel && !live}
     <AnnotationLayer shapes={ann.visible} draft={ann.draft} clip={sel} {mon} src={img} />
   {/if}
   {#if ann.editing}
@@ -1195,8 +1336,9 @@
   {#if selCss}
     <Selection
       rect={selCss}
-      label={long ? '长截图 · 滚动页面自动拼接' : sizeLabel}
-      handles={sel !== null && !ann.tool && !long && (!drag || drag.kind !== 'create')}
+      label={long ? '长截图 · 滚动页面自动拼接' : rec && rec.phase !== 'setup' ? `录屏 · ${sel?.width ?? 0} × ${sel?.height ?? 0}` : sizeLabel}
+      handles={sel !== null && !ann.tool && !long && !rec && (!drag || drag.kind !== 'create')}
+      recording={rec?.phase === 'rec' || rec?.phase === 'paused'}
       animate={!sel && !drag}
     />
   {/if}
@@ -1207,14 +1349,29 @@
       axis={long.axis}
       preview={long.preview}
       busy={long.busy}
-      bind:rect={longBarRect}
+      bind:rect={liveBarRect}
       onaxis={setLongAxis}
       onauto={(on) => longAuto(on)}
       onfinish={finishLong}
       oncancel={cancelLong}
     />
   {/if}
-  {#if showToolbar && selOnlyCss && !long}
+  {#if rec && selOnlyCss}
+    <RecordBar
+      sel={selOnlyCss}
+      phase={rec.phase}
+      options={rec.options}
+      elapsed={rec.elapsed}
+      savedName={rec.savedName}
+      bind:rect={liveBarRect}
+      onoptions={setRecOptions}
+      onstart={startRecording}
+      onpause={pauseRecording}
+      onstop={() => stopRecording(true)}
+      oncancel={() => stopRecording(false)}
+    />
+  {/if}
+  {#if showToolbar && selOnlyCss && !long && !rec}
     <Toolbar
       sel={selOnlyCss}
       tool={ann.tool}
@@ -1345,8 +1502,8 @@
     visibility: hidden;
   }
   .frame-ready img { visibility: visible; }
-  /* 长截图：不显示冻结帧，选区里透出真实页面 */
-  .frame-ready.long img { visibility: hidden; }
+  /* 长截图、录制中：不显示冻结帧，选区里透出真实画面 */
+  .frame-ready.live img { visibility: hidden; }
   .scrim {
     position: absolute;
     inset: 0;

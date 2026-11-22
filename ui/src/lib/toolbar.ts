@@ -3,7 +3,7 @@
 import type { Rect } from './geometry';
 
 /** 工具条上的动作。 */
-export type ToolbarAction = 'pin' | 'save' | 'exit' | 'copy' | 'translate' | 'ocr' | 'markdown' | 'formula' | 'table' | 'long';
+export type ToolbarAction = 'pin' | 'save' | 'exit' | 'copy' | 'translate' | 'ocr' | 'markdown' | 'formula' | 'table' | 'long' | 'record';
 
 /**
  * 工具条位置（CSS 像素）：默认在选区下方、右对齐；下方放不下就放上方；
