@@ -14,6 +14,7 @@
   import type { SaveConfig } from '$lib/ipc';
   import ToastHost from '$lib/ui/ToastHost.svelte';
   import Providers from './Providers.svelte';
+  import Chains from './Chains.svelte';
   import { toast } from '$lib/ui/toast.svelte';
 
   let info = $state<AppInfo | null>(null);
@@ -103,6 +104,7 @@
     <p class="t-note">先添加服务商并填写 Key，再勾选要显示的模型。勾选的模型才会出现在下拉框和备用链里。</p>
   </div>
   <Providers />
+  <Chains />
 
   {#if info}
     <p class="t-note foot">SnapMind v{info.version}</p>

@@ -19,6 +19,24 @@ export interface Config {
   save: SaveConfig;
   providers: ProviderConfig[];
   mt: { microsoftRegion: string };
+  chains: ChainsConfig;
+}
+
+/** 备用链里的一项（与 snapmind-core::config::BackendRef 对应）。 */
+export type BackendRef =
+  | { type: 'llm'; provider: string; model: string }
+  | { type: 'mt'; kind: MtKind }
+  | { type: 'localOcr' }
+  | { type: 'degrade' };
+
+export type ChainTask = 'translate' | 'recognize' | 'oneshot';
+
+export interface ChainsConfig {
+  fallback: boolean;
+  timeoutSecs: number;
+  translate: BackendRef[];
+  recognize: BackendRef[];
+  oneshot: BackendRef[];
 }
 
 export type MtKind = 'deepl' | 'google' | 'microsoft';
@@ -69,6 +87,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   providers: [],
   mt: { microsoftRegion: '' },
+  chains: { fallback: true, timeoutSecs: 8, translate: [], recognize: [{ type: 'localOcr' }], oneshot: [] },
 };
 
 export const CONFIG_CHANGED = 'config-changed';

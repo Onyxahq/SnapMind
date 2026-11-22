@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 
-#[derive(Debug, thiserror::Error, PartialEq)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq)]
 pub enum ProviderError {
     #[error("请先填写 API Key")]
     MissingKey,
@@ -23,6 +23,23 @@ pub enum ProviderError {
     Parse(String),
     #[error("模型返回了空结果")]
     Empty,
+}
+
+impl ProviderError {
+    /// 写进「deepseek-chat 超时，已切换到 DeepL」里的短说明。
+    pub fn short(&self) -> String {
+        match self {
+            ProviderError::MissingKey => "没有 Key".into(),
+            ProviderError::Auth(_) => "Key 无效".into(),
+            ProviderError::Http { status, .. } => format!("出错（HTTP {status}）"),
+            ProviderError::Remote(_) => "出错".into(),
+            ProviderError::Refused(_) => "拒绝回答".into(),
+            ProviderError::Network(_) => "连不上".into(),
+            ProviderError::Timeout => "超时".into(),
+            ProviderError::Parse(_) => "返回格式不对".into(),
+            ProviderError::Empty => "返回空结果".into(),
+        }
+    }
 }
 
 pub(crate) fn net(e: reqwest::Error) -> ProviderError {

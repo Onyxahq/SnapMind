@@ -32,6 +32,8 @@ pub struct Config {
     pub providers: Vec<ProviderConfig>,
     /// 机器翻译服务的非敏感设置；Key 同样在系统凭据库（账户名见 [`MtKind::secret_account`]）。
     pub mt: MtConfig,
+    /// 翻译、识别、一步到位三条备用链（需求 1.2）。
+    pub chains: ChainsConfig,
 }
 
 impl Default for Config {
@@ -43,6 +45,7 @@ impl Default for Config {
             save: SaveConfig::default(),
             providers: Vec::new(),
             mt: MtConfig::default(),
+            chains: ChainsConfig::default(),
         }
     }
 }
@@ -215,6 +218,51 @@ impl MtKind {
 pub struct MtConfig {
     /// 微软翻译资源所在区域（如 eastasia）；全局资源留空。
     pub microsoft_region: String,
+}
+
+/// 备用链里的一项。
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum BackendRef {
+    /// 某个服务商下的模型（provider 是 [`ProviderConfig::id`]）
+    Llm { provider: String, model: String },
+    /// 机器翻译
+    Mt { kind: MtKind },
+    /// 本地 OCR（只在识别链里）
+    LocalOcr,
+    /// 一步到位链的最后一项：降级为「本地 OCR → 翻译链」
+    Degrade,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ChainsConfig {
+    /// 关掉时只用每条链的第 1 项
+    pub fallback: bool,
+    /// 每一项的超时（秒）：大模型是等到第一段文字，机器翻译是整个请求
+    pub timeout_secs: u32,
+    pub translate: Vec<BackendRef>,
+    pub recognize: Vec<BackendRef>,
+    pub oneshot: Vec<BackendRef>,
+}
+
+impl Default for ChainsConfig {
+    fn default() -> Self {
+        Self {
+            fallback: true,
+            timeout_secs: 8,
+            translate: Vec::new(),
+            recognize: vec![BackendRef::LocalOcr],
+            oneshot: Vec::new(),
+        }
+    }
+}
+
+impl ChainsConfig {
+    /// 实际使用的超时：限制在 3–60 秒，手改配置写了离谱的值也不至于卡死或秒失败。
+    pub fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(self.timeout_secs.clamp(3, 60) as u64)
+    }
 }
 
 // ---------------------------------------------------------------- 错误
@@ -404,7 +452,14 @@ mod tests {
                     "extraDirs": []
                 },
                 "providers": [],
-                "mt": { "microsoftRegion": "" }
+                "mt": { "microsoftRegion": "" },
+                "chains": {
+                    "fallback": true,
+                    "timeoutSecs": 8,
+                    "translate": [],
+                    "recognize": [{ "type": "localOcr" }],
+                    "oneshot": []
+                }
             })
         );
     }
@@ -465,6 +520,20 @@ mod tests {
         let c2 = apply_patch(&c, &json!({ "providers": [] })).unwrap();
         assert!(c2.providers.is_empty());
         assert!(apply_patch(&base, &json!({ "providers": [{ "id": "x", "kind": "nope", "name": "", "baseUrl": "" }] })).is_err());
+    }
+
+    #[test]
+    fn chain_refs_serialize_with_type_tag() {
+        let c = apply_patch(&Config::default(), &json!({ "chains": { "translate": [
+            { "type": "llm", "provider": "deepseek", "model": "deepseek-chat" },
+            { "type": "mt", "kind": "deepl" }
+        ], "oneshot": [{ "type": "degrade" }], "timeoutSecs": 999 }})).unwrap();
+        assert_eq!(c.chains.translate[0], BackendRef::Llm { provider: "deepseek".into(), model: "deepseek-chat".into() });
+        assert_eq!(c.chains.translate[1], BackendRef::Mt { kind: MtKind::Deepl });
+        assert_eq!(c.chains.oneshot, vec![BackendRef::Degrade]);
+        assert_eq!(c.chains.recognize, vec![BackendRef::LocalOcr]);
+        assert_eq!(c.chains.timeout(), std::time::Duration::from_secs(60));
+        assert!(c.chains.fallback);
     }
 
     #[test]

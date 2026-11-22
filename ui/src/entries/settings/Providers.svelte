@@ -6,8 +6,8 @@
   import {
     providerCatalog,
     providerFetchModels,
-    providerKeyStatus,
     providerSetKey,
+    type BackendRef,
     type ModelConfig,
     type ModelTag,
     type ProviderConfig,
@@ -17,6 +17,7 @@
   import { config, updateConfig } from '$lib/config.svelte';
   import { FORMAT_LABEL, MT_SERVICES, TAGS, canAdd, mergeModels, mtAccount, newProviderId, toggleTag, visibleModels } from '$lib/providers';
   import MtDetail from './MtDetail.svelte';
+  import { keyStatus, refreshKeys } from '$lib/keys.svelte';
   import Card from '$lib/ui/Card.svelte';
   import Row from '$lib/ui/Row.svelte';
   import Field from '$lib/ui/Field.svelte';
@@ -25,7 +26,8 @@
   import { toast } from '$lib/ui/toast.svelte';
 
   let catalog = $state<ProviderMeta[]>([]);
-  let keys = $state<Record<string, boolean>>({});
+  // Key 状态与备用链编辑器共用
+  const keys = keyStatus;
   /** 选中的服务商 id，或者 `add:<kind>`（还没添加的内置服务商） */
   let sel = $state('');
   let keyDraft = $state('');
@@ -46,7 +48,7 @@
 
   onMount(async () => {
     catalog = await providerCatalog();
-    keys = await providerKeyStatus([...providers.map((p) => p.id), ...MT_SERVICES.map((s) => mtAccount(s.kind))]);
+    await refreshKeys([...providers.map((p) => p.id), ...MT_SERVICES.map((s) => mtAccount(s.kind))]);
     sel = providers[0]?.id ?? `add:${catalog[0]?.kind ?? 'deepseek'}`;
   });
 
@@ -98,7 +100,14 @@
       toast(String(e), { kind: 'error' });
     }
     const rest = providers.filter((p) => p.id !== id);
-    await commit(rest);
+    // 备用链里引用这个服务商的项一并去掉（取消勾选的模型则保留，标成「已失效」，重新勾选就恢复）
+    const ch = $state.snapshot(config.value.chains);
+    const keep = (list: BackendRef[]) => list.filter((r) => !(r.type === 'llm' && r.provider === id));
+    try {
+      await updateConfig({ providers: rest, chains: { translate: keep(ch.translate), recognize: keep(ch.recognize), oneshot: keep(ch.oneshot) } });
+    } catch (e) {
+      toast(String(e), { kind: 'error' });
+    }
     delete keys[id];
     delete status[id];
     sel = '';

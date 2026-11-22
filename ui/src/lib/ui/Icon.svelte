@@ -6,6 +6,7 @@
     rect: 'M6 5h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z',
     arrow: 'M5 19L19 5M10 5h9v9',
     chevronDown: 'M6 9l6 6 6-6',
+    chevronUp: 'M6 15l6-6 6 6',
     copy: 'M9 9h10v10H9zM5 15V5h10',
     close: 'M6 6l12 12M18 6L6 18',
     info: 'M12 8h.01M11 12h1v5h1M12 21a9 9 0 100-18 9 9 0 000 18z',
