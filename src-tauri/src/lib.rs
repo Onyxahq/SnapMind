@@ -135,6 +135,8 @@ pub fn run() {
             commands::pin_keep,
             commands::pin_set_annotations,
             commands::history_pins,
+            commands::history_translations,
+            commands::history_delete_translation,
             commands::tools_hover,
             commands::tools_menu,
             commands::tools_layout,

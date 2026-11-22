@@ -1,4 +1,4 @@
-//! 历史记录（需求第 7 节）：贴图历史（M3.4），翻译历史在 M6.4 加入。
+//! 历史记录（需求第 7 节）：贴图历史（M3.4）、翻译历史（M6.4）。
 //!
 //! 数据放在一个目录里：`history.db`（SQLite）+ `images/<id>.png`（原图，带标注）
 //! + `thumbs/<id>.jpg`（缩略图，最长边 320px）。数据库只存元数据和识别文字，
@@ -16,7 +16,7 @@ use crate::export::{self, ImageFormat, RgbaImage};
 /// 缩略图最长边（像素）。
 pub const THUMB_MAX: u32 = 320;
 /// 数据库结构版本（PRAGMA user_version）。改结构时加一并补迁移。
-const SCHEMA_VERSION: i32 = 1;
+const SCHEMA_VERSION: i32 = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HistoryError {
@@ -92,6 +92,61 @@ pub struct Usage {
     pub bytes: u64,
 }
 
+/// 翻译从哪里来。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TransOrigin {
+    /// 截图翻译（Ctrl+Q、Ctrl+Shift+O）
+    Capture,
+    /// 划词翻译（M7）
+    Selection,
+}
+
+impl TransOrigin {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Capture => "capture",
+            Self::Selection => "selection",
+        }
+    }
+    fn parse(s: &str) -> Self {
+        if s == "selection" {
+            Self::Selection
+        } else {
+            Self::Capture
+        }
+    }
+}
+
+/// 一条翻译历史。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransRecord {
+    pub id: i64,
+    /// 首次翻译、最后一次（重新翻译）的时间，Unix 毫秒
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub source: String,
+    pub translation: String,
+    /// 检测到的原文语言（统一代码，认不出为空）
+    pub source_lang: String,
+    pub target_lang: String,
+    /// 实际使用的后端和切换说明，如「deepseek-chat 超时，已切换到 DeepL」
+    pub backend: String,
+    pub origin: TransOrigin,
+}
+
+/// 写入 / 更新翻译历史时的输入。
+pub struct NewTranslation<'a> {
+    pub source: &'a str,
+    pub translation: &'a str,
+    pub source_lang: &'a str,
+    pub target_lang: &'a str,
+    pub backend: &'a str,
+    pub origin: TransOrigin,
+    pub at: i64,
+}
+
 pub struct History {
     dir: PathBuf,
     conn: Mutex<Connection>,
@@ -158,7 +213,7 @@ impl History {
     pub fn list_pins(&self, query: Option<&str>, limit: usize) -> Result<Vec<PinRecord>, HistoryError> {
         let conn = self.conn.lock().expect("历史库锁");
         let q = query.map(str::trim).filter(|q| !q.is_empty());
-        let pattern = q.map(|q| format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")));
+        let pattern = q.map(like_pattern);
         let mut stmt = conn.prepare(
             "SELECT id, created_at, closed_at, width, height, text, source, bytes FROM pins
              WHERE (?1 IS NULL OR text LIKE ?1 ESCAPE '\\')
@@ -192,6 +247,71 @@ impl History {
         Ok(existed)
     }
 
+    /// 记一条翻译历史，返回 id。
+    pub fn add_translation(&self, t: NewTranslation) -> Result<i64, HistoryError> {
+        let conn = self.conn.lock().expect("历史库锁");
+        conn.execute(
+            "INSERT INTO translations (created_at, updated_at, source, translation, source_lang, target_lang, backend, origin)
+             VALUES (?1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![t.at, t.source, t.translation, t.source_lang, t.target_lang, t.backend, t.origin.as_str()],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// 同一张卡片里改了原文重新翻译：更新原记录（不新增一条）。返回是否存在。
+    pub fn update_translation(&self, id: i64, t: NewTranslation) -> Result<bool, HistoryError> {
+        let conn = self.conn.lock().expect("历史库锁");
+        let n = conn.execute(
+            "UPDATE translations SET updated_at = ?2, source = ?3, translation = ?4, source_lang = ?5, target_lang = ?6, backend = ?7
+             WHERE id = ?1",
+            params![id, t.at, t.source, t.translation, t.source_lang, t.target_lang, t.backend],
+        )?;
+        Ok(n > 0)
+    }
+
+    /// 翻译历史，最近的在前；`query` 非空时在原文和译文里搜索（不区分大小写）。
+    pub fn list_translations(&self, query: Option<&str>, limit: usize) -> Result<Vec<TransRecord>, HistoryError> {
+        let conn = self.conn.lock().expect("历史库锁");
+        let q = query.map(str::trim).filter(|q| !q.is_empty());
+        let pattern = q.map(like_pattern);
+        let mut stmt = conn.prepare(
+            "SELECT id, created_at, updated_at, source, translation, source_lang, target_lang, backend, origin FROM translations
+             WHERE (?1 IS NULL OR source LIKE ?1 ESCAPE '\\' OR translation LIKE ?1 ESCAPE '\\')
+             ORDER BY updated_at DESC, id DESC LIMIT ?2",
+        )?;
+        let rows = stmt.query_map(params![pattern, limit as i64], |r| {
+            Ok(TransRecord {
+                id: r.get(0)?,
+                created_at: r.get(1)?,
+                updated_at: r.get(2)?,
+                source: r.get(3)?,
+                translation: r.get(4)?,
+                source_lang: r.get(5)?,
+                target_lang: r.get(6)?,
+                backend: r.get(7)?,
+                origin: TransOrigin::parse(&r.get::<_, String>(8)?),
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn delete_translation(&self, id: i64) -> Result<bool, HistoryError> {
+        let conn = self.conn.lock().expect("历史库锁");
+        Ok(conn.execute("DELETE FROM translations WHERE id = ?1", [id])? > 0)
+    }
+
+    /// 翻译历史的条数与占用（按文字的 UTF-8 字节数估算）。
+    pub fn translation_usage(&self) -> Result<Usage, HistoryError> {
+        let conn = self.conn.lock().expect("历史库锁");
+        let (count, bytes): (i64, i64) = conn.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(LENGTH(CAST(source AS BLOB)) + LENGTH(CAST(translation AS BLOB)) + LENGTH(CAST(backend AS BLOB))), 0)
+             FROM translations",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        Ok(Usage { count: count as u64, bytes: bytes as u64 })
+    }
+
     /// 贴图历史的条数与占用空间。
     pub fn pin_usage(&self) -> Result<Usage, HistoryError> {
         let conn = self.conn.lock().expect("历史库锁");
@@ -199,6 +319,11 @@ impl History {
             conn.query_row("SELECT COUNT(*), COALESCE(SUM(bytes), 0) FROM pins", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
         Ok(Usage { count: count as u64, bytes: bytes as u64 })
     }
+}
+
+/// LIKE 子串匹配的模式（转义 % 和 _）。
+fn like_pattern(q: &str) -> String {
+    format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"))
 }
 
 /// 缩略图：等比缩到最长边不超过 THUMB_MAX（小图不放大）。
@@ -227,7 +352,23 @@ fn migrate(conn: &Connection) -> Result<(), HistoryError> {
              CREATE INDEX IF NOT EXISTS pins_closed_at ON pins(closed_at);",
         )?;
     }
-    // 以后：if version < 2 { … }
+    if version < 2 {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS translations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                translation TEXT NOT NULL,
+                source_lang TEXT NOT NULL DEFAULT '',
+                target_lang TEXT NOT NULL DEFAULT '',
+                backend TEXT NOT NULL DEFAULT '',
+                origin TEXT NOT NULL
+             );
+             CREATE INDEX IF NOT EXISTS translations_updated_at ON translations(updated_at);",
+        )?;
+    }
+    // 以后：if version < 3 { … }
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     Ok(())
 }
@@ -243,6 +384,61 @@ mod tests {
     fn add(h: &History, text: &str, closed: i64) -> PinRecord {
         h.add_pin(NewPin { image: &img(640, 360), text, source: PinSource::Capture, created_at: closed - 1000, closed_at: closed })
             .unwrap()
+    }
+
+    fn tr<'a>(src: &'a str, dst: &'a str, at: i64) -> NewTranslation<'a> {
+        NewTranslation {
+            source: src,
+            translation: dst,
+            source_lang: "en",
+            target_lang: "zh-Hans",
+            backend: "deepseek-chat 超时，已切换到 DeepL",
+            origin: TransOrigin::Capture,
+            at,
+        }
+    }
+
+    #[test]
+    fn translations_add_update_search_delete() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = History::open(dir.path()).unwrap();
+        let a = h.add_translation(tr("Hello world", "你好，世界", 1_000)).unwrap();
+        let b = h.add_translation(tr("100% sure", "百分之百确定", 2_000)).unwrap();
+        let all = h.list_translations(None, 10).unwrap();
+        assert_eq!(all.iter().map(|r| r.id).collect::<Vec<_>>(), vec![b, a], "最近的在前");
+        assert_eq!(all[1].backend, "deepseek-chat 超时，已切换到 DeepL");
+        // 重新翻译：更新同一条，排到最前
+        assert!(h.update_translation(a, tr("Hello there", "你好啊", 3_000)).unwrap());
+        let all = h.list_translations(None, 10).unwrap();
+        assert_eq!((all[0].id, all[0].source.as_str(), all[0].created_at, all[0].updated_at), (a, "Hello there", 1_000, 3_000));
+        // 原文、译文都能搜；% 按字面匹配
+        assert_eq!(h.list_translations(Some("你好"), 10).unwrap().len(), 1);
+        assert_eq!(h.list_translations(Some("HELLO"), 10).unwrap().len(), 1);
+        assert_eq!(h.list_translations(Some("%"), 10).unwrap()[0].id, b);
+        let u = h.translation_usage().unwrap();
+        assert_eq!(u.count, 2);
+        assert!(u.bytes > 0);
+        assert!(h.delete_translation(b).unwrap());
+        assert!(!h.delete_translation(b).unwrap());
+        assert!(!h.update_translation(b, tr("x", "y", 4_000)).unwrap());
+    }
+
+    #[test]
+    fn migrates_v1_database() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            // 造一个只有贴图表的第 1 版数据库
+            let conn = Connection::open(dir.path().join("history.db")).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE pins (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL, closed_at INTEGER NOT NULL,
+                 width INTEGER NOT NULL, height INTEGER NOT NULL, text TEXT NOT NULL DEFAULT '', source TEXT NOT NULL,
+                 bytes INTEGER NOT NULL DEFAULT 0); PRAGMA user_version = 1;",
+            )
+            .unwrap();
+        }
+        let h = History::open(dir.path()).unwrap();
+        h.add_translation(tr("a", "甲", 1)).unwrap();
+        assert_eq!(h.list_translations(None, 5).unwrap().len(), 1);
     }
 
     #[test]

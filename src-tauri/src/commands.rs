@@ -275,3 +275,21 @@ pub fn prompt_defaults() -> std::collections::HashMap<snapmind_core::prompts::Pr
 pub fn languages() -> Vec<snapmind_core::lang::Lang> {
     snapmind_core::lang::LANGS.to_vec()
 }
+
+/// 翻译历史（最近的在前），query 在原文和译文里搜索。M10.3 的历史页面使用。
+#[tauri::command]
+pub fn history_translations(
+    state: State<'_, AppState>,
+    query: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<snapmind_core::history::TransRecord>, String> {
+    let history = state.history.as_ref().ok_or("历史记录不可用")?;
+    history.list_translations(query.as_deref(), limit.unwrap_or(200)).map_err(|e| e.to_string())
+}
+
+/// 删除一条翻译历史。
+#[tauri::command]
+pub fn history_delete_translation(state: State<'_, AppState>, id: i64) -> Result<bool, String> {
+    let history = state.history.as_ref().ok_or("历史记录不可用")?;
+    history.delete_translation(id).map_err(|e| e.to_string())
+}

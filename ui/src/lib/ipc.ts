@@ -694,3 +694,27 @@ export async function capturePinText(index: number, region: Region, text: string
   if (!inTauri()) return 0;
   return invoke('capture_pin_text', { index, region, text });
 }
+
+export interface TransRecord {
+  id: number;
+  createdAt: number;
+  updatedAt: number;
+  source: string;
+  translation: string;
+  sourceLang: string;
+  targetLang: string;
+  /** 实际使用的后端和切换说明 */
+  backend: string;
+  origin: 'capture' | 'selection';
+}
+
+/** 翻译历史（最近的在前），query 在原文和译文里搜索。 */
+export async function historyTranslations(query?: string, limit?: number): Promise<TransRecord[]> {
+  if (!inTauri()) return [];
+  return invoke('history_translations', { query: query ?? null, limit: limit ?? null });
+}
+
+export async function historyDeleteTranslation(id: number): Promise<boolean> {
+  if (!inTauri()) return false;
+  return invoke('history_delete_translation', { id });
+}

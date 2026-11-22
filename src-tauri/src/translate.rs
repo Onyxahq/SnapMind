@@ -9,7 +9,8 @@ use std::time::Instant;
 
 use serde::Serialize;
 use snapmind_core::config::{BackendRef, Config, SameLang, TranslationConfig};
-use snapmind_core::lang::{is_same_language, lang_name};
+use snapmind_core::history::{NewTranslation, TransOrigin};
+use snapmind_core::lang::{detect, is_same_language, lang_name};
 use snapmind_core::export::{self, ImageFormat, RgbaImage};
 use snapmind_core::prompts::{parse_oneshot, render, PromptKind, PromptVars};
 use snapmind_platform::secrets;
@@ -28,6 +29,8 @@ const MAX_IMAGE_SIDE: u32 = 2048;
 #[derive(Default)]
 pub struct TaskState {
     tasks: Mutex<HashMap<String, tauri::async_runtime::JoinHandle<()>>>,
+    /// 任务 id → 翻译历史 id：同一张卡片重新翻译时更新原记录，不新增
+    records: Mutex<HashMap<String, i64>>,
 }
 
 impl TaskState {
@@ -41,6 +44,38 @@ impl TaskState {
         if let Some(old) = self.tasks.lock().expect("任务锁").remove(id) {
             old.abort();
         }
+        self.records.lock().expect("任务锁").remove(id);
+    }
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
+}
+
+/// 翻译完成后写入翻译历史（需求第 7 节）；同一任务再次完成时更新原记录。历史库不可用时只记日志。
+fn record<R: Runtime>(app: &AppHandle<R>, task: &str, source: &str, translation: &str, target: &str, backend: &str) {
+    let state = app.state::<AppState>();
+    let Some(history) = state.history.as_ref() else { return };
+    let entry = || NewTranslation {
+        source,
+        translation,
+        source_lang: detect(source).unwrap_or(""),
+        target_lang: target,
+        backend,
+        origin: TransOrigin::Capture,
+        at: now_ms(),
+    };
+    let tasks = app.state::<TaskState>();
+    let existing = tasks.records.lock().expect("任务锁").get(task).copied();
+    let result = match existing {
+        Some(id) => history.update_translation(id, entry()).map(|_| id),
+        None => history.add_translation(entry()),
+    };
+    match result {
+        Ok(id) => {
+            tasks.records.lock().expect("任务锁").insert(task.to_string(), id);
+        }
+        Err(e) => eprintln!("写入翻译历史失败：{e}"),
     }
 }
 
@@ -183,8 +218,8 @@ async fn recognize<R: Runtime>(cfg: &Config, png: Vec<u8>, out: &Emit<R>) -> Res
     Err(format!("识别失败：{}", describe_failures(&run.failures())))
 }
 
-/// 翻译链。返回（译文，说明）。
-async fn translate<R: Runtime>(cfg: &Config, source: &str, out: &Emit<R>) -> Result<(String, String), String> {
+/// 翻译链。返回（译文，说明，实际目标语言；原文已是目标语言而没有翻译时为 None）。
+async fn translate<R: Runtime>(cfg: &Config, source: &str, out: &Emit<R>) -> Result<(String, String, Option<String>), String> {
     let chains = &cfg.chains;
     let backends = resolve(&chains.translate, &cfg.providers, &cfg.mt, key_of);
     if backends.is_empty() {
@@ -195,7 +230,7 @@ async fn translate<R: Runtime>(cfg: &Config, source: &str, out: &Emit<R>) -> Res
         Plan::Skip => {
             out.send("dst-reset", "translate", "");
             out.send("dst", "translate", source);
-            return Ok((source.to_string(), format!("原文已是{}，未翻译", lang_name(&cfg.translation.target_lang))));
+            return Ok((source.to_string(), format!("原文已是{}，未翻译", lang_name(&cfg.translation.target_lang)), None));
         }
     };
     let target = target.as_str();
@@ -226,7 +261,7 @@ async fn translate<R: Runtime>(cfg: &Config, source: &str, out: &Emit<R>) -> Res
                 Some(n) => format!("{}（{n}）", s.describe()),
                 None => s.describe(),
             };
-            Ok((s.value.trim().to_string(), desc))
+            Ok((s.value.trim().to_string(), desc, Some(target.to_string())))
         }
         Err(f) => Err(format!("翻译失败：{}", describe_failures(&f))),
     }
@@ -234,7 +269,7 @@ async fn translate<R: Runtime>(cfg: &Config, source: &str, out: &Emit<R>) -> Res
 
 /// 一步到位链：视觉模型看图直接给出原文和译文（JSON）。
 /// 返回 `Ok(None)` 表示走到了「降级」或链里没有可用的视觉模型，由调用方改走识别 → 翻译。
-async fn oneshot<R: Runtime>(cfg: &Config, png: &[u8], out: &Emit<R>) -> Result<Option<(String, String)>, String> {
+async fn oneshot<R: Runtime>(cfg: &Config, png: &[u8], out: &Emit<R>) -> Result<Option<((String, String), String)>, String> {
     let chains = &cfg.chains;
     enum Step {
         Degrade,
@@ -281,7 +316,8 @@ async fn oneshot<R: Runtime>(cfg: &Config, png: &[u8], out: &Emit<R>) -> Result<
                 let s = run.succeed(i, (src, dst));
                 out.send("src", "oneshot", s.value.0.clone());
                 out.send("dst", "oneshot", s.value.1.clone());
-                return Ok(Some((s.value.0.clone(), format!("一步到位 {}", s.describe()))));
+                let desc = format!("一步到位 {}", s.describe());
+                return Ok(Some((s.value, desc)));
             }
             Err(e) => {
                 run.fail(i, e);
@@ -309,7 +345,8 @@ pub fn capture_translate(
     let img = crate::export::crop_base(&app, index, region)?;
     let cfg = state.config.get();
     let out = Emit { win: window, id: id.clone() };
-    spawn(&app, id, async move {
+    let handle = app.clone();
+    spawn(&app, id.clone(), async move {
         let t0 = Instant::now();
         let png = match tauri::async_runtime::spawn_blocking(move || encode_for_vision(img)).await {
             Ok(Ok(p)) => p,
@@ -320,14 +357,23 @@ pub fn capture_translate(
         if cfg.translation.oneshot {
             out.send("stage", "oneshot", "");
             match oneshot(&cfg, &png, &out).await {
-                Ok(Some((source, desc))) => {
+                Ok(Some((pair, desc))) => {
+                    let source = pair.0.clone();
                     // 原文已是目标语言：按设置改翻第二语言或不翻译（会替换掉一步到位给的译文）
                     if plan(&cfg.translation, &source) == Plan::Translate(cfg.translation.target_lang.clone(), None) {
+                        let (_, dst) = &pair;
+                        record(&handle, &id, &source, dst, &cfg.translation.target_lang, &desc);
                         return out.send("done", "oneshot", format!("{desc} · {}", secs(t0)));
                     }
                     out.send("dst-reset", "translate", "");
                     return match translate(&cfg, &source, &out).await {
-                        Ok((_, tr)) => out.send("done", "translate", format!("{desc} → {tr} · {}", secs(t0))),
+                        Ok((dst, tr, target)) => {
+                            let desc = format!("{desc} → {tr}");
+                            if let Some(t) = target {
+                                record(&handle, &id, &source, &dst, &t, &desc);
+                            }
+                            out.send("done", "translate", format!("{desc} · {}", secs(t0)))
+                        }
                         Err(e) => out.send("error", "translate", e),
                     };
                 }
@@ -344,7 +390,13 @@ pub fn capture_translate(
             return out.send("error", "recognize", "选区里没有识别到文字");
         }
         match translate(&cfg, &source, &out).await {
-            Ok((_, tr)) => out.send("done", "translate", format!("{prefix}{rec} → {tr} · {}", secs(t0))),
+            Ok((dst, tr, target)) => {
+                let desc = format!("{prefix}{rec} → {tr}");
+                if let Some(t) = target {
+                    record(&handle, &id, &source, &dst, &t, &desc);
+                }
+                out.send("done", "translate", format!("{desc} · {}", secs(t0)))
+            }
             Err(e) => out.send("error", "translate", e),
         }
     });
@@ -356,14 +408,20 @@ pub fn capture_translate(
 pub fn translate_text(app: AppHandle, window: WebviewWindow, state: State<'_, AppState>, id: String, text: String) -> Result<(), String> {
     let cfg = state.config.get();
     let out = Emit { win: window, id: id.clone() };
-    spawn(&app, id, async move {
+    let handle = app.clone();
+    spawn(&app, id.clone(), async move {
         let t0 = Instant::now();
         let source = text.trim().to_string();
         if source.is_empty() {
             return out.send("error", "translate", "原文是空的");
         }
         match translate(&cfg, &source, &out).await {
-            Ok((_, tr)) => out.send("done", "translate", format!("{tr} · {}", secs(t0))),
+            Ok((dst, tr, target)) => {
+                if let Some(t) = target {
+                    record(&handle, &id, &source, &dst, &t, &tr);
+                }
+                out.send("done", "translate", format!("{tr} · {}", secs(t0)))
+            }
             Err(e) => out.send("error", "translate", e),
         }
     });
