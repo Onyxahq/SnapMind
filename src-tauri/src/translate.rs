@@ -158,8 +158,14 @@ pub fn plan(t: &TranslationConfig, source: &str) -> Plan {
     }
 }
 
-/// 识别链：本地 OCR（M4 前不可用）或视觉模型。返回（原文，说明）。
-async fn recognize<R: Runtime>(cfg: &Config, png: Vec<u8>, out: &Emit<R>) -> Result<(String, String), String> {
+/// 识别链：本地 OCR（用原图）或视觉模型（用缩小后的 PNG）。返回（原文，说明）。
+async fn recognize<R: Runtime>(
+    app: &AppHandle<R>,
+    cfg: &Config,
+    img: std::sync::Arc<RgbaImage>,
+    png: Vec<u8>,
+    out: &Emit<R>,
+) -> Result<(String, String), String> {
     let chains = &cfg.chains;
     // 本地 OCR 不是大模型后端，单独占位；其余按设置解析
     enum Step {
@@ -200,8 +206,19 @@ async fn recognize<R: Runtime>(cfg: &Config, png: Vec<u8>, out: &Emit<R>) -> Res
     for i in 0..run.len() {
         out.send("stage", "recognize", run.label(i));
         let r = match &steps[i] {
-            // M4 装好本地 OCR 之前，识别链里的本地 OCR 直接报不可用并切到下一个
-            Step::LocalOcr => Err(ProviderError::Unavailable("本地 OCR 还没有安装".into())),
+            // 模型没下载时报不可用，切到下一个
+            Step::LocalOcr => {
+                let (app, img) = (app.clone(), img.clone());
+                match tauri::async_runtime::spawn_blocking(move || crate::ocr::recognize_text(&app, &img)).await {
+                    Ok(Ok(text)) if text.trim().is_empty() => Err(ProviderError::Empty),
+                    Ok(Ok(text)) => {
+                        out.send("src", "recognize", text.clone());
+                        Ok(text)
+                    }
+                    Ok(Err(e)) => Err(ProviderError::Unavailable(e)),
+                    Err(e) => Err(ProviderError::Unavailable(e.to_string())),
+                }
+            }
             Step::Llm(b) => b.run_text(&job, timeout, &mut on_delta).await,
         };
         match r {
@@ -348,7 +365,9 @@ pub fn capture_translate(
     let handle = app.clone();
     spawn(&app, id.clone(), async move {
         let t0 = Instant::now();
-        let png = match tauri::async_runtime::spawn_blocking(move || encode_for_vision(img)).await {
+        let img = std::sync::Arc::new(img);
+        let for_vision = img.clone();
+        let png = match tauri::async_runtime::spawn_blocking(move || encode_for_vision(&for_vision)).await {
             Ok(Ok(p)) => p,
             Ok(Err(e)) => return out.send("error", "recognize", e),
             Err(e) => return out.send("error", "recognize", e.to_string()),
@@ -382,7 +401,7 @@ pub fn capture_translate(
             }
         }
         out.send("stage", "recognize", "");
-        let (source, rec) = match recognize(&cfg, png, &out).await {
+        let (source, rec) = match recognize(&handle, &cfg, img, png, &out).await {
             Ok(r) => r,
             Err(e) => return out.send("error", "recognize", e),
         };
@@ -433,10 +452,13 @@ pub fn task_cancel(app: AppHandle, id: String) {
     app.state::<TaskState>().cancel(&id);
 }
 
-fn encode_for_vision(img: RgbaImage) -> Result<Vec<u8>, String> {
+fn encode_for_vision(img: &RgbaImage) -> Result<Vec<u8>, String> {
     let (w, h) = fit_size(img.width, img.height, MAX_IMAGE_SIDE);
-    let img = if (w, h) == (img.width, img.height) { img } else { export::resize(img, w, h).map_err(|e| e.to_string())? };
-    export::encode(&img, ImageFormat::Png, 0, true).map_err(|e| e.to_string())
+    if (w, h) == (img.width, img.height) {
+        return export::encode(img, ImageFormat::Png, 0, true).map_err(|e| e.to_string());
+    }
+    let small = export::resize(img.clone(), w, h).map_err(|e| e.to_string())?;
+    export::encode(&small, ImageFormat::Png, 0, true).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

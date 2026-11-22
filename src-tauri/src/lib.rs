@@ -9,6 +9,7 @@ mod pin;
 mod pintools;
 mod providers;
 mod state;
+mod ocr;
 mod translate;
 mod tray;
 mod wm;
@@ -41,6 +42,8 @@ pub fn run() {
                         actions::pin_clipboard(app);
                     } else if is(actions::TRANSLATE_SHORTCUT) {
                         actions::capture_translate(app);
+                    } else if is(actions::RECOGNIZE_SHORTCUT) {
+                        actions::capture_recognize(app);
                     } else {
                         actions::capture(app);
                     }
@@ -52,6 +55,7 @@ pub fn run() {
         .manage(pin::PinState::default())
         .manage(pintools::ToolsState::default())
         .manage(translate::TaskState::default())
+        .manage(ocr::OcrState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
@@ -73,7 +77,12 @@ pub fn run() {
             overlay::prewarm(handle);
             pintools::prewarm(handle);
             std::thread::spawn(export::cleanup_clip_files);
-            for key in [actions::CAPTURE_SHORTCUT, actions::PIN_CLIPBOARD_SHORTCUT, actions::TRANSLATE_SHORTCUT] {
+            for key in [
+                actions::CAPTURE_SHORTCUT,
+                actions::PIN_CLIPBOARD_SHORTCUT,
+                actions::TRANSLATE_SHORTCUT,
+                actions::RECOGNIZE_SHORTCUT,
+            ] {
                 if let Err(e) = handle.global_shortcut().register(key) {
                     // 被别的程序占用时不影响启动；M10.1 在设置页标红提示。
                     eprintln!("注册快捷键 {key} 失败：{e}");
@@ -122,6 +131,11 @@ pub fn run() {
             translate::capture_translate,
             translate::translate_text,
             translate::task_cancel,
+            ocr::capture_ocr,
+            ocr::ocr_compose,
+            ocr::ocr_forget,
+            ocr::ocr_status,
+            ocr::ocr_download,
             commands::pin_info,
             commands::pin_ready,
             commands::pin_zoom,

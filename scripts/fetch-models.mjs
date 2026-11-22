@@ -4,7 +4,8 @@
 //
 // - 地址固定到 Hugging Face 仓库的某个提交，内容不会悄悄变化；
 // - 每个文件都校验 SHA-256，不符就删除并报错；已存在且校验通过的文件跳过；
-// - models/ 不入库（见 .gitignore），打包时作为资源一起装进安装包。
+// - models/ 不入库（见 .gitignore），只给命令行评测和调试版用；安装包不带模型，应用第一次用时自己下载，
+//   地址和哈希在 crates/snapmind-ocr/src/models.rs 里有同一份，改动时两边一起改。
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

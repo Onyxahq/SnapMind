@@ -68,7 +68,7 @@ struct StartPayload {
     has_cursor: bool,
     /// 截图时的鼠标位置（物理像素），仅在这块屏上时提供
     cursor: Option<CursorPos>,
-    /// 选好区域后要直接做什么：`capture`（只截图）/ `translate`（Ctrl+Shift+O）
+    /// 选好区域后要直接做什么：`capture`（只截图）/ `translate`（Ctrl+Shift+O）/ `recognize`（Ctrl+Shift+S）
     intent: Intent,
 }
 
@@ -78,6 +78,7 @@ struct StartPayload {
 pub enum Intent {
     Capture,
     Translate,
+    Recognize,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]

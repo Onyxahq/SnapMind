@@ -373,6 +373,20 @@ pub fn paragraph_text(lines: &[Line], para: &[usize]) -> String {
     out
 }
 
+/// 把选中的一部分行（下标，顺序随意）按段落规则重新分段并拼成文字（需求 12.1 第 6 条）。
+/// 按段落：段落之间空一行；按行：一行一行，顺序和按段落时一致。
+pub fn compose(lines: &[Line], pick: &[usize], by_line: bool) -> String {
+    let mut pick: Vec<usize> = pick.iter().copied().filter(|&i| i < lines.len()).collect();
+    pick.sort_unstable();
+    pick.dedup();
+    let subset: Vec<Line> = pick.iter().map(|&i| lines[i].clone()).collect();
+    let paras = paragraphs(&subset);
+    if by_line {
+        return paras.iter().flatten().map(|&i| subset[i].text.trim()).collect::<Vec<_>>().join("\n");
+    }
+    paras.iter().map(|p| paragraph_text(&subset, p)).filter(|t| !t.is_empty()).collect::<Vec<_>>().join("\n\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -484,6 +498,20 @@ mod tests {
             line("}", 10, 50, 10, 14),
         ];
         assert_eq!(texts(&v), vec!["fn main() {\n    let x = 1;\n}"]);
+    }
+
+    #[test]
+    fn compose_subsets() {
+        let v = vec![
+            line("第一段第一行，", 10, 10, 200, 14),
+            line("第一段第二行。", 10, 30, 200, 14),
+            line("Second paragraph", 10, 72, 200, 14),
+            line("goes on here.", 10, 92, 200, 14),
+        ];
+        assert_eq!(compose(&v, &[0, 1, 2, 3], false), "第一段第一行，第一段第二行。\n\nSecond paragraph goes on here.");
+        assert_eq!(compose(&v, &[3, 1], false), "第一段第二行。\n\ngoes on here.");
+        assert_eq!(compose(&v, &[0, 1, 2, 3], true), "第一段第一行，\n第一段第二行。\nSecond paragraph\ngoes on here.");
+        assert_eq!(compose(&v, &[], false), "");
     }
 
     #[test]

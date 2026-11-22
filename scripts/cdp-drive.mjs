@@ -7,7 +7,7 @@
 //    （stdout / stderr 都要重定向，否则子进程继承管道，调用方会一直等它退出）
 // 2. 按 Shift+F1 开始截图，然后：node scripts/cdp-drive.mjs 9333 steps.json
 //
-// steps.json：[{ "op": "drag", "x1", "y1", "x2", "y2" } | { "op": "click", "x", "y" }
+// steps.json：[{ "op": "drag" | "rdrag"（右键）, "x1", "y1", "x2", "y2" } | { "op": "click" | "rclick", "x", "y" }
 //   | { "op": "key", "key", "mods"(1 Alt / 2 Ctrl / 4 Meta / 8 Shift) } | { "op": "type", "text" }
 //   | { "op": "wheel", "x", "y", "dy", "mods" }
 //   | { "op": "wait", "ms" } | { "op": "eval", "expr" }]，坐标是窗口内的 CSS 像素。
@@ -32,8 +32,10 @@ ws.onmessage = (m) => {
 const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function mouse(type, x, y, buttons = 0) {
-  await send('Input.dispatchMouseEvent', { type, x, y, button: type === 'mouseMoved' && !buttons ? 'none' : 'left', buttons, clickCount: 1 });
+// buttons：1 左键、2 右键（CDP 的位掩码）
+async function mouse(type, x, y, buttons = 0, right = false) {
+  const button = type === 'mouseMoved' && !buttons ? 'none' : right ? 'right' : 'left';
+  await send('Input.dispatchMouseEvent', { type, x, y, button, buttons, clickCount: 1 });
 }
 const KEYS = { Escape: 27, Enter: 13, ' ': 32 };
 async function key(k, mods = 0) {
@@ -52,6 +54,13 @@ for (const s of steps) {
       await mouse('mouseMoved', s.x1, s.y1); await mouse('mousePressed', s.x1, s.y1, 1);
       for (let i = 1; i <= 10; i++) await mouse('mouseMoved', s.x1 + ((s.x2 - s.x1) * i) / 10, s.y1 + ((s.y2 - s.y1) * i) / 10, 1);
       await mouse('mouseReleased', s.x2, s.y2); break;
+    }
+    case 'rclick':
+      await mouse('mouseMoved', s.x, s.y); await mouse('mousePressed', s.x, s.y, 2, true); await mouse('mouseReleased', s.x, s.y, 0, true); break;
+    case 'rdrag': {
+      await mouse('mouseMoved', s.x1, s.y1); await mouse('mousePressed', s.x1, s.y1, 2, true);
+      for (let i = 1; i <= 10; i++) await mouse('mouseMoved', s.x1 + ((s.x2 - s.x1) * i) / 10, s.y1 + ((s.y2 - s.y1) * i) / 10, 2, true);
+      await mouse('mouseReleased', s.x2, s.y2, 0, true); break;
     }
     case 'key': await key(s.key, s.mods ?? 0); break;
     case 'wheel':

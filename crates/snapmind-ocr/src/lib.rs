@@ -10,6 +10,7 @@ pub mod eval;
 mod imgops;
 pub mod ink;
 pub mod layout;
+pub mod models;
 pub mod rec;
 
 use std::path::Path;
@@ -119,7 +120,7 @@ impl Ocr {
         let mut lines: Vec<Line> = boxes
             .iter()
             .zip(texts)
-            .filter(|(_, (text, _))| !text.trim().is_empty())
+            .filter_map(|(b, (text, score))| clean_line(&text, score).map(|t| (b, (t, score))))
             .map(|(b, (text, score))| {
                 let ink = ink::measure(img, b.x, b.y, b.width, b.height);
                 Line { text, x: b.x, y: b.y, width: b.width, height: b.height, score, ink }
@@ -128,6 +129,20 @@ impl Ocr {
         sort_reading_order(&mut lines);
         Ok((lines, Timing { det: t1 - t0, rec: t2 - t1, total: t2 - t0 }))
     }
+}
+
+/// 去掉把图标认成文字的结果。界面截图里工具栏图标、窗口按钮也会被检测成「一行」，识别出来是一两个
+/// 置信度很低的怪字，或者模型表示认不出的「□」。规则（宁可留下，不误删真文字）：
+/// - 去掉首尾的 □（图标紧挨着文字时，如「□All Bookmarks」）；
+/// - 置信度 < 0.5 的整行丢掉；
+/// - 只有一两个字、置信度 < 0.8 的丢掉（真的短词如「OK」「F2」「更改」置信度都在 0.9 以上）。
+fn clean_line(text: &str, score: f32) -> Option<String> {
+    let t = text.trim().trim_matches(|c: char| c == '□' || c.is_whitespace());
+    let n = t.chars().count();
+    if n == 0 || score < 0.5 || (n <= 2 && score < 0.8) {
+        return None;
+    }
+    Some(t.to_string())
 }
 
 /// 线程分配：（检测线程数，识别会话数，每个识别会话的线程数）。留两个核给界面。
@@ -171,6 +186,17 @@ mod tests {
 
     fn l(text: &str, x: u32, y: u32, w: u32, h: u32) -> Line {
         Line { text: text.into(), x, y, width: w, height: h, score: 1.0, ink: Ink::default() }
+    }
+
+    #[test]
+    fn drops_icon_noise() {
+        assert_eq!(clean_line("□All Bookmarks", 0.91).as_deref(), Some("All Bookmarks"));
+        assert_eq!(clean_line("F2", 0.99).as_deref(), Some("F2"));
+        assert_eq!(clean_line("V", 0.29), None);
+        assert_eq!(clean_line("50", 0.69), None);
+        assert_eq!(clean_line("□□", 0.54), None);
+        assert_eq!(clean_line("Supports yy MM", 0.6).as_deref(), Some("Supports yy MM"));
+        assert_eq!(clean_line("Placeholder", 0.4), None);
     }
 
     #[test]

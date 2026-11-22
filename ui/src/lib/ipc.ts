@@ -181,7 +181,7 @@ export interface CaptureStart {
   /** 截图时的鼠标位置（虚拟桌面物理坐标），放大镜一出现就能定位 */
   cursor: import('./geometry').Point | null;
   /** 选好区域后要直接做什么：capture 只截图；translate 是 Ctrl+Shift+O（截图 → 识别 → 翻译） */
-  intent?: 'capture' | 'translate';
+  intent?: 'capture' | 'translate' | 'recognize';
 }
 
 /** 订阅「开始截图」（只有遮罩窗口会收到）。 */
@@ -687,6 +687,131 @@ export async function taskCancel(id: string): Promise<void> {
     return;
   }
   return invoke('task_cancel', { id });
+}
+
+// ---- 本地 OCR（见 src-tauri/src/ocr.rs）----
+
+/** 识别出的一行；坐标相对选区左上角（截图物理像素）。 */
+export interface OcrLine {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text: string;
+}
+
+export interface OcrResult {
+  lines: OcrLine[];
+  /** 段落：行下标，按阅读顺序 */
+  paragraphs: number[][];
+  /** 按段落拼好的全文 */
+  text: string;
+  ms: number;
+}
+
+export interface OcrStatus {
+  installed: boolean;
+  downloading: boolean;
+  received: number;
+  total: number;
+  error: string | null;
+}
+
+const OCR_TOTAL = 21_510_548;
+let fakeOcr: OcrStatus = { installed: false, downloading: false, received: 0, total: OCR_TOTAL, error: null };
+const fakeOcrListeners = new Set<(s: OcrStatus) => void>();
+const fakeOcrResults = new Map<string, OcrLine[]>();
+const fakeOcrParas = new Map<string, number[][]>();
+
+/** 浏览器开发页：在选区里排几段假文字（两段正文 + 一个列表）。 */
+function fakeOcrResult(region: Region): OcrResult {
+  const texts = [
+    ['Screenshots hold text that was never', 'meant to be copied, like labels in', 'a dialog or a frame of a video.'],
+    ['识别后的文字按段落排好，段落内部的', '换行会被去掉，可以直接粘贴。'],
+    ['• 右键划过检测框只选一部分'],
+    ['• 右键单击恢复全部'],
+  ];
+  const lh = Math.max(14, Math.min(30, Math.round(region.height / 14)));
+  const lines: OcrLine[] = [];
+  const paragraphs: number[][] = [];
+  let y = Math.round(lh * 0.8);
+  for (const p of texts) {
+    const ids: number[] = [];
+    for (const t of p) {
+      if (y + lh > region.height) break;
+      const width = Math.min(region.width - 2 * lh, Math.round(t.length * lh * (/[一-鿿]/.test(t) ? 0.9 : 0.48)));
+      ids.push(lines.length);
+      lines.push({ x: lh, y, width: Math.max(8, width), height: lh, text: t });
+      y += Math.round(lh * 1.45);
+    }
+    if (ids.length) paragraphs.push(ids);
+    y += Math.round(lh * 0.9);
+  }
+  const join = (ids: number[]) => ids.map((i) => lines[i].text).join(' ');
+  return { lines, paragraphs, text: paragraphs.map(join).join('\n\n'), ms: 182 };
+}
+
+/** 识别截图选区（原图，不带标注）。模型没下载时报错，先用 ocrStatus 判断。 */
+export async function captureOcr(id: string, index: number, region: Region): Promise<OcrResult> {
+  if (!inTauri()) {
+    await new Promise((r) => setTimeout(r, 500));
+    const r = fakeOcrResult(region);
+    fakeOcrResults.set(id, r.lines);
+    fakeOcrParas.set(id, r.paragraphs);
+    return r;
+  }
+  return invoke('capture_ocr', { id, index, region });
+}
+
+/** 按选中的行（null = 全部）重新分段拼接；byLine 时一行一行。 */
+export async function ocrCompose(id: string, pick: number[] | null, byLine: boolean): Promise<string> {
+  if (!inTauri()) {
+    const lines = fakeOcrResults.get(id) ?? [];
+    const keep = new Set(pick ?? lines.map((_, i) => i));
+    const paras = (fakeOcrParas.get(id) ?? []).map((p) => p.filter((i) => keep.has(i))).filter((p) => p.length);
+    return byLine
+      ? paras.flat().map((i) => lines[i].text).join('\n')
+      : paras.map((p) => p.map((i) => lines[i].text).join(' ')).join('\n\n');
+  }
+  return invoke('ocr_compose', { id, pick, byLine });
+}
+
+export async function ocrForget(id: string): Promise<void> {
+  if (!inTauri()) {
+    fakeOcrResults.delete(id);
+    return;
+  }
+  return invoke('ocr_forget', { id });
+}
+
+export async function ocrStatus(): Promise<OcrStatus> {
+  if (!inTauri()) return fakeOcr;
+  return invoke('ocr_status');
+}
+
+/** 下载 OCR 模型；进度通过 onOcrDownload 推来。 */
+export async function ocrDownload(): Promise<void> {
+  if (!inTauri()) {
+    if (fakeOcr.downloading) return;
+    fakeOcr = { ...fakeOcr, downloading: true, received: 0, error: null };
+    for (let i = 1; i <= 20; i++) {
+      await new Promise((r) => setTimeout(r, 90));
+      fakeOcr = { ...fakeOcr, received: Math.round((OCR_TOTAL * i) / 20) };
+      fakeOcrListeners.forEach((f) => f(fakeOcr));
+    }
+    fakeOcr = { ...fakeOcr, downloading: false, installed: true };
+    fakeOcrListeners.forEach((f) => f(fakeOcr));
+    return;
+  }
+  return invoke('ocr_download');
+}
+
+export async function onOcrDownload(cb: (s: OcrStatus) => void): Promise<() => void> {
+  if (!inTauri()) {
+    fakeOcrListeners.add(cb);
+    return () => fakeOcrListeners.delete(cb);
+  }
+  return listen<OcrStatus>('ocr:download', (e) => cb(e.payload));
 }
 
 /** 把文字贴成文字卡片（放在选区左上角）并结束截图。 */

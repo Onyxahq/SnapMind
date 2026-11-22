@@ -2,7 +2,8 @@
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
-  // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）。
+  // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）；
+  // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -10,6 +11,13 @@
     capturePin,
     capturePinText,
     captureTranslate,
+    captureOcr,
+    ocrCompose,
+    ocrDownload,
+    ocrForget,
+    ocrStatus,
+    onOcrDownload,
+    type OcrStatus,
     onTaskEvent,
     taskCancel,
     translateText,
@@ -63,6 +71,9 @@
   import { devCapture, devChain } from './devFrame';
   import TranslateCard from './TranslateCard.svelte';
   import { bilingual, newCard, reduce, type TranslateCard as Card } from '$lib/task';
+  import OcrCardView from './OcrCard.svelte';
+  import OcrBoxes from './OcrBoxes.svelte';
+  import { newOcrCard, pickLines, type OcrCard } from '$lib/ocr';
 
   /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
   const CLICK_SLOP = 3;
@@ -95,6 +106,14 @@
   let confirmOpen = $state(false);
   /** 翻译结果卡片（打开卡片不会结束截图） */
   let card = $state<Card | null>(null);
+  /** 识别文字卡片（和翻译卡片同一时间只开一张） */
+  let ocr = $state<OcrCard | null>(null);
+  /** 本地 OCR 模型的下载状态 */
+  let ocrModel = $state<OcrStatus | null>(null);
+  /** Ctrl+Shift+S：识别完成后直接复制 */
+  let ocrAutoCopy = false;
+  /** 右键划选检测框（本屏截图像素） */
+  let rdrag = $state.raw<{ p0: Point; p: Point; downCss: Point; moved: boolean } | null>(null);
   /** 工具条位置：结果卡片要避开它 */
   let toolbarRect = $state<Rect>();
 
@@ -148,17 +167,36 @@
         }
       : null,
   );
-  /** 操作提示：内容随状态变化，避开已有选区（悬停高亮不算）。 */
-  const hintList = $derived(
-    hintsFor(ann.tool ? 'annotate' : sel ? 'selected' : 'idle', ann.tool ? TOOL_INFO[ann.tool].label : ''),
-  );
   /** 画标注时工具条保持显示（不随每一笔闪烁）；调整选区时隐藏。 */
   const showToolbar = $derived(sel !== null && !saveOpen && sel.width > 0 && sel.height > 0 && !drag);
   const selOnlyCss = $derived(sel ? cssRect(sel) : null);
+  const sameRect = (a: Rect, b: Rect) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+  /** 检测框只在选区还是识别时那块时画（选区动了就对不上了） */
+  const ocrBoxes = $derived(
+    ocr?.result && sel && !saveOpen && !ann.tool && sameRect(sel, ocr.region) ? ocr.result : null,
+  );
+  /** 正在右键划的矩形（相对识别区域） */
+  const rdragRect = $derived(
+    rdrag?.moved && ocr
+      ? {
+          x: Math.min(rdrag.p0.x, rdrag.p.x) - ocr.region.x,
+          y: Math.min(rdrag.p0.y, rdrag.p.y) - ocr.region.y,
+          width: Math.abs(rdrag.p.x - rdrag.p0.x),
+          height: Math.abs(rdrag.p.y - rdrag.p0.y),
+        }
+      : null,
+  );
+  /** 操作提示：内容随状态变化，避开已有选区（悬停高亮不算）。 */
+  const hintList = $derived(
+    hintsFor(
+      ann.tool ? 'annotate' : ocrBoxes ? 'ocr' : sel ? 'selected' : 'idle',
+      ann.tool ? TOOL_INFO[ann.tool].label : '',
+    ),
+  );
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card,
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -208,6 +246,7 @@
     saveOpen = false;
     confirmOpen = false;
     closeCard();
+    closeOcr();
     ann.reset();
     propsOpen = false;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
@@ -231,6 +270,7 @@
   /** 清空本窗口的画面和状态。 */
   function resetView() {
     closeCard();
+    closeOcr();
     session = null;
     sel = null;
     drag = null;
@@ -345,6 +385,7 @@
       case 'exit': return requestClose();
       case 'pin': return pin();
       case 'translate': return translate();
+      case 'ocr': return recognizeText();
     }
   }
 
@@ -356,6 +397,7 @@
   function translate() {
     if (!session || drag) return;
     if (!sel) sel = region();
+    closeOcr();
     if (card) taskCancel(card.id);
     const id = `tr-${session.seq}-${++cardSeq}`;
     card = newCard(id);
@@ -397,6 +439,81 @@
     capturePinText(i, r, text).catch((e) => log('error', `贴译文失败：${e}`));
   }
 
+  // ---------------------------------------------------------------- 识别文字卡片
+
+  /** Shift+C / 工具条「识别文字」/ Ctrl+Shift+S（autoCopy：识别完直接复制）。 */
+  async function recognizeText(autoCopy = false) {
+    if (!session || drag) return;
+    if (!sel) sel = region();
+    closeCard();
+    closeOcr();
+    const id = `ocr-${session.seq}-${++cardSeq}`;
+    const [index, r] = [session.index, sel];
+    ocr = newOcrCard(id, r);
+    ocrAutoCopy = autoCopy;
+    const st = await ocrStatus();
+    if (ocr?.id !== id) return;
+    ocrModel = st;
+    if (st.installed) runOcr(id, index, r);
+    else ocr = { ...ocr, stage: 'model' };
+  }
+
+  async function runOcr(id: string, index: number, r: Rect) {
+    if (ocr?.id === id) ocr = { ...ocr, stage: 'run', error: '' };
+    try {
+      const res = await captureOcr(id, index, r);
+      if (ocr?.id !== id) return;
+      ocr = { ...ocr, stage: 'done', result: res, text: res.text, pick: null };
+      if (ocrAutoCopy && res.text.trim()) {
+        await clipboardWriteText(res.text);
+        toast('已复制识别出的文字');
+      }
+    } catch (e) {
+      if (ocr?.id === id) ocr = { ...ocr, stage: 'error', error: String(e) };
+    }
+  }
+
+  function downloadModel() {
+    if (ocrModel) ocrModel = { ...ocrModel, downloading: true, received: 0, error: null };
+    ocrDownload().catch((e) => log('warn', `下载 OCR 模型失败：${e}`));
+  }
+
+  /** 换排列方式或划选后，按段落规则重新拼接（改过的文字会被替换）。 */
+  let composeSeq = 0;
+  async function recompose(next: Partial<Pick<OcrCard, 'pick' | 'byLine'>>) {
+    if (!ocr || ocr.stage !== 'done') return;
+    const c = { ...ocr, ...next };
+    ocr = c;
+    const seq = ++composeSeq;
+    try {
+      const text = await ocrCompose(c.id, c.pick, c.byLine);
+      // 期间又换了选择就丢掉这次结果（$state 会包一层代理，不能比较数组是否同一个）
+      if (ocr?.id === c.id && seq === composeSeq) ocr = { ...ocr, text };
+    } catch (e) {
+      log('warn', `重新拼接识别文字失败：${e}`);
+    }
+  }
+
+  function closeOcr() {
+    if (ocr) ocrForget(ocr.id);
+    ocr = null;
+    rdrag = null;
+  }
+
+  /** 复制识别出的文字：交出结果，结束截图。 */
+  async function copyOcr() {
+    if (!ocr?.text.trim()) return;
+    await clipboardWriteText(ocr.text.trim());
+    close();
+  }
+
+  function pinOcr() {
+    if (!ocr?.text.trim() || !session) return;
+    const [i, r, text] = [session.index, ocr.region, ocr.text.trim()];
+    resetView();
+    capturePinText(i, r, text).catch((e) => log('error', `贴识别文字失败：${e}`));
+  }
+
   /** 贴图：在原位置钉一张贴图（带标注），结束截图。 */
   function pin() {
     if (drag) return;
@@ -406,6 +523,13 @@
   // ---------------------------------------------------------------- 鼠标
 
   function onDown(e: PointerEvent) {
+    // 识别卡片打开时，右键在检测框上划选一部分行
+    if (session && e.button === 2 && ocrBoxes) {
+      const p = toPx(e.clientX, e.clientY);
+      rdrag = { p0: p, p, downCss: { x: e.clientX, y: e.clientY }, moved: false };
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+      return;
+    }
     if (!session || e.button !== 0) return;
     const p = toPx(e.clientX, e.clientY);
     if (ann.editing) {
@@ -436,6 +560,11 @@
     if (!session) return;
     cursorCss = { x: e.clientX, y: e.clientY };
     const p = toPx(e.clientX, e.clientY);
+    if (rdrag) {
+      const moved = rdrag.moved || Math.hypot(e.clientX - rdrag.downCss.x, e.clientY - rdrag.downCss.y) >= CLICK_SLOP;
+      rdrag = { ...rdrag, p, moved };
+      return;
+    }
     if (ann.gesture) {
       ann.move(p, e.shiftKey);
       return;
@@ -465,6 +594,17 @@
   }
 
   function onUp(e: PointerEvent) {
+    if (rdrag) {
+      const area = rdragRect;
+      const moved = rdrag.moved;
+      rdrag = null;
+      if (!ocr?.result) return;
+      if (moved && area) {
+        const pick = pickLines(ocr.result, area);
+        if (pick.length) recompose({ pick });
+      } else if (ocr.pick) recompose({ pick: null }); // 右键单击：恢复全部
+      return;
+    }
     if (ann.gesture) {
       ann.up();
       return;
@@ -482,12 +622,15 @@
     hover = sel ? hitTest(sel, toPx(e.clientX, e.clientY), HIT_TOL * mon.scale) : null;
     // Ctrl+Shift+O：选好区域就直接识别并翻译
     if (sel && session?.intent === 'translate' && !card) translate();
+    // Ctrl+Shift+S：选好区域就识别文字并复制
+    if (sel && session?.intent === 'recognize' && !ocr) recognizeText(true);
   }
 
   /** 右键：标注时退出标注；有选区时取消选区（已有标注时不取消，免得标注丢失）；没有选区时退出截图。 */
   function onContext(e: MouseEvent) {
     e.preventDefault();
     if (!session || drag || ann.gesture) return;
+    if (ocr) return; // 识别卡片打开时右键用来划选检测框，不取消选区
     if (ann.tool) {
       exitAnnotate();
       return;
@@ -533,6 +676,7 @@
       if (propsOpen) propsOpen = false;
       else if (saveOpen) saveOpen = false;
       else if (card) closeCard();
+      else if (ocr) closeOcr();
       else if (ann.tool) exitAnnotate();
       else requestClose();
       return;
@@ -549,7 +693,10 @@
     }
     if ((ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') || (e.key === 'Enter' && !ctrl)) {
       e.preventDefault();
-      if (!drag) copy();
+      if (drag) return;
+      // 识别卡片打开时复制的是文字
+      if (ocr?.stage === 'done') copyOcr();
+      else if (!ocr) copy();
       return;
     }
     if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') {
@@ -565,6 +712,11 @@
     if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       ann.undo();
+      return;
+    }
+    if (e.shiftKey && !ctrl && !e.altKey && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      recognizeText();
       return;
     }
     if (e.key === ' ' && !ctrl && !e.altKey) {
@@ -630,11 +782,17 @@
     const offTask = onTaskEvent((e) => {
       if (card) card = reduce(card, e);
     });
+    // 模型下载完成：卡片还在等模型就接着识别
+    const offOcr = onOcrDownload((s) => {
+      ocrModel = s;
+      if (s.installed && !s.downloading && ocr?.stage === 'model' && session) runOcr(ocr.id, session.index, ocr.region);
+    });
     if (!inTauri()) devCapture().then(({ start: s, url }) => start(s, url));
     return () => {
       offStart.then((f) => f());
       offClaim.then((f) => f());
       offTask.then((f) => f());
+      offOcr.then((f) => f());
     };
   });
 </script>
@@ -688,6 +846,22 @@
       ontool={setTool}
       onopts={(t, o) => ann.setOpts(t, o)}
       onundo={() => ann.undo()}
+    />
+  {/if}
+  {#if ocrBoxes && ocr}
+    <OcrBoxes region={ocr.region} scale={mon.scale} result={ocrBoxes} byLine={ocr.byLine} pick={ocr.pick} drag={rdragRect} />
+  {/if}
+  {#if ocr && selOnlyCss && !saveOpen}
+    <OcrCardView
+      sel={unionRect(selOnlyCss, showToolbar ? toolbarRect : null)}
+      card={ocr}
+      model={ocrModel}
+      ontext={(v) => ocr && (ocr = { ...ocr, text: v })}
+      onmode={(byLine) => recompose({ byLine })}
+      ondownload={downloadModel}
+      oncopy={copyOcr}
+      onpin={pinOcr}
+      onclose={closeOcr}
     />
   {/if}
   {#if card && selOnlyCss && !saveOpen}

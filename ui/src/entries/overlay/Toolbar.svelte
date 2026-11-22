@@ -59,6 +59,7 @@
 >
   <ToolButtons {tool} {canUndo} bind:propsOpen {ontool} {onundo} onanchor={(x) => (popLeft = x)} />
   <span class="sep" aria-hidden="true"></span>
+  <IconButton icon="scan" label="识别文字  Shift+C" onclick={() => onaction('ocr')} />
   <IconButton icon="translate" label="翻译  Ctrl+Q" onclick={() => onaction('translate')} />
   <span class="sep" aria-hidden="true"></span>
   <IconButton icon="pin" label="贴图  Ctrl+T" onclick={() => onaction('pin')} />

@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.7.6"
+version = "0.7.7"
 edition = "2021"
 license = "UNLICENSED"
 
@@ -21,6 +21,7 @@ tempfile = "3"
 snapmind-core = { path = "crates/snapmind-core" }
 snapmind-platform = { path = "crates/snapmind-platform" }
 snapmind-providers = { path = "crates/snapmind-providers" }
+snapmind-ocr = { path = "crates/snapmind-ocr" }
 
 # 截屏、图像编码在调试版里也要够快，否则测不出真实耗时：本项目的平台层和所有依赖都优化编译
 [profile.dev.package.snapmind-platform]
@@ -28,6 +29,10 @@ opt-level = 3
 
 [profile.dev.package."*"]
 opt-level = 2
+
+# OCR 的预处理（缩放、笔画测量）是逐像素的循环，按体积优化会慢一截
+[profile.release.package.snapmind-ocr]
+opt-level = 3
 
 [profile.release]
 codegen-units = 1
