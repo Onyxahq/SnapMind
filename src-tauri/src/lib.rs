@@ -1,6 +1,7 @@
 //! SnapMind 应用外壳：窗口管理、命令、托盘、事件。
 
 mod actions;
+mod ball;
 mod commands;
 mod configfile;
 mod export;
@@ -63,6 +64,7 @@ pub fn run() {
         .manage(live::LiveState::default())
         .manage(record::RecordState::default())
         .manage(hotkeys::HotkeyState::default())
+        .manage(ball::BallState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .register_uri_scheme_protocol(history::PROTOCOL, |ctx, req| history::serve(ctx.app_handle(), &req))
         .setup(|app| {
@@ -85,6 +87,7 @@ pub fn run() {
             overlay::prewarm(handle);
             pintools::prewarm(handle);
             selcard::prewarm(handle);
+            ball::sync(handle, &handle.state::<state::AppState>().config.get().ball);
             std::thread::spawn(export::cleanup_clip_files);
             hotkeys::apply(handle, &handle.state::<state::AppState>().config.get().hotkeys);
             {
@@ -101,6 +104,12 @@ pub fn run() {
             if let WindowEvent::Focused(false) = event {
                 if selcard::is_card(window.label()) {
                     selcard::on_blur(window.app_handle(), window.label());
+                }
+            }
+            // 悬浮球被拖动：松手后贴边
+            if let WindowEvent::Moved(_) = event {
+                if window.label() == ball::LABEL {
+                    ball::on_moved(window.app_handle());
                 }
             }
             // 贴图移动或缩放：工具条跟着走
@@ -145,6 +154,9 @@ pub fn run() {
             commands::settings_open,
             commands::autostart_set,
             hotkeys::hotkeys_status,
+            ball::ball_peek,
+            ball::ball_click,
+            ball::ball_menu,
             hotkeys::hotkeys_suspend,
             commands::overlay_ready,
             commands::overlay_end,

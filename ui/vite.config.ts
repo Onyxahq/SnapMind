@@ -29,6 +29,7 @@ export default defineConfig({
         pin: r('./src/entries/pin/index.html'),
         pintools: r('./src/entries/pintools/index.html'),
         selcard: r('./src/entries/selcard/index.html'),
+        ball: r('./src/entries/ball/index.html'),
       },
     },
   },

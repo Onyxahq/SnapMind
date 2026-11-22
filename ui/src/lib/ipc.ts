@@ -30,6 +30,8 @@ export interface Config {
   history: HistoryConfig;
   /** 自动备份：auto 控制「修改重要设置前」「每周」两种（导入、恢复、恢复默认前总会备份） */
   backup: { auto: boolean };
+  /** 悬浮球：默认关闭；pos 是上次贴靠的位置（窗口中心，物理像素） */
+  ball: { enabled: boolean; pos: [number, number] | null };
 }
 
 /** 历史记录保留方式：不限制 / 每类最多 maxCount 条 / 合计最多 maxMb MB（贴图优先清理）。 */
@@ -174,6 +176,7 @@ export const DEFAULT_CONFIG: Config = {
   },
   history: { mode: 'size', maxCount: 500, maxMb: 1024 },
   backup: { auto: true },
+  ball: { enabled: false, pos: null },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -1021,6 +1024,26 @@ let fakeAutostart = true;
 export async function autostartGet(): Promise<boolean> {
   if (!inTauri()) return fakeAutostart;
   return invoke('autostart_get');
+}
+
+// ---- 悬浮球（见 src-tauri/src/ball.rs）----
+
+/** 指针移上来 / 移开：滑出或缩回半藏。 */
+export async function ballPeek(show: boolean): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('ball_peek', { show });
+}
+
+/** 单击悬浮球：开始截图。 */
+export async function ballClick(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('ball_click');
+}
+
+/** 右键悬浮球：弹出菜单。 */
+export async function ballMenu(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('ball_menu');
 }
 
 // ---- 配置文件：导出、导入、备份、恢复默认（见 src-tauri/src/configfile.rs）----

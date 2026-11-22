@@ -11,6 +11,11 @@ pub fn position() -> Option<(i32, i32)> {
     imp::position()
 }
 
+/// 鼠标左键现在是否按着（悬浮球判断拖动是否结束）。
+pub fn left_button_down() -> bool {
+    imp::left_button_down()
+}
+
 /// 给某个顶层窗口里、(x, y) 处最深的子窗口发一次滚轮消息（长截图的自动滚动）。
 /// `delta` 以 120 为一格，纵向负数向下、横向正数向右。
 ///
@@ -32,6 +37,11 @@ mod imp {
     pub fn position() -> Option<(i32, i32)> {
         let mut p = POINT::default();
         unsafe { GetCursorPos(&mut p).ok().map(|_| (p.x, p.y)) }
+    }
+
+    pub fn left_button_down() -> bool {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+        unsafe { (GetAsyncKeyState(VK_LBUTTON.0 as i32) as u16 & 0x8000) != 0 }
     }
 
     pub fn post_wheel(top: isize, x: i32, y: i32, delta: i32, horizontal: bool) -> bool {
@@ -71,6 +81,9 @@ mod imp {
     pub fn nudge(_dx: i32, _dy: i32) {}
     pub fn position() -> Option<(i32, i32)> {
         None
+    }
+    pub fn left_button_down() -> bool {
+        false
     }
     pub fn post_wheel(_top: isize, _x: i32, _y: i32, _delta: i32, _horizontal: bool) -> bool {
         false

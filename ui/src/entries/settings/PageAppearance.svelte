@@ -1,11 +1,12 @@
 <script lang="ts">
-  // 设置 → 外观：明暗模式（三张预览卡片）和强调色。切换立即生效，已打开的窗口一起刷新。
+  // 设置 → 外观：明暗模式（三张预览卡片）、强调色、悬浮球（M10.5）。切换立即生效，已打开的窗口一起刷新。
   import { config, updateConfig } from '$lib/config.svelte';
   import type { ThemeMode } from '$lib/theme';
   import { toast } from '$lib/ui/toast.svelte';
   import Card from '$lib/ui/Card.svelte';
   import Row from '$lib/ui/Row.svelte';
   import AccentPicker from '$lib/ui/AccentPicker.svelte';
+  import Switch from '$lib/ui/Switch.svelte';
   import Head from './Head.svelte';
 
   /** 预览卡片：左半边和右半边（跟随系统时一半浅色一半深色） */
@@ -50,6 +51,9 @@
 <Card>
   <Row title="强调色" desc="主按钮、选区边框和选中状态的颜色；深夜模式下自动换成同色相的提亮版本">
     <AccentPicker value={config.value.appearance.accent} onchange={(accent) => save({ appearance: { accent } })} />
+  </Row>
+  <Row title="悬浮球" desc="屏幕边缘的快捷入口：单击截图，右键更多，可拖动，贴边半隐藏；截图和录屏里不会出现">
+    <Switch label="悬浮球" checked={config.value.ball.enabled} onchange={(enabled) => save({ ball: { enabled } })} />
   </Row>
 </Card>
 

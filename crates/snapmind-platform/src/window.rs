@@ -16,6 +16,12 @@ pub fn show_no_activate(handle: isize) {
     imp::show_no_activate(handle)
 }
 
+/// 去掉标题栏 / 边框相关的窗口样式，改成纯弹出窗口。系统会给带标题栏样式的窗口强加一个最小宽度
+/// （约 136 像素），悬浮球这种小窗口要先去掉这些样式才能做到 56 像素。系统拖动（startDragging）照样可用。
+pub fn make_popup(handle: isize) {
+    imp::make_popup(handle)
+}
+
 /// 不让截屏抓到这个窗口（长截图时遮罩还在屏幕上，但每一帧都要抓到它下面的真实内容）。
 /// Windows 10 2004 起支持；返回是否成功。
 pub fn exclude_from_capture(handle: isize, on: bool) -> bool {
@@ -31,6 +37,27 @@ mod imp {
         GetWindowLongPtrW, SetWindowDisplayAffinity, SetWindowLongPtrW, ShowWindow, GWL_EXSTYLE,
         SW_SHOWNOACTIVATE, WDA_EXCLUDEFROMCAPTURE, WDA_NONE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
     };
+
+    pub fn make_popup(handle: isize) {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, GWL_STYLE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WS_CAPTION,
+            WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+        };
+        unsafe {
+            let style = GetWindowLongPtrW(hwnd(handle), GWL_STYLE);
+            let strip = (WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX).0 as isize;
+            SetWindowLongPtrW(hwnd(handle), GWL_STYLE, (style & !strip) | WS_POPUP.0 as isize);
+            let _ = SetWindowPos(
+                hwnd(handle),
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+            );
+        }
+    }
 
     pub fn exclude_from_capture(handle: isize, on: bool) -> bool {
         unsafe { SetWindowDisplayAffinity(hwnd(handle), if on { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE }).is_ok() }
@@ -72,6 +99,7 @@ mod imp {
     pub fn disable_transitions(_handle: isize) {}
     pub fn make_tool_window(_handle: isize) {}
     pub fn show_no_activate(_handle: isize) {}
+    pub fn make_popup(_handle: isize) {}
     pub fn exclude_from_capture(_handle: isize, _on: bool) -> bool {
         false
     }

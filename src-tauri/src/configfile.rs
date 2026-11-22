@@ -56,6 +56,11 @@ fn after_change<R: Runtime>(app: &AppHandle<R>, prev: &Config, next: &Config) {
     if next.hotkeys != prev.hotkeys {
         crate::hotkeys::apply(app, &next.hotkeys);
     }
+    if next.ball.enabled != prev.ball.enabled {
+        // 建窗口不能在主线程的同步命令里做
+        let (app, cfg) = (app.clone(), next.ball.clone());
+        std::thread::spawn(move || crate::ball::sync(&app, &cfg));
+    }
     if next.history != prev.history {
         let app = app.clone();
         std::thread::spawn(move || crate::history::prune(&app));

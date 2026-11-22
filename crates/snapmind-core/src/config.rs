@@ -48,6 +48,8 @@ pub struct Config {
     pub history: HistoryConfig,
     /// 配置的自动备份（需求第 10 节）
     pub backup: BackupConfig,
+    /// 悬浮球（需求第 11 节：可选，默认关闭）
+    pub ball: BallConfig,
 }
 
 impl Default for Config {
@@ -67,6 +69,7 @@ impl Default for Config {
             toolbar: ToolbarConfig::default(),
             history: HistoryConfig::default(),
             backup: BackupConfig::default(),
+            ball: BallConfig::default(),
         }
     }
 }
@@ -318,6 +321,15 @@ pub enum SameLang {
     Second,
     /// 不翻译，原样给出
     Skip,
+}
+
+/// 悬浮球：是否显示，以及上次贴靠的位置（窗口中心，虚拟桌面物理像素；空表示还没拖过，
+/// 放在主屏右边缘约 2/3 高处）。每次显示时按这个点重新找显示器和左右边贴靠，屏幕变了也不会跑丢。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct BallConfig {
+    pub enabled: bool,
+    pub pos: Option<[i32; 2]>,
 }
 
 /// 配置的自动备份：导入前、恢复前、恢复默认前总会备份；这个开关控制「修改重要设置前」和「每周」两种。
@@ -719,7 +731,8 @@ mod tests {
                     "pin": { "order": ["annotate", "save", "copy", "more", "through", "zoom100"], "hidden": [] }
                 },
                 "history": { "mode": "size", "maxCount": 500, "maxMb": 1024 },
-                "backup": { "auto": true }
+                "backup": { "auto": true },
+                "ball": { "enabled": false, "pos": null }
             })
         );
     }
