@@ -1,0 +1,25 @@
+截图设置
+
+截图时显示操作提示
+
+截图时按 H 也可以切换，会记住
+
+文件名模板
+
+Supports yyyy MM dd HH mm ss SSS
+
+Ctrl+S 的行为
+
+保存窗口可以改名、换格式和尺寸
+
+Default save folder
+
+Pictures\SnapMind
+
+更改
+
+浏览…
+
+恢复默认
+
+Edit

@@ -6,7 +6,9 @@
 //! 模型用 `node scripts/fetch-models.mjs` 下载到 `models/ppocrv5/`（det.onnx、rec.onnx、keys.txt）。
 
 pub mod det;
+pub mod eval;
 mod imgops;
+pub mod layout;
 pub mod rec;
 
 use std::path::Path;

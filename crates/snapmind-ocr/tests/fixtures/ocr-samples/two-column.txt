@@ -1,0 +1,14 @@
+Paragraph Grouping for Screen Text
+
+Screen text differs from scanned pages: fonts are crisp,
+lines are short, and layouts mix menus with prose.
+We group detected lines by their left edges and gaps.
+
+Lines whose vertical gap is below 0.6 of the line height
+and whose left edges align are merged into one paragraph.
+
+A first-line indent, a sudden change of spacing, or a
+different font size starts a new paragraph instead.
+
+Chinese and Japanese lines are joined directly, while
+Latin lines get a space and lose trailing hyphens.

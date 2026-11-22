@@ -1,0 +1,4 @@
+Placeholder text is often light gray on a light background.
+
+浅灰色的提示文字对比度低，也要能认出来。
+Last saved 3 minutes ago

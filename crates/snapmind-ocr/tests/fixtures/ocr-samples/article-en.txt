@@ -1,0 +1,9 @@
+Most screenshots contain text that was never meant to be copied:
+labels in a dialog, a slide in a meeting, a frame of a video.
+Reading it back should take one keystroke, not five minutes.
+
+A good result keeps the paragraphs the way the author wrote them,
+joins the lines inside each paragraph, and leaves code alone.
+
+When the text is in another language, the translation should
+appear right next to the original, ready to copy or pin.

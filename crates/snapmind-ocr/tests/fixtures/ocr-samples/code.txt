@@ -1,0 +1,6 @@
+fn main() {
+    let text = ocr.recognize(image)?;
+    println!("{} lines", text.len());
+}
+
+// Run: cargo run --release -p snapmind-ocr

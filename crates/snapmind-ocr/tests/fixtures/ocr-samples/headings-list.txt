@@ -1,0 +1,15 @@
+快捷键
+
+截图与贴图
+
+• Shift+F1 截图，进入编辑态
+
+• Shift+F3 贴剪贴板内容
+
+• Ctrl+Shift+X 切换贴图的鼠标穿透
+
+Translation
+
+• Ctrl+Q translate the selection
+
+• Ctrl+Alt+D translate selected text

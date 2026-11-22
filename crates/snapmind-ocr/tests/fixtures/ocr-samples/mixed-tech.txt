@@ -1,0 +1,7 @@
+在 Windows 上，SnapMind 用 GDI 抓取整块屏幕，延迟约 35 ms。
+遮罩窗口常驻在屏幕外，按下 Shift+F1 后再移进来。
+
+翻译链支持 DeepSeek、Claude 和 Gemini，也可以加入 DeepL
+或微软翻译作为备用；超时默认 8 秒，失败时自动切换。
+
+OCR 使用 PP-OCRv5 mobile 模型，通过 ONNX Runtime 1.31 在 CPU 上运行。
