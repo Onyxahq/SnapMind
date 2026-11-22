@@ -1,0 +1,7 @@
+Reading text back from pixels
+
+Detected lines are grouped into paragraphs by their gaps, align-
+ment and font size, so that copied text keeps its structure.
+
+Loose line spacing is common on modern web pages, and it should
+not be mistaken for the gap between two paragraphs.

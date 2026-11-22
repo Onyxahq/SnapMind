@@ -1,0 +1,10 @@
+Getting started
+
+1. Press Shift+F1 to start a capture, then drag
+to select the region you want to keep.
+
+2. Press Ctrl+Shift+S to recognize the text in
+the region and copy it as paragraphs.
+
+3. 按 Ctrl+Q 翻译选中的区域，译文会出现在
+选区旁边的卡片里。

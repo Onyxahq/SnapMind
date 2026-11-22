@@ -1,5 +1,5 @@
 //! 命令行：
-//! - `snapmind-ocr run <图片> [--models <目录>] [--repeat N] [--det-side N]`：打印识别出的行和耗时
+//! - `snapmind-ocr run <图片> [--models <目录>] [--repeat N] [--det-side N]`：打印识别出的行（含笔画范围和颜色）、段落和耗时
 //! - `snapmind-ocr eval [样本目录] [--models <目录>] [--out 报告.md] [--max-cer X] [--min-recall X] [--min-para-f1 X] [--verbose]`：
 //!   在样本集上算字符错误率、行召回率、段落 F1 和耗时，低于阈值时退出码为 1（用于回归测试）。
 
@@ -102,8 +102,17 @@ fn run(args: &Args) -> Result<(), ExitCode> {
         );
         last = lines;
     }
-    for l in last {
-        println!("{:>5},{:<5} {:>4}×{:<3} {:.2}  {}", l.x, l.y, l.width, l.height, l.score, l.text);
+    let hex = |c: [u8; 3]| format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2]);
+    for l in &last {
+        let k = &l.ink;
+        println!(
+            "{:>5},{:<5} {:>4}×{:<3} 笔画 {:>4},{:<4} {:>4}×{:<3} {}/{} {:.2}  {}",
+            l.x, l.y, l.width, l.height, k.left, k.top, k.width, k.height, hex(k.color), hex(k.background), l.score, l.text
+        );
+    }
+    println!("--- 段落");
+    for p in layout::paragraphs(&last) {
+        println!("{}\n", layout::paragraph_text(&last, &p));
     }
     Ok(())
 }

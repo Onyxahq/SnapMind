@@ -4392,7 +4392,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "serde",
  "serde_json",
@@ -4409,7 +4409,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-core"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "chrono",
  "image",
@@ -4423,7 +4423,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-ocr"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "image",
  "ort",
@@ -4432,7 +4432,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-platform"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "arboard",
  "keyring",
@@ -4442,7 +4442,7 @@ dependencies = [
 
 [[package]]
 name = "snapmind-providers"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "base64 0.22.1",
  "reqwest",

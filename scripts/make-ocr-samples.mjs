@@ -1,11 +1,12 @@
 // 生成 OCR 评测样本：写 HTML 页面，用本机 Edge 无头截图，真值（段落和行）由页面内容直接给出。
 //
-// 用法：node scripts/make-ocr-samples.mjs
+// 用法：node scripts/make-ocr-samples.mjs [样本名…]（不写名字就全部重新生成）
 // 输出：crates/snapmind-ocr/tests/fixtures/ocr-samples/<名字>.png + <名字>.txt
 //   .txt 格式：一行文字一行，段落之间空一行。
 //
 // 每一行都用 <br> 显式断开并禁止自动换行，所以截图里的行和真值一一对应。
-// 内容覆盖：中英文文章、中英混排、界面小字、深色聊天、代码、双栏、日文、高分屏、低对比、标题列表、菜单。
+// 内容覆盖：中英文文章、中英混排、界面小字、深色聊天、代码、双栏、日文、高分屏、低对比、标题列表、菜单，
+// 以及首行缩进、无分隔线的右键菜单、悬挂缩进的编号列表、2 倍行距带连字符的正文。
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -158,6 +159,60 @@ const SAMPLES = [
       .b{padding:5px 8px;margin:0;border-bottom:1px solid #eee}`,
     blocks: [p('新建窗口'), p('打开最近的文件'), p('Save as PDF…'), p('打印预览'), p('Preferences'), p('关于 SnapMind')],
   },
+  // —— M4.3 加的段落样本 ——
+  {
+    // 中文排版常见的首行缩进、段落之间不留空
+    name: 'indent-zh',
+    css: `body{font:15px/1.8 "Microsoft YaHei UI",sans-serif;color:#222;background:#fff;padding:40px 56px}
+      .b{margin:0;text-indent:2em}`,
+    blocks: [
+      p('截图之后按下识别，文字会按段落排好，', '段落内部的换行被去掉，可以直接粘贴到文档里。'),
+      p('如果原文是首行缩进的排版，段落之间没有空行，', '就靠缩进来判断哪里是新段落的开始。'),
+      p('最后一段只有一行。'),
+    ],
+  },
+  {
+    // Windows 11 风格的右键菜单：没有分隔线，右侧是快捷键
+    name: 'context-menu',
+    size: [640, 420],
+    css: `body{font:12px/1.4 "Segoe UI","Microsoft YaHei UI",sans-serif;color:#1a1a1a;background:#f9f9f9;padding:24px 32px}
+      .m{width:300px}.it{display:flex;justify-content:space-between;padding:8px 12px}.k{color:#6b6b6b}`,
+    html: (b) => `<div class="m">${[0, 2, 4, 6, 8]
+      .map((i) => `<div class="it"><span class="b">${b[i].html}</span><span class="b k">${b[i + 1].html}</span></div>`)
+      .join('')}</div>`,
+    blocks: [
+      p('剪切'), p('Ctrl+X'),
+      p('复制'), p('Ctrl+C'),
+      p('粘贴为纯文本'), p('Ctrl+Shift+V'),
+      p('Select all'), p('Ctrl+A'),
+      p('Rename'), p('F2'),
+    ],
+  },
+  {
+    // 编号列表，每一项换行后和文字对齐（悬挂缩进）
+    name: 'list-wrap',
+    css: `body{font:15px/1.6 "Segoe UI","Microsoft YaHei UI",sans-serif;color:#1f1f1f;background:#fff;padding:36px 52px}
+      .b{margin:0 0 6px}.li{padding-left:22px;text-indent:-22px}`,
+    blocks: [
+      p('Getting started'),
+      p('1. Press Shift+F1 to start a capture, then drag', 'to select the region you want to keep.'),
+      p('2. Press Ctrl+Shift+S to recognize the text in', 'the region and copy it as paragraphs.'),
+      p('3. 按 Ctrl+Q 翻译选中的区域，译文会出现在', '选区旁边的卡片里。'),
+    ],
+    blockClass: (i) => (i === 0 ? '' : 'li'),
+  },
+  {
+    // 行距 2 倍的英文正文、标题和正文之间间距很小、行尾连字符
+    name: 'article-loose',
+    css: `body{font:15px/2 "Segoe UI",sans-serif;color:#2b2b2b;background:#fff;padding:36px 52px}
+      .h{font-size:22px;font-weight:600;margin:0 0 4px;line-height:1.3}.b{margin:0 0 20px}`,
+    blocks: [
+      p('Reading text back from pixels'),
+      p('Detected lines are grouped into paragraphs by their gaps, align-', 'ment and font size, so that copied text keeps its structure.'),
+      p('Loose line spacing is common on modern web pages, and it should', 'not be mistaken for the gap between two paragraphs.'),
+    ],
+    blockClass: (i) => (i === 0 ? 'h' : ''),
+  },
 ];
 
 function page(s) {
@@ -177,7 +232,9 @@ function main() {
   const work = join(tmpdir(), 'snapmind-ocr-samples');
   rmSync(work, { recursive: true, force: true });
   mkdirSync(work, { recursive: true });
-  for (const s of SAMPLES) {
+  const only = process.argv.slice(2);
+  const todo = only.length ? SAMPLES.filter((s) => only.includes(s.name)) : SAMPLES;
+  for (const s of todo) {
     const [w, h] = s.size ?? [1200, 640];
     const html = join(work, `${s.name}.html`);
     writeFileSync(html, page(s), 'utf8');
@@ -197,7 +254,7 @@ function main() {
     writeFileSync(join(OUT, `${s.name}.txt`), `${truth}\n`, 'utf8');
     console.log(`  ✓ ${s.name}（${w}×${h} @${s.scale ?? 1}x）`);
   }
-  console.log(`${SAMPLES.length} 个样本 → ${OUT}`);
+  console.log(`${todo.length} 个样本 → ${OUT}`);
 }
 
 main();

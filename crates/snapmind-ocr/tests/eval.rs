@@ -7,12 +7,12 @@ use std::path::Path;
 use snapmind_ocr::eval::{self, Counts};
 use snapmind_ocr::{layout, Image, Ocr};
 
-/// 字符错误率上限（当前 0.97%）
-const MAX_CER: f64 = 0.015;
-/// 行召回率下限（当前 96.0%）
-const MIN_RECALL: f64 = 0.94;
-/// 段落 F1 下限（M4.3 段落拼接前每行单独成段，当前 0.543；M4.3 的验收是 ≥ 0.9）
-const MIN_PARA_F1: f64 = 0.5;
+/// 字符错误率上限（当前 0.75%）
+const MAX_CER: f64 = 0.012;
+/// 行召回率下限（当前 97.1%）
+const MIN_RECALL: f64 = 0.95;
+/// 段落 F1 下限（当前 0.959，没拿到的 3 段都是识别错字，分段本身全对；M4.3 的验收是 ≥ 0.9）
+const MIN_PARA_F1: f64 = 0.93;
 
 #[test]
 fn sample_set_does_not_regress() {
@@ -23,7 +23,7 @@ fn sample_set_does_not_regress() {
         return;
     }
     let samples = eval::load_samples(&root.join("tests/fixtures/ocr-samples")).unwrap();
-    assert!(samples.len() >= 12, "样本集不完整");
+    assert!(samples.len() >= 16, "样本集不完整");
     let ocr = Ocr::load(&models).unwrap();
     let mut total = Counts::default();
     for s in &samples {

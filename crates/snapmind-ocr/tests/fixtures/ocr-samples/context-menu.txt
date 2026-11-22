@@ -1,0 +1,19 @@
+剪切
+
+Ctrl+X
+
+复制
+
+Ctrl+C
+
+粘贴为纯文本
+
+Ctrl+Shift+V
+
+Select all
+
+Ctrl+A
+
+Rename
+
+F2

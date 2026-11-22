@@ -8,6 +8,7 @@
 pub mod det;
 pub mod eval;
 mod imgops;
+pub mod ink;
 pub mod layout;
 pub mod rec;
 
@@ -19,6 +20,7 @@ use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
 
 pub use det::{DetOptions, TextBox};
+pub use ink::Ink;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OcrError {
@@ -56,6 +58,8 @@ pub struct Line {
     pub height: u32,
     /// 识别置信度（0–1，保留下来的字符的平均概率）
     pub score: f32,
+    /// 笔画的实际范围和颜色（段落规则用它判断字号、行距、样式）
+    pub ink: Ink,
 }
 
 /// 各阶段耗时，用来看性能。
@@ -116,7 +120,10 @@ impl Ocr {
             .iter()
             .zip(texts)
             .filter(|(_, (text, _))| !text.trim().is_empty())
-            .map(|(b, (text, score))| Line { text, x: b.x, y: b.y, width: b.width, height: b.height, score })
+            .map(|(b, (text, score))| {
+                let ink = ink::measure(img, b.x, b.y, b.width, b.height);
+                Line { text, x: b.x, y: b.y, width: b.width, height: b.height, score, ink }
+            })
             .collect();
         sort_reading_order(&mut lines);
         Ok((lines, Timing { det: t1 - t0, rec: t2 - t1, total: t2 - t0 }))
@@ -163,7 +170,7 @@ mod tests {
     use super::*;
 
     fn l(text: &str, x: u32, y: u32, w: u32, h: u32) -> Line {
-        Line { text: text.into(), x, y, width: w, height: h, score: 1.0 }
+        Line { text: text.into(), x, y, width: w, height: h, score: 1.0, ink: Ink::default() }
     }
 
     #[test]
