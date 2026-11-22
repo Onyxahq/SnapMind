@@ -3,13 +3,6 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
 
-/// 默认快捷键（需求第 2 节）。M10.1 起可在设置里修改。
-pub const CAPTURE_SHORTCUT: &str = "Shift+F1";
-pub const PIN_CLIPBOARD_SHORTCUT: &str = "Shift+F3";
-pub const TRANSLATE_SHORTCUT: &str = "Ctrl+Shift+O";
-pub const RECOGNIZE_SHORTCUT: &str = "Ctrl+Shift+S";
-pub const SELECTION_SHORTCUT: &str = "Ctrl+Alt+D";
-
 /// 截图并进入编辑态。
 pub fn capture<R: Runtime>(app: &AppHandle<R>) {
     crate::overlay::begin(app, crate::overlay::Intent::Capture);

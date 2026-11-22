@@ -3,6 +3,7 @@
 mod actions;
 mod commands;
 mod export;
+mod hotkeys;
 mod launch;
 mod live;
 mod long;
@@ -21,7 +22,7 @@ mod wm;
 
 use snapmind_core::config::{ConfigStore, LoadOutcome};
 use tauri::{Manager, WindowEvent};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+use tauri_plugin_global_shortcut::{Shortcut, ShortcutState};
 
 pub fn run() {
     tauri::Builder::default()
@@ -43,16 +44,8 @@ pub fn run() {
                     let is = |s: &str| s.parse::<Shortcut>().is_ok_and(|t| t.id() == shortcut.id());
                     if is(pin::THROUGH_SHORTCUT) {
                         pin::toggle_through(app);
-                    } else if is(actions::PIN_CLIPBOARD_SHORTCUT) {
-                        actions::pin_clipboard(app);
-                    } else if is(actions::TRANSLATE_SHORTCUT) {
-                        actions::capture_translate(app);
-                    } else if is(actions::RECOGNIZE_SHORTCUT) {
-                        actions::capture_recognize(app);
-                    } else if is(actions::SELECTION_SHORTCUT) {
-                        actions::translate_selection(app);
                     } else {
-                        actions::capture(app);
+                        hotkeys::dispatch(app, shortcut);
                     }
                 })
                 .build(),
@@ -67,6 +60,7 @@ pub fn run() {
         .manage(long::LongState::default())
         .manage(live::LiveState::default())
         .manage(record::RecordState::default())
+        .manage(hotkeys::HotkeyState::default())
         .register_uri_scheme_protocol(overlay::PROTOCOL, |ctx, req| overlay::serve(ctx.app_handle(), &req))
         .setup(|app| {
             let handle = app.handle();
@@ -89,18 +83,7 @@ pub fn run() {
             pintools::prewarm(handle);
             selcard::prewarm(handle);
             std::thread::spawn(export::cleanup_clip_files);
-            for key in [
-                actions::CAPTURE_SHORTCUT,
-                actions::PIN_CLIPBOARD_SHORTCUT,
-                actions::TRANSLATE_SHORTCUT,
-                actions::RECOGNIZE_SHORTCUT,
-                actions::SELECTION_SHORTCUT,
-            ] {
-                if let Err(e) = handle.global_shortcut().register(key) {
-                    // 被别的程序占用时不影响启动；M10.1 在设置页标红提示。
-                    eprintln!("注册快捷键 {key} 失败：{e}");
-                }
-            }
+            hotkeys::apply(handle, &handle.state::<state::AppState>().config.get().hotkeys);
             if launch::mode(std::env::args()) == launch::LaunchMode::Interactive {
                 wm::show_settings(handle);
             }
@@ -143,6 +126,11 @@ pub fn run() {
             commands::app_info,
             commands::config_get,
             commands::config_update,
+            commands::config_path,
+            commands::autostart_get,
+            commands::autostart_set,
+            hotkeys::hotkeys_status,
+            hotkeys::hotkeys_suspend,
             commands::overlay_ready,
             commands::overlay_end,
             commands::snap_chain,

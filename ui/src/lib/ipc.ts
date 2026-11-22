@@ -25,6 +25,16 @@ export interface Config {
   prompts: Record<PromptKind, string>;
   translation: TranslationConfig;
   record: RecordConfig;
+  hotkeys: HotkeysConfig;
+}
+
+/** 全局快捷键：Tauri 写法（如 Shift+F1），空字符串表示不用。 */
+export interface HotkeysConfig {
+  capture: string;
+  pinClipboard: string;
+  selection: string;
+  captureTranslate: string;
+  captureRecognize: string;
 }
 
 export interface RecordConfig {
@@ -131,6 +141,13 @@ export const DEFAULT_CONFIG: Config = {
     overlay: false,
   },
   record: { format: 'mp4', fps: 30, audio: true },
+  hotkeys: {
+    capture: 'Shift+F1',
+    pinClipboard: 'Shift+F3',
+    selection: 'Ctrl+Alt+D',
+    captureTranslate: 'Ctrl+Shift+O',
+    captureRecognize: 'Ctrl+Shift+S',
+  },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -852,6 +869,55 @@ export async function longFinish(action: LongFinish, path?: string): Promise<str
     return action === 'ocr' ? '（识别出的文字）' : 'demo.png';
   }
   return invoke('long_finish', { action, path: path ?? null });
+}
+
+// ---- 设置窗口：快捷键、配置文件、开机自启（见 src-tauri/src/hotkeys.rs、commands.rs）----
+
+export type HotkeyAction = 'capture' | 'pinClipboard' | 'selection' | 'captureTranslate' | 'captureRecognize';
+
+export interface HotkeyStatus {
+  action: HotkeyAction;
+  keys: string;
+  /** 已注册生效（没设置的也算） */
+  ok: boolean;
+  error: string | null;
+}
+
+/** 各全局快捷键的注册状态（被占用、重复等）。 */
+export async function hotkeysStatus(): Promise<HotkeyStatus[]> {
+  if (!inTauri()) {
+    const h = DEFAULT_CONFIG.hotkeys;
+    return (Object.keys(h) as HotkeyAction[]).map((action) =>
+      action === 'captureRecognize'
+        ? { action, keys: h[action], ok: false, error: '已被其他程序占用' }
+        : { action, keys: h[action], ok: true, error: null },
+    );
+  }
+  return invoke('hotkeys_status');
+}
+
+/** 录制新组合键时停用全部全局快捷键（on = true），录完恢复并返回最新状态。 */
+export async function hotkeysSuspend(on: boolean): Promise<HotkeyStatus[]> {
+  if (!inTauri()) return hotkeysStatus();
+  return invoke('hotkeys_suspend', { on });
+}
+
+/** 配置文件的完整路径。 */
+export async function configPath(): Promise<string> {
+  if (!inTauri()) return 'C:\\Users\\demo\\AppData\\Roaming\\SnapMind\\config.json';
+  return invoke('config_path');
+}
+
+let fakeAutostart = true;
+export async function autostartGet(): Promise<boolean> {
+  if (!inTauri()) return fakeAutostart;
+  return invoke('autostart_get');
+}
+
+/** 设置开机自启，返回实际状态。 */
+export async function autostartSet(on: boolean): Promise<boolean> {
+  if (!inTauri()) return (fakeAutostart = on);
+  return invoke('autostart_set', { on });
 }
 
 // ---- 录屏（见 src-tauri/src/record.rs）----

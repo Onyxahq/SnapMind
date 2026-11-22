@@ -34,13 +34,35 @@ pub fn config_get(state: State<'_, AppState>) -> Config {
 /// 成功且内容有变化时广播 `config-changed`。返回修改后的完整配置。
 #[tauri::command]
 pub fn config_update(app: AppHandle, state: State<'_, AppState>, patch: Value) -> Result<Config, String> {
+    let before = state.config.get().hotkeys;
     match state.config.update(&patch).map_err(|e| e.to_string())? {
         Some(next) => {
+            if next.hotkeys != before {
+                crate::hotkeys::apply(&app, &next.hotkeys);
+            }
             state::on_config_changed(&app, &next);
             Ok(next)
         }
         None => Ok(state.config.get()),
     }
+}
+
+/// 配置文件的完整路径（设置 → 配置文件）。
+#[tauri::command]
+pub fn config_path(state: State<'_, AppState>) -> String {
+    state.config.path().to_string_lossy().into_owned()
+}
+
+/// 开机自启的实际状态。
+#[tauri::command]
+pub fn autostart_get(app: AppHandle) -> bool {
+    crate::tray::autostart_enabled(&app)
+}
+
+/// 设置开机自启（托盘勾选同步），返回实际状态。
+#[tauri::command]
+pub fn autostart_set(app: AppHandle, on: bool) -> bool {
+    crate::tray::set_autostart(&app, on)
 }
 
 /// 遮罩窗口回报进度（stage = "mask" 遮罩已出现 / "frame" 冻结帧已画好；at = 画出时的

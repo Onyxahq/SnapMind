@@ -22,6 +22,40 @@ pub struct TrayItems<R: Runtime> {
     /// 「取消贴图的鼠标穿透」：有贴图处于穿透状态时才可用。全局快捷键被别的程序占用时，
     /// 这是关掉穿透的唯一入口（穿透的窗口收不到鼠标和键盘）。
     pub unthrough: MenuItem<R>,
+    /// 「截图」「贴图」：文字里带着当前的快捷键
+    pub capture: MenuItem<R>,
+    pub pin: MenuItem<R>,
+    /// 「开机自启」：设置页改了也要同步勾选状态
+    pub autostart: CheckMenuItem<R>,
+}
+
+/// 菜单里显示的快捷键（没设置时不显示）。
+fn with_key(label: &str, keys: &str) -> String {
+    if keys.trim().is_empty() { label.to_string() } else { format!("{label}\t{}", keys.trim()) }
+}
+
+/// 快捷键改了：更新托盘菜单里的提示。
+pub fn sync_hotkeys<R: Runtime>(app: &AppHandle<R>, capture: &str, pin: &str) {
+    if let Some(items) = app.try_state::<TrayItems<R>>() {
+        let _ = items.capture.set_text(with_key("截图", capture));
+        let _ = items.pin.set_text(with_key("贴图", pin));
+    }
+}
+
+/// 开机自启的实际状态（以系统为准）。
+pub fn autostart_enabled<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.autolaunch().is_enabled().unwrap_or(false)
+}
+
+/// 设置开机自启，并同步托盘勾选。返回设置后的实际状态。
+pub fn set_autostart<R: Runtime>(app: &AppHandle<R>, on: bool) -> bool {
+    let al = app.autolaunch();
+    let _ = if on { al.enable() } else { al.disable() };
+    let now = al.is_enabled().unwrap_or(!on);
+    if let Some(items) = app.try_state::<TrayItems<R>>() {
+        let _ = items.autostart.set_checked(now);
+    }
+    now
 }
 
 /// 有没有贴图处于鼠标穿透状态，更新托盘菜单。
@@ -34,8 +68,8 @@ pub fn sync_through<R: Runtime>(app: &AppHandle<R>, any: bool) {
 pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let autostart_on = app.autolaunch().is_enabled().unwrap_or(false);
 
-    let capture = MenuItem::with_id(app, id::CAPTURE, "截图\tShift+F1", true, None::<&str>)?;
-    let pin = MenuItem::with_id(app, id::PIN, "贴图\tShift+F3", true, None::<&str>)?;
+    let capture = MenuItem::with_id(app, id::CAPTURE, "截图", true, None::<&str>)?;
+    let pin = MenuItem::with_id(app, id::PIN, "贴图", true, None::<&str>)?;
     let unthrough = MenuItem::with_id(app, id::UNTHROUGH, "取消贴图的鼠标穿透", false, None::<&str>)?;
     let settings = MenuItem::with_id(app, id::SETTINGS, "设置…", true, None::<&str>)?;
     let autostart =
@@ -47,9 +81,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         app,
         &[&capture, &pin, &unthrough, &sep()?, &settings, &autostart, &sep()?, &quit],
     )?;
-    app.manage(TrayItems { unthrough });
-
-    let autostart_item = autostart.clone();
+    app.manage(TrayItems { unthrough, capture, pin, autostart: autostart.clone() });
     let mut builder = TrayIconBuilder::with_id("main")
         .tooltip("SnapMind")
         .menu(&menu)
@@ -59,7 +91,10 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             id::PIN => actions::pin_clipboard(app),
             id::SETTINGS => wm::show_settings(app),
             id::UNTHROUGH => crate::pin::clear_through(app),
-            id::AUTOSTART => toggle_autostart(app, &autostart_item),
+            id::AUTOSTART => {
+                let on = autostart_enabled(app);
+                set_autostart(app, !on);
+            }
             id::QUIT => app.exit(0),
             _ => {}
         })
@@ -80,10 +115,4 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     Ok(())
 }
 
-/// 切换开机自启。菜单的勾选状态始终以系统里的实际状态为准。
-fn toggle_autostart<R: Runtime>(app: &AppHandle<R>, item: &CheckMenuItem<R>) {
-    let al = app.autolaunch();
-    let was_on = al.is_enabled().unwrap_or(false);
-    let _ = if was_on { al.disable() } else { al.enable() };
-    let _ = item.set_checked(al.is_enabled().unwrap_or(was_on));
-}
+

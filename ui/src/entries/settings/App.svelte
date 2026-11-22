@@ -1,187 +1,147 @@
 <script lang="ts">
-  // 设置窗口。完整的分页布局在 M10.1 实现；这里先放已经用得上的几项：外观、截图、模型服务。
-  import { onMount } from 'svelte';
-  import { appInfo, languages, type AppInfo, type Lang } from '$lib/ipc';
-  import { config, updateConfig } from '$lib/config.svelte';
-  import type { ThemeMode } from '$lib/theme';
-  import Card from '$lib/ui/Card.svelte';
-  import Row from '$lib/ui/Row.svelte';
-  import Seg from '$lib/ui/Seg.svelte';
-  import AccentPicker from '$lib/ui/AccentPicker.svelte';
-  import Switch from '$lib/ui/Switch.svelte';
-  import Select from '$lib/ui/Select.svelte';
-  import Field from '$lib/ui/Field.svelte';
-  import type { SaveConfig } from '$lib/ipc';
+  // 设置窗口（需求第 9 节、M10.1）：左边导航十页，右边当前页。上次停在哪一页下次还打开哪一页。
+  import { fade } from 'svelte/transition';
   import ToastHost from '$lib/ui/ToastHost.svelte';
+  import PageRecognize from './PageRecognize.svelte';
   import Providers from './Providers.svelte';
-  import Chains from './Chains.svelte';
   import Prompts from './Prompts.svelte';
-  import { parseGlossary } from '$lib/task';
-  import { toast } from '$lib/ui/toast.svelte';
+  import PageKeys from './PageKeys.svelte';
+  import PageToolbar from './PageToolbar.svelte';
+  import PageCapture from './PageCapture.svelte';
+  import PageHistory from './PageHistory.svelte';
+  import PageAppearance from './PageAppearance.svelte';
+  import PageConfig from './PageConfig.svelte';
+  import PageAbout from './PageAbout.svelte';
+  import Head from './Head.svelte';
 
-  let info = $state<AppInfo | null>(null);
-  let langs = $state<Lang[]>([]);
-  onMount(async () => {
-    info = await appInfo();
-    langs = await languages();
-  });
+  const PAGES = [
+    { id: 'ocr', label: '识别与翻译', d: 'M3 5h9M7.5 3v2M5 5c.5 3.5 3 6.5 6.5 8M10 5c-.8 3.8-3 6.8-6.5 8.5M13 21l4-10 4 10M14.5 17.5h5' },
+    { id: 'prov', label: '模型服务', d: 'M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8zM18 15l.8 2.2 2.2.8-2.2.8L18 21l-.8-2.2-2.2-.8 2.2-.8z' },
+    { id: 'prompt', label: '提示词', d: 'M4 5h16v11H8l-4 4zM8 9h8M8 12h5' },
+    { id: 'keys', label: '快捷键', d: 'M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1zM7 10h.01M11 10h.01M15 10h.01M8 14h8' },
+    { id: 'bar', label: '工具栏', d: 'M4 8h16M4 16h16M8 5v6M15 13v6' },
+    { id: 'shot', label: '截图与贴图', d: 'M6 3v13a2 2 0 002 2h13M3 6h13a2 2 0 012 2v13' },
+    { id: 'hist', label: '历史记录', d: 'M3.5 12a8.5 8.5 0 102.5-6M3.5 4v4h4M12 8v4l3 2' },
+    { id: 'look', label: '外观', d: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 3v18M12 8h6.5M12 12h9M12 16h6.5' },
+    { id: 'conf', label: '配置文件', d: 'M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5M9 13h6M9 17h4' },
+    { id: 'about', label: '关于', d: 'M12 3a9 9 0 110 18 9 9 0 010-18zM12 11v5M12 8h.01' },
+  ] as const;
+  type PageId = (typeof PAGES)[number]['id'];
+  const KEY = 'snapmind.settings.page';
 
-  const THEMES: { value: ThemeMode; label: string }[] = [
-    { value: 'system', label: '跟随系统' },
-    { value: 'light', label: '浅色' },
-    { value: 'dark', label: '深夜' },
-  ];
-
-  const CTRL_S: { value: SaveConfig['ctrlS']; label: string }[] = [
-    { value: 'window', label: 'SnapMind 保存窗口' },
-    { value: 'system', label: '系统另存为' },
-    { value: 'direct', label: '直接保存' },
-  ];
-
-  async function save(patch: Parameters<typeof updateConfig>[0]) {
+  function load(): PageId {
     try {
-      await updateConfig(patch);
-    } catch (e) {
-      toast(String(e), { kind: 'error' });
+      const v = localStorage.getItem(KEY);
+      if (v && PAGES.some((p) => p.id === v)) return v as PageId;
+    } catch {
+      /* 没有本地存储时从第一页开始 */
+    }
+    return 'ocr';
+  }
+
+  let page = $state<PageId>(load());
+  let scroller = $state<HTMLElement>();
+
+  function go(id: PageId) {
+    if (id === page) return;
+    page = id;
+    scroller?.scrollTo({ top: 0 });
+    try {
+      localStorage.setItem(KEY, id);
+    } catch {
+      /* 记不住也没关系 */
     }
   }
 </script>
 
-<main>
-  <h1 class="t-title">外观</h1>
+<div class="shell">
+  <nav aria-label="设置分类">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M8 10h8M8 14h5" /></svg>
+      </span>
+      <span class="bt"><b>SnapMind</b><small>截图 · 识别 · 翻译</small></span>
+    </div>
+    {#each PAGES as p (p.id)}
+      <button type="button" class="nav" class:on={page === p.id} aria-current={page === p.id ? 'page' : undefined} onclick={() => go(p.id)}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d={p.d} /></svg>{p.label}
+      </button>
+    {/each}
+  </nav>
 
-  <Card>
-    <Row title="明暗模式" desc="跟随系统时，Windows 切换深浅色会立即生效">
-      <Seg
-        label="明暗模式"
-        options={THEMES}
-        value={config.value.appearance.theme}
-        onchange={(theme) => save({ appearance: { theme } })}
-      />
-    </Row>
-    <Row title="强调色" desc="主按钮、选区边框和选中状态的颜色">
-      <AccentPicker
-        value={config.value.appearance.accent}
-        onchange={(accent) => save({ appearance: { accent } })}
-      />
-    </Row>
-  </Card>
-
-  <h1 class="t-title">截图</h1>
-  <Card>
-    <Row title="截图时显示操作提示" desc="截图时按 H 也可以切换，会记住">
-      <Switch
-        label="截图时显示操作提示"
-        checked={config.value.capture.showHints}
-        onchange={(showHints) => save({ capture: { showHints } })}
-      />
-    </Row>
-    <Row title="退出时确认未保存的标注" desc="标注还没复制或保存就按 Esc 退出时，先问一下">
-      <Switch
-        label="退出时确认未保存的标注"
-        checked={config.value.capture.confirmDiscard}
-        onchange={(confirmDiscard) => save({ capture: { confirmDiscard } })}
-      />
-    </Row>
-    <Row title="Ctrl+S 的行为" desc="保存窗口可以改名、换格式和尺寸；直接保存会存到默认目录">
-      <Select
-        aria-label="Ctrl+S 的行为"
-        width="160px"
-        options={CTRL_S}
-        value={config.value.save.ctrlS}
-        onchange={(e) => save({ save: { ctrlS: e.currentTarget.value as SaveConfig['ctrlS'] } })}
-      />
-    </Row>
-    <Row title="文件名模板" desc="花括号里写时间格式：yyyy MM dd HH mm ss SSS">
-      <Field
-        mono
-        width="240px"
-        aria-label="文件名模板"
-        value={config.value.save.filenameTemplate}
-        onchange={(e) => save({ save: { filenameTemplate: e.currentTarget.value.trim() || 'SnapMind_{yyyyMMdd_HHmmss}' } })}
-      />
-    </Row>
-  </Card>
-
-  <h1 class="t-title">翻译</h1>
-  <Card>
-    <Row title="目标语言" desc="截图翻译（Ctrl+Q、Ctrl+Shift+O）把文字翻译成这种语言">
-      <Select
-        aria-label="目标语言"
-        width="160px"
-        options={langs.map((l) => ({ value: l.code, label: l.name }))}
-        value={config.value.translation.targetLang}
-        onchange={(e) => save({ translation: { targetLang: e.currentTarget.value } })}
-      />
-    </Row>
-    <Row title="原文已是目标语言时" desc="能确定原文语言时才生效（中日韩、俄语、英语等）">
-      <Select
-        aria-label="原文已是目标语言时"
-        width="180px"
-        options={[
-          ...langs.filter((l) => l.code !== config.value.translation.targetLang).map((l) => ({ value: l.code, label: `翻译成 ${l.name}` })),
-          { value: 'skip', label: '不翻译' },
-        ]}
-        value={config.value.translation.sameLang === 'skip' ? 'skip' : config.value.translation.secondLang}
-        onchange={(e) => {
-          const v = e.currentTarget.value;
-          save({ translation: v === 'skip' ? { sameLang: 'skip' } : { sameLang: 'second', secondLang: v } });
-        }}
-      />
-    </Row>
-    <Row title="双语对照" desc="复制和贴图时，原文和译文按段落交替排列">
-      <Switch label="双语对照" checked={config.value.translation.bilingual} onchange={(bilingual) => save({ translation: { bilingual } })} />
-    </Row>
-    <Row title="保留格式" desc="换行、列表、代码块、Markdown 保持不变（大模型翻译时生效）">
-      <Switch label="保留格式" checked={config.value.translation.keepFormat} onchange={(keepFormat) => save({ translation: { keepFormat } })} />
-    </Row>
-    <Row title="自动判断专业术语" desc="由大模型识别专有名词和行业术语，保留原文或用通行译法，并在全文统一（大模型翻译时生效）">
-      <Switch label="自动判断专业术语" checked={config.value.translation.autoTerms} onchange={(autoTerms) => save({ translation: { autoTerms } })} />
-    </Row>
-    <Row title="不翻译列表" desc="这些词保持原样，用逗号或顿号分隔（大模型翻译时生效）">
-      <Field
-        width="240px"
-        aria-label="不翻译列表"
-        placeholder="例如：SnapMind、Rust"
-        value={config.value.translation.glossary.join('、')}
-        onchange={(e) => save({ translation: { glossary: parseGlossary(e.currentTarget.value) } })}
-      />
-    </Row>
-    <Row title="一步到位" desc="识别和翻译交给同一个视觉模型，看图直接给出原文和译文，只调用一次；需要在「备用链 · 一步到位」里加视觉模型">
-      <Switch label="一步到位" checked={config.value.translation.oneshot} onchange={(oneshot) => save({ translation: { oneshot } })} />
-    </Row>
-  </Card>
-
-  <div class="head">
-    <h1 class="t-title">模型服务</h1>
-    <p class="t-note">先添加服务商并填写 Key，再勾选要显示的模型。勾选的模型才会出现在下拉框和备用链里。</p>
-  </div>
-  <Providers />
-  <Chains />
-
-  <div class="head">
-    <h1 class="t-title">提示词</h1>
-    <p class="t-note">只在用到大模型时生效。每种任务一套提示词，可以随时恢复默认。</p>
-  </div>
-  <Prompts />
-
-  {#if info}
-    <p class="t-note foot">SnapMind v{info.version}</p>
-  {/if}
-</main>
+  <main bind:this={scroller}>
+    {#key page}
+      <div class="page" in:fade={{ duration: 140 }}>
+        {#if page === 'ocr'}
+          <PageRecognize />
+        {:else if page === 'prov'}
+          <Head title="模型服务" desc="先添加服务商并填写 Key，再勾选要显示的模型。勾选的模型才会出现在下拉框和备用链里。" />
+          <Providers />
+        {:else if page === 'prompt'}
+          <Head title="提示词" desc="只在用到大模型时生效。每种任务一套提示词，可以随时恢复默认。" />
+          <Prompts />
+        {:else if page === 'keys'}
+          <PageKeys />
+        {:else if page === 'bar'}
+          <PageToolbar />
+        {:else if page === 'shot'}
+          <PageCapture />
+        {:else if page === 'hist'}
+          <PageHistory />
+        {:else if page === 'look'}
+          <PageAppearance />
+        {:else if page === 'conf'}
+          <PageConfig />
+        {:else}
+          <PageAbout />
+        {/if}
+      </div>
+    {/key}
+  </main>
+</div>
 
 <ToastHost />
 
 <style>
-  main {
-    max-width: 820px;
-    margin: 0 auto;
-    padding: 32px 32px 24px;
+  :global(html), :global(body) { height: 100%; margin: 0; overflow: hidden; }
+  .shell { display: flex; height: 100vh; background: var(--bg); color: var(--text); }
+  nav {
+    width: 228px;
+    flex: none;
+    box-sizing: border-box;
+    padding: 16px 12px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 1px;
+    overflow-y: auto;
   }
-  h1 { margin: 0; }
-  .head p { margin: 2px 0 0; }
-  .foot { margin: 8px 0 0; color: var(--text3); }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 4px 12px 14px; }
+  .logo {
+    width: 38px; height: 38px; border-radius: 11px; flex: none;
+    background: var(--accent); color: var(--on-accent, #fff);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .logo svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .bt { display: flex; flex-direction: column; }
+  .bt b { font-size: 15px; line-height: 20px; }
+  .bt small { font-size: 12px; color: var(--text3); }
+  .nav {
+    position: relative;
+    display: flex; align-items: center; gap: 12px;
+    height: 36px; padding: 0 12px; width: 100%;
+    border: 0; border-radius: 8px; background: transparent;
+    font: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer;
+    transition: background var(--d-hover) var(--ease-hover);
+  }
+  .nav:hover { background: var(--hover); }
+  .nav.on { background: var(--hover); font-weight: 600; }
+  .nav.on::before {
+    content: ''; position: absolute; left: 0; top: 10px; width: 3px; height: 16px; border-radius: 2px;
+    background: var(--accent); animation: bar 220ms cubic-bezier(.2, .9, .3, 1.2);
+  }
+  @keyframes bar { from { transform: scaleY(0); } }
+  .nav svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--text2); }
+  .nav.on svg { color: var(--accent); }
+  main { flex: 1; min-width: 0; overflow-y: auto; box-sizing: border-box; padding: 20px 36px 40px 12px; }
+  .page { max-width: 820px; display: flex; flex-direction: column; gap: 14px; }
 </style>

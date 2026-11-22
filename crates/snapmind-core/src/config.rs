@@ -40,6 +40,8 @@ pub struct Config {
     pub translation: TranslationConfig,
     /// 录屏（需求 3.10）：录制前在工具条上选，选过的记住，下次沿用
     pub record: RecordConfig,
+    /// 全局快捷键（需求第 2 节；设置里录制新组合键）
+    pub hotkeys: HotkeysConfig,
 }
 
 impl Default for Config {
@@ -55,6 +57,7 @@ impl Default for Config {
             prompts: PromptsConfig::default(),
             translation: TranslationConfig::default(),
             record: RecordConfig::default(),
+            hotkeys: HotkeysConfig::default(),
         }
     }
 }
@@ -306,6 +309,34 @@ pub enum SameLang {
     Second,
     /// 不翻译，原样给出
     Skip,
+}
+
+/// 全局快捷键。写法和 Tauri 一样（如 `Shift+F1`、`Ctrl+Alt+D`），空字符串表示不用。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct HotkeysConfig {
+    /// 截图
+    pub capture: String,
+    /// 贴图（剪贴板里的图片或文字）
+    pub pin_clipboard: String,
+    /// 划词翻译
+    pub selection: String,
+    /// 截图 → 识别 → 翻译
+    pub capture_translate: String,
+    /// 截图 → 识别（复制文字）
+    pub capture_recognize: String,
+}
+
+impl Default for HotkeysConfig {
+    fn default() -> Self {
+        Self {
+            capture: "Shift+F1".into(),
+            pin_clipboard: "Shift+F3".into(),
+            selection: "Ctrl+Alt+D".into(),
+            capture_translate: "Ctrl+Shift+O".into(),
+            capture_recognize: "Ctrl+Shift+S".into(),
+        }
+    }
 }
 
 /// 录屏格式。
@@ -578,7 +609,14 @@ mod tests {
                     "oneshot": false,
                     "overlay": false
                 },
-                "record": { "format": "mp4", "fps": 30, "audio": true }
+                "record": { "format": "mp4", "fps": 30, "audio": true },
+                "hotkeys": {
+                    "capture": "Shift+F1",
+                    "pinClipboard": "Shift+F3",
+                    "selection": "Ctrl+Alt+D",
+                    "captureTranslate": "Ctrl+Shift+O",
+                    "captureRecognize": "Ctrl+Shift+S"
+                }
             })
         );
     }
