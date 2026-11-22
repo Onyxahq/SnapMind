@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { flip } from 'svelte/animate';
+  import { flip } from '$lib/motion';
   import Icon from './Icon.svelte';
   import { popIn, popOut } from '$lib/motion';
   import { dismiss, toasts } from './toast.svelte';

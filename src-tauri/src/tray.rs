@@ -89,7 +89,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .on_menu_event(move |app, event| match event.id().as_ref() {
             id::CAPTURE => actions::capture(app),
             id::PIN => actions::pin_clipboard(app),
-            id::SETTINGS => wm::show_settings(app),
+            id::SETTINGS => wm::show_settings(app, None),
             id::UNTHROUGH => crate::pin::clear_through(app),
             id::AUTOSTART => {
                 let on = autostart_enabled(app);

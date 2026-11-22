@@ -38,6 +38,8 @@
   --d-scrim: 120ms;
   --d-snap: 120ms;
   --d-theme: 300ms;
+  /* 位移 / 缩放类动效的幅度：1 完整，0「减弱动效」（只保留淡入淡出，设计规范 §4） */
+  --m: 1;
 }
 
 /* ---------- 浅色 ---------- */
@@ -143,5 +145,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .mono { font-family: var(--font-mono); }
 
 /* 出现 / 消失 */
-@keyframes sm-pop-in { from { opacity: 0; transform: scale(.96) translateY(4px); } to { opacity: 1; transform: none; } }
-@keyframes sm-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.98); } }
+@keyframes sm-pop-in { from { opacity: 0; transform: scale(calc(1 - .04 * var(--m))) translateY(calc(4px * var(--m))); } to { opacity: 1; transform: none; } }
+@keyframes sm-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(calc(1 - .02 * var(--m))); } }
+
+/* 减弱动效（设置 → 外观，或系统「显示动画」关掉时）：关键帧里的位移和缩放已经乘了 --m，
+   这里再把过渡限制在颜色和透明度上——悬停放大、滑块移动、尺寸变化都直接到位，不做动画。 */
+:root[data-motion='reduced'] { --m: 0; }
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  transition-property: opacity, color, background-color, border-color, box-shadow, filter, outline-color !important;
+  scroll-behavior: auto !important;
+}

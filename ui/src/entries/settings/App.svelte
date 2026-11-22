@@ -32,6 +32,9 @@
   const KEY = 'snapmind.settings.page';
 
   function load(): PageId {
+    // 从工具条「自定义工具条…」等入口新建窗口时，Rust 用初始化脚本告诉我们要开哪一页
+    const asked = (window as unknown as { __SETTINGS_PAGE__?: string }).__SETTINGS_PAGE__;
+    if (asked && PAGES.some((p) => p.id === asked)) return asked as PageId;
     try {
       const v = localStorage.getItem(KEY);
       if (v && PAGES.some((p) => p.id === v)) return v as PageId;
@@ -151,7 +154,7 @@
     content: ''; position: absolute; left: 0; top: 10px; width: 3px; height: 16px; border-radius: 2px;
     background: var(--accent); animation: bar 220ms cubic-bezier(.2, .9, .3, 1.2);
   }
-  @keyframes bar { from { transform: scaleY(0); } }
+  @keyframes bar { from { transform: scaleY(calc(1 - var(--m))); } }
   .nav svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--text2); }
   .nav.on svg { color: var(--accent); }
   main { flex: 1; min-width: 0; overflow-y: auto; box-sizing: border-box; padding: 20px 36px 40px 12px; }

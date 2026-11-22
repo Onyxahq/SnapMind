@@ -138,7 +138,7 @@
     white-space: nowrap;
     animation: in var(--d-in) var(--ease-in) both;
   }
-  @keyframes in { from { opacity: 0; transform: translateY(4px) scale(.96); } }
+  @keyframes in { from { opacity: 0; transform: translateY(calc(4px * var(--m))) scale(calc(1 - .04 * var(--m))); } }
   .title { font-size: 13px; margin-right: 2px; }
   .fps { display: inline-flex; align-items: center; gap: 4px; }
   .unit { font-size: 12px; color: var(--text3); }
@@ -154,7 +154,7 @@
   .sq { width: 9px; height: 9px; border-radius: 2px; background: #fff; }
   .recdot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: rp 1s ease-in-out infinite; }
   .recdot.paused { animation: none; background: var(--text3); }
-  @keyframes rp { 50% { opacity: .35; transform: scale(.85); } }
+  @keyframes rp { 50% { opacity: .35; transform: scale(calc(1 - .15 * var(--m))); } }
   .time { min-width: 44px; font-size: 13px; font-variant-numeric: tabular-nums; }
   .meta { font-size: 12px; color: var(--text3); margin-right: 2px; }
   .msg { font-size: 13px; color: var(--text2); padding-right: 8px; }

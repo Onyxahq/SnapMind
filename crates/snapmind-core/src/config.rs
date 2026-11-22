@@ -79,6 +79,17 @@ impl Default for Config {
 pub struct Appearance {
     pub theme: ThemeMode,
     pub accent: Accent,
+    /// 界面动效：完整，或「减弱」（只保留淡入淡出）
+    pub motion: Motion,
+}
+
+/// 界面动效。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Motion {
+    #[default]
+    Full,
+    Reduced,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -683,7 +694,7 @@ mod tests {
             v,
             json!({
                 "version": 1,
-                "appearance": { "theme": "system", "accent": "blue" },
+                "appearance": { "theme": "system", "accent": "blue", "motion": "full" },
                 "capture": { "colorFormat": "hex", "showHints": true, "confirmDiscard": true },
                 "save": {
                     "dir": "",

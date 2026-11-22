@@ -31,7 +31,7 @@ pub fn run() {
     tauri::Builder::default()
         // 单实例必须最先注册：重复启动时把参数转给已有实例，再聚焦设置窗口。
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            wm::show_settings(app);
+            wm::show_settings(app, None);
         }))
         .plugin(
             tauri_plugin_autostart::Builder::new()
@@ -95,7 +95,7 @@ pub fn run() {
                 std::thread::spawn(move || configfile::weekly_backup(&h));
             }
             if launch::mode(std::env::args()) == launch::LaunchMode::Interactive {
-                wm::show_settings(handle);
+                wm::show_settings(handle, None);
             }
             Ok(())
         })
@@ -132,9 +132,6 @@ pub fn run() {
                     // Alt+F4 关划词卡片：和点关闭一样（空闲的那张留着下次用）
                     api.prevent_close();
                     selcard::close(window.app_handle(), window.label());
-                } else if wm::hide_instead_of_close(window.label()) {
-                    api.prevent_close();
-                    let _ = window.hide();
                 }
             }
         })

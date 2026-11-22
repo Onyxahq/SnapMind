@@ -147,7 +147,7 @@
     animation: tb-in var(--d-in) var(--ease-in) both;
   }
   @keyframes tb-in {
-    from { opacity: 0; transform: translateY(4px) scale(.96); }
+    from { opacity: 0; transform: translateY(calc(4px * var(--m))) scale(calc(1 - .04 * var(--m))); }
   }
   .sep {
     width: 1px;

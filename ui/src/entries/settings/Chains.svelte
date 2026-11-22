@@ -1,6 +1,6 @@
 <script lang="ts">
   // 设置页「备用链」（需求 1.2）：翻译 / 识别 / 一步到位三条有序链，第 1 个是首选。
-  import { flip } from 'svelte/animate';
+  import { flip } from '$lib/motion';
   import { fade } from 'svelte/transition';
   import type { BackendRef, ChainTask } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';

@@ -9,20 +9,7 @@
     "frontendDist": "../ui/dist"
   },
   "app": {
-    "windows": [
-      {
-        "label": "settings",
-        "title": "SnapMind 设置",
-        "url": "settings/index.html",
-        "width": 1040,
-        "height": 720,
-        "minWidth": 860,
-        "minHeight": 560,
-        "center": true,
-        "visible": false,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion,UseEcoQoSForBackgroundProcess --disable-backgrounding-occluded-windows --disable-renderer-backgrounding"
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }

@@ -8,13 +8,14 @@ import {
   type Config,
   type DeepPartial,
 } from './ipc';
-import { applyTheme } from './theme';
+import { applyMotion, applyTheme } from './theme';
 
 export const config = $state<{ value: Config }>({ value: structuredClone(DEFAULT_CONFIG) });
 
 function set(c: Config) {
   config.value = c;
   applyTheme(c.appearance.theme, c.appearance.accent);
+  applyMotion(c.appearance.motion);
 }
 
 let started = false;

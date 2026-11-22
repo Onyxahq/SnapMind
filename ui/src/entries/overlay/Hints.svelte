@@ -51,7 +51,7 @@
   }
   .hints.near { opacity: .12; }
   @keyframes hints-in {
-    from { opacity: 0; transform: translateY(4px) scale(.98); }
+    from { opacity: 0; transform: translateY(calc(4px * var(--m))) scale(calc(1 - .02 * var(--m))); }
   }
   .row {
     display: flex;

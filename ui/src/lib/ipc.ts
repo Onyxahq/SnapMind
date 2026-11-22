@@ -15,7 +15,7 @@ export interface AppInfo {
 /** 与 snapmind-core::config::Config 一一对应（camelCase）。 */
 export interface Config {
   version: number;
-  appearance: { theme: ThemeMode; accent: Accent };
+  appearance: { theme: ThemeMode; accent: Accent; motion: 'full' | 'reduced' };
   capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean };
   save: SaveConfig;
   providers: ProviderConfig[];
@@ -134,7 +134,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartia
 
 export const DEFAULT_CONFIG: Config = {
   version: 1,
-  appearance: { theme: 'system', accent: 'blue' },
+  appearance: { theme: 'system', accent: 'blue', motion: 'full' },
   capture: { colorFormat: 'hex', showHints: true, confirmDiscard: true },
   save: {
     dir: '',

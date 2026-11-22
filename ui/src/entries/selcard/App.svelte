@@ -214,7 +214,7 @@
   }
   .card.pinned { box-shadow: 0 0 0 1.5px var(--accent), var(--elev); }
   @keyframes card-in {
-    from { opacity: 0; transform: translateY(4px) scale(.98); }
+    from { opacity: 0; transform: translateY(calc(4px * var(--m))) scale(calc(1 - .02 * var(--m))); }
   }
   header, footer {
     display: flex;
@@ -248,7 +248,7 @@
     flex: none;
   }
   @keyframes pulse {
-    from { opacity: .35; transform: scale(.8); }
+    from { opacity: .35; transform: scale(calc(1 - .2 * var(--m))); }
   }
   .src-line {
     margin: 0;

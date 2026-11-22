@@ -121,7 +121,7 @@
     animation: card-in var(--d-in) var(--ease-in) both;
   }
   @keyframes card-in {
-    from { opacity: 0; transform: translateY(6px) scale(.97); }
+    from { opacity: 0; transform: translateY(calc(6px * var(--m))) scale(calc(1 - .03 * var(--m))); }
   }
   header, footer { display: flex; align-items: center; gap: 6px; }
   .grow { flex: 1; }
@@ -149,7 +149,7 @@
     animation: pulse 1s var(--ease-hover) infinite alternate;
     flex: none;
   }
-  @keyframes pulse { from { opacity: .35; transform: scale(.8); } }
+  @keyframes pulse { from { opacity: .35; transform: scale(calc(1 - .2 * var(--m))); } }
   .field, .md {
     box-sizing: border-box;
     width: 100%;

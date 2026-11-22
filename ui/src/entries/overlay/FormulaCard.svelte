@@ -132,7 +132,7 @@
     user-select: text;
     animation: card-in var(--d-in) var(--ease-in) both;
   }
-  @keyframes card-in { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+  @keyframes card-in { from { opacity: 0; transform: translateY(calc(6px * var(--m))) scale(calc(1 - .03 * var(--m))); } }
   header, footer { display: flex; align-items: center; gap: 6px; }
   .grow { flex: 1; }
   .chip {
@@ -142,7 +142,7 @@
     overflow: hidden; text-overflow: ellipsis; max-width: 340px;
   }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1s var(--ease-hover) infinite alternate; flex: none; }
-  @keyframes pulse { from { opacity: .35; transform: scale(.8); } }
+  @keyframes pulse { from { opacity: .35; transform: scale(calc(1 - .2 * var(--m))); } }
   .preview {
     min-height: 96px;
     max-height: 260px;
@@ -158,7 +158,7 @@
     border: 1px solid var(--line2);
   }
   .f { overflow-x: auto; overflow-y: hidden; animation: f-in var(--d-in) var(--ease-in) both; }
-  @keyframes f-in { from { opacity: 0; transform: translateY(3px); } }
+  @keyframes f-in { from { opacity: 0; transform: translateY(calc(3px * var(--m))); } }
   .f :global(.katex-display) { margin: 6px 0; }
   .f :global(.katex) { font-size: 1.25em; }
   .f.bad { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }

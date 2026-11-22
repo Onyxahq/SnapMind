@@ -135,7 +135,7 @@
     background: var(--sunken); color: var(--text2); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis;
   }
   .chip.acc { background: var(--accent-soft); color: var(--accent); font-weight: 600; animation: pop var(--d-in) var(--ease-in) both; }
-  @keyframes pop { from { opacity: 0; transform: scale(.94); } }
+  @keyframes pop { from { opacity: 0; transform: scale(calc(1 - .06 * var(--m))); } }
   .arrow { width: 14px; height: 14px; fill: none; stroke: var(--text3); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .note { font-size: 12px; line-height: 18px; color: var(--text2); }
 </style>

@@ -135,7 +135,7 @@ fn create<R: Runtime>(app: &AppHandle<R>, cfg: &BallConfig) -> tauri::Result<()>
     w.on_menu_event(move |_, e| match e.id().as_ref() {
         "ball-capture" => crate::actions::capture(&app2),
         "ball-pin" => crate::actions::pin_clipboard(&app2),
-        "ball-settings" => crate::wm::show_settings(&app2),
+        "ball-settings" => crate::wm::show_settings(&app2, None),
         "ball-hide" => {
             if let Err(e) = crate::configfile::update(&app2, &json!({ "ball": { "enabled": false } })) {
                 eprintln!("关闭悬浮球失败：{e}");
@@ -166,6 +166,13 @@ impl BallState {
 fn animate<R: Runtime>(w: &WebviewWindow<R>, state: &BallState, to: (i32, i32)) {
     let Ok(from) = w.outer_position() else { return };
     state.quiet_for(400);
+    // 减弱动效：直接到位
+    let reduced = w.app_handle().state::<crate::state::AppState>().config.get().appearance.motion == snapmind_core::config::Motion::Reduced;
+    if reduced {
+        let _ = w.set_position(PhysicalPosition::new(to.0, to.1));
+        state.quiet_for(200);
+        return;
+    }
     const STEPS: i32 = 9;
     for i in 1..=STEPS {
         let t = i as f64 / STEPS as f64;

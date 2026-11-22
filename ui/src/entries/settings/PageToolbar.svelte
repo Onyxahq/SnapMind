@@ -2,7 +2,7 @@
   // 设置 → 工具栏（需求 3.6、第 9 节、M10.2）：截图工具条和贴图工具条各一份布局。
   // 拖动左边的把手排序（指针跟手，其他行让位有动画），取消勾选即隐藏，「更多」分隔线以下的按钮收进「⋯」菜单。
   // 每次改动立即保存，已经打开的工具条同时刷新。退出 / 复制（截图）和关闭、不透明度（贴图）固定，不在列表里。
-  import { flip } from 'svelte/animate';
+  import { flip } from '$lib/motion';
   import { DEFAULT_CONFIG } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';
   import {
@@ -190,7 +190,7 @@
     border-radius: var(--r-panel); background: var(--glass2); box-shadow: var(--elev-sm);
   }
   .i { width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; color: var(--text2); animation: pop 160ms var(--ease-in) both; }
-  @keyframes pop { from { opacity: 0; transform: scale(.8); } }
+  @keyframes pop { from { opacity: 0; transform: scale(calc(1 - .2 * var(--m))); } }
   .i.ok { background: var(--accent); color: var(--on-accent, #fff); margin-left: 2px; }
   .sep { width: 1px; height: 16px; margin: 0 4px; background: var(--line2); }
   .card { border-radius: var(--r-panel); background: var(--card); box-shadow: var(--card-ring); }

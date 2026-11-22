@@ -1,4 +1,11 @@
 // 动效曲线与 Svelte 过渡。数值与 tokens.css 和设计规范 §4 保持一致。
+// 「减弱动效」时（<html data-motion="reduced">）只保留淡入淡出：位移、缩放、列表重排都去掉。
+import { flip as svelteFlip } from 'svelte/animate';
+import { fade, slide as svelteSlide } from 'svelte/transition';
+
+/** 当前是否「减弱动效」。 */
+export const reduced = (): boolean =>
+  typeof document !== 'undefined' && document.documentElement.dataset.motion === 'reduced';
 
 /**
  * 生成 CSS cubic-bezier(x1, y1, x2, y2) 对应的缓动函数，供 Svelte 的 JS 过渡使用。
@@ -49,7 +56,7 @@ export function popIn(_node: Element, { y = 4 }: { y?: number } = {}) {
     duration: dur.in,
     easing: ease.in,
     css: (t: number, u: number) =>
-      `opacity:${Math.min(1, t)};transform:translateY(${u * y}px) scale(${0.96 + 0.04 * t})`,
+      reduced() ? `opacity:${Math.min(1, t)}` : `opacity:${Math.min(1, t)};transform:translateY(${u * y}px) scale(${0.96 + 0.04 * t})`,
   };
 }
 
@@ -58,6 +65,16 @@ export function popOut(_node: Element) {
   return {
     duration: dur.out,
     easing: ease.out,
-    css: (t: number) => `opacity:${t};transform:scale(${0.98 + 0.02 * t})`,
+    css: (t: number) => (reduced() ? `opacity:${t}` : `opacity:${t};transform:scale(${0.98 + 0.02 * t})`),
   };
+}
+
+/** 列表重排动画（svelte/animate 的 flip）；减弱动效时直接到位。 */
+export function flip(node: Element, ft: { from: DOMRect; to: DOMRect }, params: Parameters<typeof svelteFlip>[2] = {}) {
+  return reduced() ? { duration: 0 } : svelteFlip(node, ft, params);
+}
+
+/** 展开收起（svelte/transition 的 slide）；减弱动效时改成淡入淡出。 */
+export function slide(node: Element, params: Parameters<typeof svelteSlide>[1] = {}) {
+  return reduced() ? fade(node, { duration: params?.duration ?? 120 }) : svelteSlide(node, params);
 }

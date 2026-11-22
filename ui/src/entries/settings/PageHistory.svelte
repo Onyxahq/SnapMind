@@ -2,7 +2,7 @@
   // 设置 → 历史记录（需求第 7 节、M10.3）：保留方式（不限制 / 按条数 / 按空间）、占用统计、
   // 贴图历史（缩略图，重新贴出 / 复制 / 删除）和翻译历史（复制译文 / 贴到屏幕 / 删除），搜索、清空。
   import { onMount } from 'svelte';
-  import { flip } from 'svelte/animate';
+  import { flip } from '$lib/motion';
   import { fade } from 'svelte/transition';
   import {
     clipboardWriteText,

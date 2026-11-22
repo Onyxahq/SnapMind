@@ -155,7 +155,7 @@
     white-space: nowrap;
     animation: in var(--d-in) var(--ease-in) both;
   }
-  @keyframes in { from { opacity: 0; transform: translateY(4px) scale(.96); } }
+  @keyframes in { from { opacity: 0; transform: translateY(calc(4px * var(--m))) scale(calc(1 - .04 * var(--m))); } }
   .size {
     min-width: 92px;
     margin-right: 6px;

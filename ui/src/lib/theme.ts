@@ -31,6 +31,26 @@ function paint(animate: boolean) {
   root.dataset.accent = current.accent;
 }
 
+const reduceQuery = () =>
+  typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+let motionPref: 'full' | 'reduced' = 'full';
+let listeningMotion = false;
+
+function paintMotion() {
+  const reduce = motionPref === 'reduced' || (reduceQuery()?.matches ?? false);
+  document.documentElement.dataset.motion = reduce ? 'reduced' : 'full';
+}
+
+/** 动效：设置里选了「减弱」，或者系统关掉了动画，都只保留淡入淡出。 */
+export function applyMotion(pref: 'full' | 'reduced'): void {
+  motionPref = pref;
+  paintMotion();
+  if (!listeningMotion) {
+    reduceQuery()?.addEventListener('change', paintMotion);
+    listeningMotion = true;
+  }
+}
+
 /**
  * 应用主题。第一次调用不做过渡（避免窗口打开时闪一下），之后的切换有 300ms 颜色过渡。
  * 「跟随系统」时会监听系统明暗变化。

@@ -162,7 +162,7 @@
     transform-origin: top left;
   }
   @keyframes card-in {
-    from { opacity: 0; transform: translateY(6px) scale(.97); }
+    from { opacity: 0; transform: translateY(calc(6px * var(--m))) scale(calc(1 - .03 * var(--m))); }
   }
   header,
   footer {
@@ -196,7 +196,7 @@
     flex: none;
   }
   @keyframes pulse {
-    from { opacity: .35; transform: scale(.8); }
+    from { opacity: .35; transform: scale(calc(1 - .2 * var(--m))); }
   }
   .blk {
     display: flex;

@@ -193,7 +193,7 @@
     animation: bar-in var(--d-in) var(--ease-in) both;
   }
   @keyframes bar-in {
-    from { opacity: 0; transform: translateY(-4px) scale(.96); }
+    from { opacity: 0; transform: translateY(calc(-4px * var(--m))) scale(calc(1 - .04 * var(--m))); }
   }
   .sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line2); }
   .done {

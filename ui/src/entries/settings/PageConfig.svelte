@@ -2,7 +2,7 @@
   // 设置 → 配置文件（需求第 10 节、M10.4）：位置；导出（选内容，API Key 可用密码加密导出）；
   // 导入（拖入或点击选择，预览后可只导入一部分，导入前自动备份）；自动备份与恢复；恢复默认。
   import { onMount } from 'svelte';
-  import { slide } from 'svelte/transition';
+  import { slide } from '$lib/motion';
   import {
     clipboardWriteText,
     configBackups,

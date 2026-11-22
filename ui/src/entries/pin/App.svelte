@@ -424,7 +424,7 @@
   .frame:hover, .frame.annot { box-shadow: 0 0 0 2px var(--accent), 0 3px 9px rgba(0, 0, 0, .28); }
   .frame.through { cursor: default; }
   @keyframes pin-in {
-    from { opacity: 0; transform: scale(.94); }
+    from { opacity: 0; transform: scale(calc(1 - .06 * var(--m))); }
   }
   img {
     display: block;

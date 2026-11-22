@@ -46,10 +46,7 @@ pub fn config_path(state: State<'_, AppState>) -> String {
 /// 打开设置窗口，可以指定跳到哪一页（设置页收到 settings:goto 事件后切换）。
 #[tauri::command]
 pub fn settings_open(app: AppHandle, page: Option<String>) {
-    crate::wm::show_settings(&app);
-    if let Some(p) = page {
-        let _ = tauri::Emitter::emit_to(&app, "settings", "settings:goto", p);
-    }
+    crate::wm::show_settings(&app, page.as_deref());
 }
 
 /// 开机自启的实际状态。
