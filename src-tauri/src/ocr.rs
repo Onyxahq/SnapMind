@@ -105,6 +105,11 @@ pub fn recognize_text<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Result
     Ok(layout::compose(&lines, &(0..lines.len()).collect::<Vec<_>>(), false))
 }
 
+/// 识别链里的「本地 OCR」做 Markdown：按版面转换（阻塞）。
+pub fn recognize_markdown<R: Runtime>(app: &AppHandle<R>, img: &RgbaImage) -> Result<String, String> {
+    Ok(snapmind_ocr::markdown::from_lines(&recognize(app, img)?))
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OcrLineOut {

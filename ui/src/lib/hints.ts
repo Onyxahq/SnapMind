@@ -39,6 +39,7 @@ export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
         { k: 'Ctrl+S', label: '保存…' },
         { k: 'Ctrl+T', label: '贴图并结束' },
         { k: 'Shift+C', label: '识别文字' },
+        { k: 'Shift+Alt+R', label: '识别为 Markdown' },
         { k: 'Ctrl+Q', label: '翻译' },
         { k: 'P / C', label: '颜色格式 / 复制颜色' },
         { k: '右键', label: '取消选区' },

@@ -10,6 +10,7 @@ pub mod eval;
 mod imgops;
 pub mod ink;
 pub mod layout;
+pub mod markdown;
 pub mod models;
 pub mod overlay;
 pub mod rec;

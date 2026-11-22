@@ -277,6 +277,31 @@ pub async fn pick_save_file(window: tauri::WebviewWindow, dir: String, name: Str
     .flatten()
 }
 
+/// 把 Markdown 存成 .md（系统另存为对话框，默认目录和文件名模板与截图一致）。返回保存路径，取消为 None。
+#[tauri::command]
+pub async fn save_markdown(app: AppHandle, window: tauri::WebviewWindow, text: String) -> Result<Option<String>, String> {
+    let config = app.state::<AppState>().config.get();
+    let dir = default_dir(&app, &config);
+    let name = export::render_filename(&config.save.filename_template, export::now_local());
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        let _ = std::fs::create_dir_all(&dir);
+        window
+            .dialog()
+            .file()
+            .set_parent(&window)
+            .set_directory(dir)
+            .set_file_name(format!("{name}.md"))
+            .add_filter("Markdown", &["md"])
+            .blocking_save_file()
+            .and_then(|p| p.into_path().ok())
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    let Some(path) = picked else { return Ok(None) };
+    std::fs::write(&path, text.as_bytes()).map_err(|e| format!("保存失败：{e}"))?;
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
 /// 选择文件夹（保存窗口的「＋添加」）。
 #[tauri::command]
 pub async fn pick_folder(window: tauri::WebviewWindow, dir: String) -> Option<String> {

@@ -3,7 +3,7 @@ import type { Rect } from './geometry';
 import type { TaskEvent } from './ipc';
 import type { OverlayBlock } from './overlay';
 
-export type CardStage = 'recognize' | 'oneshot' | 'translate' | 'done' | 'error';
+export type CardStage = 'recognize' | 'oneshot' | 'translate' | 'markdown' | 'done' | 'error';
 
 export interface TranslateCard {
   id: string;
@@ -60,6 +60,8 @@ export function stageLabel(c: TranslateCard): string {
       return `一步到位${who}`;
     case 'translate':
       return `翻译中${who}`;
+    case 'markdown':
+      return `识别中${who}`;
     case 'done':
       return '翻译';
     case 'error':

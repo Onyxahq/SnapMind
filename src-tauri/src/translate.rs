@@ -176,6 +176,21 @@ async fn recognize<R: Runtime>(
     png: Vec<u8>,
     out: &Emit<R>,
 ) -> Result<(String, String), String> {
+    recognize_as(app, cfg, img, png, out, PromptKind::Recognize).await
+}
+
+/// 按识别链识别，`kind` 决定输出：Recognize 是纯文字，Markdown 是 Markdown（视觉模型用 Markdown
+/// 提示词，本地 OCR 按版面转换）。事件的 stage 分别是 recognize / markdown。
+async fn recognize_as<R: Runtime>(
+    app: &AppHandle<R>,
+    cfg: &Config,
+    img: std::sync::Arc<RgbaImage>,
+    png: Vec<u8>,
+    out: &Emit<R>,
+    kind: PromptKind,
+) -> Result<(String, String), String> {
+    let markdown = kind == PromptKind::Markdown;
+    let stage: &'static str = if markdown { "markdown" } else { "recognize" };
     let chains = &cfg.chains;
     // 本地 OCR 不是大模型后端，单独占位；其余按设置解析
     enum Step {
@@ -200,29 +215,32 @@ async fn recognize<R: Runtime>(
             Step::Llm(b) => b.label(),
         })
         .collect();
-    let prompt = render(
-        cfg.prompts.template(PromptKind::Recognize),
-        PromptKind::Recognize,
-        &vars(&cfg.translation, &cfg.translation.target_lang, ""),
-    );
+    let prompt = render(cfg.prompts.template(kind), kind, &vars(&cfg.translation, &cfg.translation.target_lang, ""));
     let job = TextJob {
         messages: vec![Message::user(vec![Part::Image { mime: "image/png".into(), data: png }, Part::Text(prompt)])],
         temperature: Some(0.0),
         ..Default::default()
     };
     let timeout = chains.timeout();
-    let mut on_delta = |d: &str| out.send("src", "recognize", d);
+    let mut on_delta = |d: &str| out.send("src", stage, d);
     let mut run = ChainRun::new(labels, chains.fallback);
     for i in 0..run.len() {
-        out.send("stage", "recognize", run.label(i));
+        out.send("stage", stage, run.label(i));
         let r = match &steps[i] {
             // 模型没下载时报不可用，切到下一个
             Step::LocalOcr => {
                 let (app, img) = (app.clone(), img.clone());
-                match tauri::async_runtime::spawn_blocking(move || crate::ocr::recognize_text(&app, &img)).await {
+                let local = move || {
+                    if markdown {
+                        crate::ocr::recognize_markdown(&app, &img)
+                    } else {
+                        crate::ocr::recognize_text(&app, &img)
+                    }
+                };
+                match tauri::async_runtime::spawn_blocking(local).await {
                     Ok(Ok(text)) if text.trim().is_empty() => Err(ProviderError::Empty),
                     Ok(Ok(text)) => {
-                        out.send("src", "recognize", text.clone());
+                        out.send("src", stage, text.clone());
                         Ok(text)
                     }
                     Ok(Err(e)) => Err(ProviderError::Unavailable(e)),
@@ -238,11 +256,43 @@ async fn recognize<R: Runtime>(
             }
             Err(e) => {
                 run.fail(i, e);
-                out.send("src-reset", "recognize", "");
+                out.send("src-reset", stage, "");
             }
         }
     }
     Err(format!("识别失败：{}", describe_failures(&run.failures())))
+}
+
+/// 识别为 Markdown（需求 3.8、M8.1）：按识别链，结果流式推给卡片（src 事件，stage = markdown）。
+#[tauri::command]
+pub fn capture_markdown(
+    app: AppHandle,
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    id: String,
+    index: usize,
+    region: Region,
+) -> Result<(), String> {
+    let img = std::sync::Arc::new(crate::export::crop_base(&app, index, region)?);
+    let cfg = state.config.get();
+    let out = Emit { win: window, id: id.clone() };
+    let handle = app.clone();
+    spawn(&app, id, async move {
+        let t0 = Instant::now();
+        let for_vision = img.clone();
+        let png = match tauri::async_runtime::spawn_blocking(move || encode_for_vision(&for_vision)).await {
+            Ok(Ok(p)) => p,
+            Ok(Err(e)) => return out.send("error", "markdown", e),
+            Err(e) => return out.send("error", "markdown", e.to_string()),
+        };
+        out.send("stage", "markdown", "");
+        match recognize_as(&handle, &cfg, img, png, &out, PromptKind::Markdown).await {
+            Ok((md, _)) if md.is_empty() => out.send("error", "markdown", "选区里没有识别到文字"),
+            Ok((_, desc)) => out.send("done", "markdown", format!("{desc} · {}", secs(t0))),
+            Err(e) => out.send("error", "markdown", e),
+        }
+    });
+    Ok(())
 }
 
 /// 翻译链。返回（译文，说明，实际目标语言；原文已是目标语言而没有翻译时为 None）。

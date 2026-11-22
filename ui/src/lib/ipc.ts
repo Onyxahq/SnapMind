@@ -631,7 +631,7 @@ export async function languages(): Promise<Lang[]> {
 export interface TaskEvent {
   id: string;
   kind: 'stage' | 'src' | 'src-reset' | 'dst' | 'dst-reset' | 'done' | 'error' | 'overlay';
-  stage: 'recognize' | 'oneshot' | 'translate';
+  stage: 'recognize' | 'oneshot' | 'translate' | 'markdown';
   text: string;
 }
 
@@ -711,6 +711,26 @@ export async function captureTranslateOverlay(id: string, index: number, region:
     ]);
   }
   return invoke('capture_translate_overlay', { id, index, region });
+}
+
+/** 识别为 Markdown：按识别链，Markdown 源码通过 onTaskEvent 的 src 事件（stage = markdown）流式推来。 */
+export async function captureMarkdown(id: string, index: number, region: Region): Promise<void> {
+  if (!inTauri()) {
+    const md = '# 识别为 Markdown\n\n截图里的**标题**、列表和代码会保留结构，==重点==也能显示。\n\n- 编辑视图改源码\n- 预览视图实时渲染\n\n| 快捷键 | 动作 |\n|---|---|\n| Shift+Alt+R | Markdown |\n\n> [!tip] 提示\n> 复制或保存后结束截图。\n';
+    return fakeRun(id, [
+      { kind: 'stage', stage: 'markdown', text: '' },
+      { kind: 'stage', stage: 'markdown', text: 'qwen-vl' },
+      ...md.match(/[\s\S]{1,24}/g)!.map((t) => ({ kind: 'src' as const, stage: 'markdown' as const, text: t })),
+      { kind: 'done', stage: 'markdown', text: 'qwen-vl · 2.1 s' },
+    ]);
+  }
+  return invoke('capture_markdown', { id, index, region });
+}
+
+/** 把 Markdown 存成 .md（系统另存为），返回保存路径，取消时为 null。 */
+export async function saveMarkdown(text: string): Promise<string | null> {
+  if (!inTauri()) return 'C:\\Users\\demo\\Pictures\\SnapMind\\demo.md';
+  return invoke('save_markdown', { text });
 }
 
 /**

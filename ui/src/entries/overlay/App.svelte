@@ -3,7 +3,8 @@
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
   // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）；
-  // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选；M6.2 翻译的原位覆盖。
+  // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选；M6.2 翻译的原位覆盖；
+  // M8.1 识别为 Markdown（Shift+Alt+R）。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
   import {
@@ -12,6 +13,8 @@
     capturePinText,
     captureTranslate,
     captureTranslateOverlay,
+    captureMarkdown,
+    saveMarkdown,
     captureOcr,
     ocrCompose,
     ocrDownload,
@@ -75,6 +78,7 @@
   import OcrCardView from './OcrCard.svelte';
   import OcrBoxes from './OcrBoxes.svelte';
   import TranslateOverlay from './TranslateOverlay.svelte';
+  import MarkdownCard from './MarkdownCard.svelte';
   import { canvasMeasure, drawOverlay, drawable, fitText } from '$lib/overlay';
   import { newOcrCard, pickLines, type OcrCard } from '$lib/ocr';
 
@@ -109,6 +113,8 @@
   let confirmOpen = $state(false);
   /** 翻译结果卡片（打开卡片不会结束截图） */
   let card = $state<Card | null>(null);
+  /** Markdown 卡片（复用任务卡片的状态，src 是 Markdown 源码）；结果卡片同一时间只开一张 */
+  let mdCard = $state<Card | null>(null);
   /** 翻译时的选区（原位覆盖只在选区没动时画） */
   let cardRegion = $state<Rect | null>(null);
   /** 识别文字卡片（和翻译卡片同一时间只开一张） */
@@ -209,7 +215,7 @@
 
   /** 放大镜：框选前后都显示；移动选区时隐藏（标注、长截图、录屏时也要隐藏，后续任务接入）。 */
   const showMag = $derived(
-    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr,
+    session !== null && frameReady && cursorPx !== null && drag?.kind !== 'move' && !saveOpen && !ann.tool && !card && !ocr && !mdCard,
   );
 
   // ---------------------------------------------------------------- 吸附
@@ -260,6 +266,7 @@
     confirmOpen = false;
     closeCard();
     closeOcr();
+    closeMd();
     ann.reset();
     propsOpen = false;
     cursorCss = s.cursor ? physicalToCss(s.monitor, s.cursor) : null;
@@ -284,6 +291,7 @@
   function resetView() {
     closeCard();
     closeOcr();
+    closeMd();
     session = null;
     sel = null;
     drag = null;
@@ -410,6 +418,7 @@
       case 'pin': return pin();
       case 'translate': return translate();
       case 'ocr': return recognizeText();
+      case 'markdown': return recognizeMarkdown();
     }
   }
 
@@ -422,6 +431,7 @@
     if (!session || drag) return;
     if (!sel) sel = region();
     closeOcr();
+    closeMd();
     if (card) taskCancel(card.id);
     const id = `tr-${session.seq}-${++cardSeq}`;
     card = newCard(id);
@@ -483,6 +493,7 @@
     if (!sel) sel = region();
     closeCard();
     closeOcr();
+    closeMd();
     const id = `ocr-${session.seq}-${++cardSeq}`;
     const [index, r] = [session.index, sel];
     ocr = newOcrCard(id, r);
@@ -548,6 +559,43 @@
     const [i, r, text] = [session.index, ocr.region, ocr.text.trim()];
     resetView();
     capturePinText(i, r, text).catch((e) => log('error', `贴识别文字失败：${e}`));
+  }
+
+  // ---------------------------------------------------------------- Markdown 卡片
+
+  /** Shift+Alt+R / 工具条「Markdown」：按识别链识别为 Markdown。 */
+  function recognizeMarkdown() {
+    if (!session || drag) return;
+    if (!sel) sel = region();
+    closeCard();
+    closeOcr();
+    closeMd();
+    const id = `md-${session.seq}-${++cardSeq}`;
+    mdCard = newCard(id, '', 'markdown');
+    captureMarkdown(id, session.index, sel).catch((e) => {
+      if (mdCard?.id === id) mdCard = { ...mdCard, stage: 'error', error: String(e) };
+    });
+  }
+
+  function closeMd() {
+    if (mdCard) taskCancel(mdCard.id);
+    mdCard = null;
+  }
+
+  async function copyMarkdown() {
+    if (!mdCard?.src.trim()) return;
+    await clipboardWriteText(mdCard.src.trim());
+    close();
+  }
+
+  async function saveMd() {
+    if (!mdCard?.src.trim()) return;
+    try {
+      const path = await saveMarkdown(mdCard.src.trim() + '\n');
+      if (path) close(); // 取消另存为：留在截图里
+    } catch (e) {
+      toast(`保存失败：${e}`, { kind: 'error' });
+    }
   }
 
   /** 贴图：在原位置钉一张贴图（带标注），结束截图。 */
@@ -713,6 +761,7 @@
       else if (saveOpen) saveOpen = false;
       else if (card) closeCard();
       else if (ocr) closeOcr();
+      else if (mdCard) closeMd();
       else if (ann.tool) exitAnnotate();
       else requestClose();
       return;
@@ -748,6 +797,12 @@
     if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       ann.undo();
+      return;
+    }
+    // Shift+Alt+R：识别为 Markdown（有的键盘布局下 Alt 组合的 e.key 不是字母，所以也认 e.code）
+    if (e.shiftKey && e.altKey && !ctrl && (e.code === 'KeyR' || e.key.toLowerCase() === 'r')) {
+      e.preventDefault();
+      recognizeMarkdown();
       return;
     }
     if (e.shiftKey && !ctrl && !e.altKey && e.key.toLowerCase() === 'c') {
@@ -817,6 +872,7 @@
     });
     const offTask = onTaskEvent((e) => {
       if (card) card = reduce(card, e);
+      if (mdCard) mdCard = reduce(mdCard, e);
     });
     // 模型下载完成：卡片还在等模型就接着识别
     const offOcr = onOcrDownload((s) => {
@@ -901,6 +957,16 @@
       oncopy={copyOcr}
       onpin={pinOcr}
       onclose={closeOcr}
+    />
+  {/if}
+  {#if mdCard && selOnlyCss && !saveOpen}
+    <MarkdownCard
+      sel={unionRect(selOnlyCss, showToolbar ? toolbarRect : null)}
+      card={mdCard}
+      onsrc={(v) => mdCard && (mdCard = { ...mdCard, src: v })}
+      oncopy={copyMarkdown}
+      onsave={saveMd}
+      onclose={closeMd}
     />
   {/if}
   {#if card && selOnlyCss && !saveOpen}
