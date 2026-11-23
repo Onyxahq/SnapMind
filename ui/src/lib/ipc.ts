@@ -16,7 +16,7 @@ export interface AppInfo {
 export interface Config {
   version: number;
   appearance: { theme: ThemeMode; accent: Accent; motion: 'full' | 'reduced' };
-  capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean };
+  capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean; tableMode: 'preview' | 'edit' };
   save: SaveConfig;
   providers: ProviderConfig[];
   mt: { microsoftRegion: string };
@@ -140,7 +140,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartia
 export const DEFAULT_CONFIG: Config = {
   version: 1,
   appearance: { theme: 'system', accent: 'blue', motion: 'full' },
-  capture: { colorFormat: 'hex', showHints: true, confirmDiscard: true },
+  capture: { colorFormat: 'hex', showHints: true, confirmDiscard: true, tableMode: 'preview' },
   save: {
     dir: '',
     format: 'png',
@@ -294,6 +294,12 @@ export async function cursorNudge(dx: number, dy: number): Promise<void> {
 export async function clipboardWriteText(text: string): Promise<void> {
   if (!inTauri()) return navigator.clipboard.writeText(text);
   return invoke('clipboard_write_text', { text });
+}
+
+/** 写入剪贴板 HTML（附带纯文本）：粘贴进 Excel / Word 直接成表格，粘贴进记事本是纯文本。 */
+export async function clipboardWriteHtml(html: string, text: string): Promise<void> {
+  if (!inTauri()) return navigator.clipboard.writeText(text);
+  return invoke('clipboard_write_html', { html, text });
 }
 
 // ---- 交出截图：复制、保存 ----

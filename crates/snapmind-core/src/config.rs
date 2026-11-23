@@ -124,12 +124,22 @@ pub struct CaptureConfig {
     pub show_hints: bool,
     /// 有未保存的标注时退出前是否确认（确认框里可勾选「不再询问」）。
     pub confirm_discard: bool,
+    /// 表格识别结果打开时只看还是直接可以改单元格（F5；卡片上切换会记住）
+    pub table_mode: TableMode,
 }
 
 impl Default for CaptureConfig {
     fn default() -> Self {
-        Self { color_format: ColorFormat::default(), show_hints: true, confirm_discard: true }
+        Self { color_format: ColorFormat::default(), show_hints: true, confirm_discard: true, table_mode: TableMode::default() }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TableMode {
+    #[default]
+    Preview,
+    Edit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -731,7 +741,7 @@ mod tests {
             json!({
                 "version": 1,
                 "appearance": { "theme": "system", "accent": "blue", "motion": "full" },
-                "capture": { "colorFormat": "hex", "showHints": true, "confirmDiscard": true },
+                "capture": { "colorFormat": "hex", "showHints": true, "confirmDiscard": true, "tableMode": "preview" },
                 "save": {
                     "dir": "",
                     "format": "png",

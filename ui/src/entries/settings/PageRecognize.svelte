@@ -10,6 +10,7 @@
   import Row from '$lib/ui/Row.svelte';
   import Switch from '$lib/ui/Switch.svelte';
   import Select from '$lib/ui/Select.svelte';
+  import Seg from '$lib/ui/Seg.svelte';
   import Field from '$lib/ui/Field.svelte';
   import Head from './Head.svelte';
   import Chains from './Chains.svelte';
@@ -76,6 +77,17 @@
 
 <Card>
   <OcrModel />
+  <Row title="表格识别结果" desc="打开时是只看的表格，还是直接可以改单元格；在表格卡片上点笔切换也会记住">
+    <Seg
+      label="表格识别结果"
+      options={[
+        { value: 'preview', label: '预览' },
+        { value: 'edit', label: '编辑' },
+      ]}
+      value={c.capture.tableMode ?? 'preview'}
+      onchange={(tableMode) => save({ capture: { tableMode } })}
+    />
+  </Row>
 </Card>
 
 <Card>

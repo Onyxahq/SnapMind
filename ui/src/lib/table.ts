@@ -1,6 +1,6 @@
-// 表格卡片（需求 3.8「表格」、M8.2）的数据：单元格按 HTML 表格的规则排列（一行里只列出从这一行开始的
-// 单元格，被合并占住的位置不出现）。可以转成 Markdown / HTML / TSV（粘贴进 Excel），
-// 也能把改过的 Markdown / HTML 源码解析回来。
+// 表格卡片（需求 3.8「表格」、M8.2、F5）的数据：单元格按 HTML 表格的规则排列（一行里只列出从这一行开始的
+// 单元格，被合并占住的位置不出现）。可以转成 Markdown / HTML / CSV / TSV，
+// 也能把改过的 Markdown / CSV 源码解析回来。复制给 Excel 时剪贴板里同时放 HTML（保留合并单元格）和 TSV。
 
 export interface TCell {
   text: string;
@@ -11,7 +11,7 @@ export interface TCell {
 export type TRows = TCell[][];
 
 /** 表格卡片的视图和状态 */
-export type TableView = 'grid' | 'markdown' | 'html';
+export type TableView = 'grid' | 'markdown' | 'csv';
 export interface TableCardState {
   id: string;
   /** run 识别中；model 需要先下载表格模型；done 完成；error 出错 */
@@ -85,6 +85,57 @@ export function toTsv(rows: TRows): string {
   return expand(rows)
     .map((r) => r.map((s) => s.replace(/[\t\r\n]+/g, ' ')).join('\t'))
     .join('\n');
+}
+
+const csvCell = (s: string) => (/[",\r\n]/.test(s) || /^\s|\s$/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+
+/** CSV（RFC 4180）：逗号分隔，含逗号、引号、换行或首尾空格的单元格加引号。合并单元格的文字放在左上角。 */
+export function toCsv(rows: TRows): string {
+  return expand(rows)
+    .map((r) => r.map(csvCell).join(','))
+    .join('\r\n');
+}
+
+/** 解析 CSV（引号里可以有逗号、换行和 "" 转义）；空内容返回 null。第一行作表头。 */
+export function parseCsv(csv: string): TRows | null {
+  const grid: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < csv.length; i++) {
+    const ch = csv[i];
+    if (quoted) {
+      if (ch === '"' && csv[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === '') quoted = true;
+    else if (ch === ',') {
+      row.push(cell);
+      cell = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && csv[i + 1] === '\n') i++;
+      row.push(cell);
+      grid.push(row);
+      row = [];
+      cell = '';
+    } else cell += ch;
+  }
+  if (cell !== '' || row.length) {
+    row.push(cell);
+    grid.push(row);
+  }
+  const rows = grid.filter((r) => r.some((c) => c.trim() !== ''));
+  if (!rows.length) return null;
+  return rows.map((r, i) => r.map((text) => ({ text, colspan: 1, rowspan: 1, header: i === 0 })));
+}
+
+/** 复制给 Excel / Word 的 HTML 片段：带上边框，表头加粗，单元格里的换行保留。 */
+export function toClipboardHtml(rows: TRows): string {
+  return toHtml(rows)
+    .replace('<table>', '<table border="1" cellspacing="0" style="border-collapse:collapse">')
+    .replace(/<td/g, '<td style="vertical-align:top"');
 }
 
 /** 解析 Markdown 管道表格；没有表格时返回 null。 */

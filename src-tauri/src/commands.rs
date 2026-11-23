@@ -88,6 +88,12 @@ pub fn clipboard_write_text(text: String) -> Result<(), String> {
     snapmind_platform::clipboard::set_text(&text).map_err(|e| e.to_string())
 }
 
+/// 写入剪贴板 HTML（附带纯文字），表格复制给 Excel / Word 用。
+#[tauri::command]
+pub fn clipboard_write_html(html: String, text: String) -> Result<(), String> {
+    snapmind_platform::clipboard::set_html(&html, &text).map_err(|e| e.to_string())
+}
+
 /// 结束截图：隐藏全部遮罩并释放截图。
 #[tauri::command]
 pub fn overlay_end(app: AppHandle) {

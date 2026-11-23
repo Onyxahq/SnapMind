@@ -48,6 +48,7 @@
     pickSaveFile,
     saveInfo,
     claimSelection,
+    clipboardWriteHtml,
     clipboardWriteText,
     cursorNudge,
     inTauri,
@@ -102,7 +103,7 @@
   import RecordBar, { type RecPhase } from './RecordBar.svelte';
   import { toDisplayMath } from '$lib/formula';
   import TableCard from './TableCard.svelte';
-  import { parseHtml, toTsv, type TableCardState, type TableView } from '$lib/table';
+  import { parseHtml, toClipboardHtml, type TableCardState, type TRows } from '$lib/table';
   import { canvasMeasure, drawOverlay, drawable, fitText } from '$lib/overlay';
   import { newOcrCard, pickLines, type OcrCard } from '$lib/ocr';
 
@@ -947,9 +948,15 @@
     ocrDownload(true).catch((e) => log('warn', `下载表格模型失败：${e}`));
   }
 
-  async function copyTable(view: TableView, source: string) {
+  async function copyTable(kind: 'text' | 'excel', rows: TRows, text: string) {
     if (!tableCard) return;
-    await clipboardWriteText(view === 'grid' ? toTsv(tableCard.rows) : source);
+    try {
+      if (kind === 'excel') await clipboardWriteHtml(toClipboardHtml(rows), text);
+      else await clipboardWriteText(text);
+    } catch (e) {
+      toast(`复制失败：${e}`, { kind: 'error' });
+      return;
+    }
     close();
   }
 
@@ -1406,6 +1413,8 @@
       sel={unionRect(selOnlyCss, showToolbar ? toolbarRect : null)}
       card={tableCard}
       model={ocrModel}
+      mode={config.value.capture.tableMode ?? 'preview'}
+      onmode={(tableMode) => updateConfig({ capture: { tableMode } })}
       onrows={(rows) => tableCard && (tableCard = { ...tableCard, rows })}
       ondownload={downloadTableModel}
       oncopy={copyTable}

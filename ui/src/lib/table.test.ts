@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expand, parseHtml, parseMarkdown, place, toHtml, toMarkdown, toTsv, type TRows } from './table';
+import { expand, parseCsv, parseHtml, parseMarkdown, place, toClipboardHtml, toCsv, toHtml, toMarkdown, toTsv, type TRows } from './table';
 
 const c = (text: string, colspan = 1, rowspan = 1, header = false) => ({ text, colspan, rowspan, header });
 
@@ -40,6 +40,24 @@ describe('table model', () => {
     expect(md[0].every((x) => x.header)).toBe(true);
     expect(md[1].map((x) => x.text)).toEqual(['苹果', '3', '红色 | 甜']);
     expect(parseMarkdown('没有表格')).toBeNull();
+  });
+
+  it('converts to csv and back', () => {
+    const csv = toCsv(sample);
+    expect(csv.split('\r\n')).toEqual(['名称,数量,备注', '苹果,3,红色 | 甜', '梨,5,', '合计,,']);
+    const tricky: TRows = [[c('a,b'), c('说 "你好"'), c('两\n行'), c(' 空格 ')]];
+    const back = parseCsv(toCsv(tricky))!;
+    expect(back[0].map((x) => x.text)).toEqual(['a,b', '说 "你好"', '两\n行', ' 空格 ']);
+    expect(parseCsv('x,y\n1,2\n')!.map((r) => r.map((x) => x.text))).toEqual([['x', 'y'], ['1', '2']]);
+    expect(parseCsv('x,y\r\n1,2')![0][0].header).toBe(true);
+    expect(parseCsv('  \n ')).toBeNull();
+  });
+
+  it('builds clipboard html Excel understands', () => {
+    const h = toClipboardHtml(sample);
+    expect(h.startsWith('<table border="1"')).toBe(true);
+    expect(h).toContain('<td style="vertical-align:top" rowspan="2">红色 | 甜</td>');
+    expect(h).toContain('<th>名称</th>');
   });
 
   it('parses model output html', () => {

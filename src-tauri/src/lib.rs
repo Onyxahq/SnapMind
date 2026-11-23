@@ -174,6 +174,7 @@ pub fn run() {
             commands::snap_chain,
             commands::cursor_nudge,
             commands::clipboard_write_text,
+            commands::clipboard_write_html,
             export::capture_copy,
             export::capture_pin,
             export::capture_pin_text,

@@ -41,6 +41,13 @@ pub fn set_text(text: &str) -> Result<(), ClipboardError> {
     cb.set_text(text).map_err(|e| ClipboardError(e.to_string()))
 }
 
+/// 写入 HTML 片段，同时附上纯文字（Windows 上是 CF_HTML + CF_UNICODETEXT）：
+/// Excel / Word 粘贴成表格，记事本之类粘贴成纯文字。
+pub fn set_html(html: &str, text: &str) -> Result<(), ClipboardError> {
+    let mut cb = arboard::Clipboard::new().map_err(|e| ClipboardError(e.to_string()))?;
+    cb.set_html(html, Some(text)).map_err(|e| ClipboardError(e.to_string()))
+}
+
 /// 一张要放进剪贴板的截图。
 pub struct ImageClip<'a> {
     pub width: u32,
