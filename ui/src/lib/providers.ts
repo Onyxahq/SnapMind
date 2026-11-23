@@ -83,3 +83,10 @@ export function toggleTag(tags: ModelTag[], tag: ModelTag): ModelTag[] {
   }
   return [...new Set(next)].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
 }
+
+/** 国内站还是国际站（只用来给「改用…」按钮起名字）。 */
+export function regionOf(url: string): '国内站' | '国际站' {
+  const host = url.replace(/^\w+:\/\//, '').split(/[/:]/)[0] ?? '';
+  const cn = /\.cn$/.test(host) || ['dashscope.aliyuncs.com', 'api.minimaxi.com', 'api.stepfun.com'].includes(host);
+  return cn ? '国内站' : '国际站';
+}

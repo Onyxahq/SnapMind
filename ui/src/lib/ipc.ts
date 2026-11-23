@@ -102,7 +102,10 @@ export interface ChainsConfig {
 
 export type MtKind = 'deepl' | 'google' | 'microsoft';
 
-export type ProviderKind = 'deepseek' | 'anthropic' | 'gemini' | 'openai' | 'openrouter' | 'ollama' | 'custom';
+export type ProviderKind =
+  | 'deepseek' | 'anthropic' | 'gemini' | 'openai' | 'openrouter' | 'ollama' | 'custom'
+  | 'qwen' | 'moonshot' | 'zhipu' | 'doubao' | 'siliconflow' | 'xai' | 'mistral' | 'minimax'
+  | 'stepfun' | 'qianfan' | 'hunyuan' | 'modelscope' | 'groq' | 'together' | 'fireworks' | 'nvidia' | 'lmstudio';
 export type ModelTag = 'vision' | 'text' | 'reasoning' | 'local';
 
 export interface ModelConfig {
@@ -679,6 +682,8 @@ export interface ProviderMeta {
   color: string;
   format: 'openAi' | 'claude' | 'gemini';
   defaultUrl: string;
+  /** 另一个地区的地址（国内站 / 国际站不同的服务商） */
+  altUrl?: string | null;
   needsKey: boolean;
   desc: string;
 }
@@ -692,6 +697,7 @@ export interface FetchedModel {
 const FAKE_CATALOG: ProviderMeta[] = [
   { kind: 'deepseek', name: 'DeepSeek', mono: 'DS', color: '#4D6BFE', format: 'openAi', defaultUrl: 'https://api.deepseek.com/v1', needsKey: true, desc: '性价比高的中文文本模型' },
   { kind: 'anthropic', name: 'Anthropic', mono: 'AN', color: '#C2410C', format: 'claude', defaultUrl: 'https://api.anthropic.com', needsKey: true, desc: 'Claude 系列，支持图片输入' },
+  { kind: 'moonshot', name: 'Kimi（月之暗面）', mono: 'KI', color: '#16191E', format: 'openAi', defaultUrl: 'https://api.moonshot.cn/v1', altUrl: 'https://api.moonshot.ai/v1', needsKey: true, desc: 'Kimi 系列，K2.5 支持图片输入' },
   { kind: 'ollama', name: 'Ollama（本地）', mono: 'OL', color: '#334155', format: 'openAi', defaultUrl: 'http://localhost:11434/v1', needsKey: false, desc: '在本机运行模型，不需要 Key' },
   { kind: 'custom', name: '自定义服务', mono: '+', color: '#64748B', format: 'openAi', defaultUrl: 'https://', needsKey: true, desc: '任意 OpenAI 兼容接口' },
 ];

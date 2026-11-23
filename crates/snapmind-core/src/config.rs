@@ -183,7 +183,8 @@ pub enum CtrlSAction {
     Direct,
 }
 
-/// 内置服务商种类（需求 1.4）。Ollama 和自定义服务都走 OpenAI 兼容接口。
+/// 内置服务商种类（需求 1.4）。除 Anthropic、Gemini 外都走 OpenAI 兼容接口。
+/// 存进配置的是小写名字，只能加不能改名。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProviderKind {
@@ -194,6 +195,24 @@ pub enum ProviderKind {
     Openrouter,
     Ollama,
     Custom,
+    // F3：参考各家官方文档补充的 OpenAI 兼容服务商
+    Qwen,
+    Moonshot,
+    Zhipu,
+    Doubao,
+    Siliconflow,
+    Xai,
+    Mistral,
+    Minimax,
+    Stepfun,
+    Qianfan,
+    Hunyuan,
+    Modelscope,
+    Groq,
+    Together,
+    Fireworks,
+    Nvidia,
+    Lmstudio,
 }
 
 /// 模型标签：识别和一步到位只能选带「视觉」的模型。

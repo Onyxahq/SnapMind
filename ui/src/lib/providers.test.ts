@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAdd, mergeModels, newProviderId, toggleTag, visibleModels } from './providers';
+import { canAdd, mergeModels, newProviderId, regionOf, toggleTag, visibleModels } from './providers';
 import type { ModelConfig, ProviderConfig } from './ipc';
 
 const p = (id: string, kind: ProviderConfig['kind']): ProviderConfig => ({ id, kind, name: id, baseUrl: '', models: [] });
@@ -46,5 +46,18 @@ describe('providers', () => {
     expect(toggleTag(['text'], 'reasoning')).toEqual(['text', 'reasoning']);
     expect(toggleTag(['text', 'reasoning'], 'reasoning')).toEqual(['text']);
     expect(toggleTag(['reasoning', 'text'], 'local')).toEqual(['text', 'reasoning', 'local']);
+  });
+});
+
+describe('regionOf', () => {
+  it('tells mainland endpoints from international ones', () => {
+    expect(regionOf('https://api.moonshot.cn/v1')).toBe('国内站');
+    expect(regionOf('https://open.bigmodel.cn/api/paas/v4')).toBe('国内站');
+    expect(regionOf('https://dashscope.aliyuncs.com/compatible-mode/v1')).toBe('国内站');
+    expect(regionOf('https://api.minimaxi.com/v1')).toBe('国内站');
+    expect(regionOf('https://api.moonshot.ai/v1')).toBe('国际站');
+    expect(regionOf('https://dashscope-intl.aliyuncs.com/compatible-mode/v1')).toBe('国际站');
+    expect(regionOf('https://api.minimax.io/v1')).toBe('国际站');
+    expect(regionOf('https://api.siliconflow.com/v1')).toBe('国际站');
   });
 });

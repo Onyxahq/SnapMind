@@ -1,0 +1,2576 @@
+# 由 scripts/vision-index.mjs 从 models.dev/api.json 生成（2026-11-23，models.dev 以 MIT 许可发布）。
+# 每行：模型名（去掉组织前缀和冒号后缀，小写）<TAB>标记（v = 能看图，r = 推理模型）。不要手改。
+abliterated-model	vr
+abliterated-model-large	r
+abliterated-model-large-flash	vr
+abliterated-model-large-v2	r
+abliteration-abliterated-model-large-flash	vr
+abliteration-abliterated-model-large-v2	r
+active-speaker-detection	
+agent-max	vr
+agent-prime	r
+agent-standard	r
+agents-a1	vr
+agnes-2.0-flash	vr
+agnes-2.5-flash	vr
+agnes-2.5-pro-alpha	vr
+agnes-3.0-flash	vr
+aion-2.0	r
+aion-3.0	r
+aion-3.0-mini	r
+aion-3.5	r
+aion-3.5-mini	r
+aion-labs-aion-3-0	r
+aion-labs-aion-3-0-mini	r
+aion-labs-aion-3-5	r
+aion-labs-aion-3-5-mini	r
+aion-rp-llama-3.1-8b	
+alicloud-deepseek-v4-flash	r
+alicloud-deepseek-v4-pro	r
+alicloud-glm-5.1	r
+all-mini-lm-l6-v2	
+allam-2-7b	
+amazon--nova-lite	vr
+amazon--nova-micro	
+amazon--nova-pro	v
+amazon--titan-embed-text	
+amazon.nova-2-lite-v1	vr
+amazon.nova-lite-v1	v
+amazon.nova-micro-v1	
+amazon.nova-pro-v1	v
+ampersand-v0.1	r
+anthropic--claude-3-haiku	v
+anthropic--claude-4-opus	vr
+anthropic--claude-4-sonnet	vr
+anthropic--claude-4.5-haiku	vr
+anthropic--claude-4.5-opus	vr
+anthropic--claude-4.5-sonnet	vr
+anthropic--claude-4.6-opus	vr
+anthropic--claude-4.6-sonnet	vr
+anthropic--claude-4.7-opus	vr
+anthropic--claude-4.8-opus	vr
+anthropic-claude-4.5-sonnet	vr
+anthropic-claude-4.6-sonnet	vr
+anthropic-claude-5-sonnet	r
+anthropic-claude-5.5-haiku	vr
+anthropic-claude-fable-5	vr
+anthropic-claude-fable-5.1	vr
+anthropic-claude-fable-5.2	vr
+anthropic-claude-haiku-4.5	vr
+anthropic-claude-opus-4.5	vr
+anthropic-claude-opus-4.6	vr
+anthropic-claude-opus-4.7	vr
+anthropic-claude-opus-4.8	vr
+anthropic-claude-opus-5	vr
+anthropic-claude-opus-5.5	vr
+anthropic-claude-sonnet-5.5	vr
+anthropic.claude-fable-5	vr
+anthropic.claude-fable-5-1	vr
+anthropic.claude-fable-5-2	vr
+anthropic.claude-haiku-4-5-20251001-v1	vr
+anthropic.claude-haiku-5-5	vr
+anthropic.claude-opus-4-1-20250805-v1	vr
+anthropic.claude-opus-4-5-20251101-v1	vr
+anthropic.claude-opus-4-6-v1	vr
+anthropic.claude-opus-4-7	vr
+anthropic.claude-opus-4-8	vr
+anthropic.claude-opus-5	vr
+anthropic.claude-opus-5-5	vr
+anthropic.claude-sonnet-4-5-20250929-v1	vr
+anthropic.claude-sonnet-4-6	vr
+anthropic.claude-sonnet-5	vr
+anthropic.claude-sonnet-5-5	vr
+apac.amazon.nova-lite-v1	v
+apac.amazon.nova-micro-v1	
+apac.amazon.nova-pro-v1	v
+apac.anthropic.claude-sonnet-4-20250514-v1	vr
+apertus-70b	vr
+apertus-70b-instruct	
+apertus-8b-instruct	
+apertus-v1.5-70b	v
+apertus-v1.5-8b	vr
+apex	vr
+apodex-1.1-mini	r
+arc-sage-1.0	vr
+arc-swift-1.0	vr
+arcee-trinity-large-thinking	r
+arrow-2	vr
+arrow-2-telos	vr
+artemis-31b-v1.2	
+artemis-v1.1	vr
+assistant-pepe-32b	
+au.anthropic.claude-haiku-4-5-20251001-v1	vr
+au.anthropic.claude-haiku-5-5	vr
+au.anthropic.claude-opus-4-6-v1	vr
+au.anthropic.claude-opus-4-7	vr
+au.anthropic.claude-opus-4-8	vr
+au.anthropic.claude-opus-5	vr
+au.anthropic.claude-opus-5-5	vr
+au.anthropic.claude-sonnet-4-5-20250929-v1	vr
+au.anthropic.claude-sonnet-4-6	vr
+au.anthropic.claude-sonnet-5	vr
+au.anthropic.claude-sonnet-5-5	vr
+auto	vr
+auto-best	
+auto-coding	
+auto-fastest-quality	
+auto-model	
+auto-model-basic	
+auto-model-premium	
+auto-model-standard	
+auto-reasoning	
+auto-tooling	
+auto-value	
+auto-value-coding	
+auto-value-reasoning	
+auto-value-tooling	
+autoglm-phone-9b	v
+autoglm-phone-9b-multilingual	v
+baichuan-m2-32b	r
+balanced	vr
+beam	r
+beam-1-0	r
+beam-1.0	r
+beam-1.0-501b-a23b	r
+beam-free	r
+bee-brood	vr
+bee-buzz	vr
+bee-cell	v
+bee-comb	vr
+bee-hive	vr
+bee-swarm	vr
+bevformer	
+bge-m3	
+bge-multilingual-gemma2	
+bge-reranker-v2-m3	
+bge_multilingual_gemma2	
+bielik-11b-v3.0-instruct	
+big-pickle	r
+bodybuilder	
+brick-complexity-pro	v
+brick-v1-beta	v
+bytedance-pro-latest	r
+c4ai-aya-expanse-32b	
+c4ai-aya-vision-32b	v
+ca.amazon.nova-lite-v1	v
+cat-jam-free	r
+celeris-1	
+chat-latest	vr
+chatgpt-4o-latest	v
+chatgpt-image-latest	v
+cheap	vr
+clairic-flash	v
+claude haiku 5.5	r
+claude-3-5-haiku	v
+claude-3-7-sonnet-20250219	vr
+claude-3-haiku-20240307	v
+claude-3.5-haiku	v
+claude-3.5-sonnet	v
+claude-3.5-sonnet-v2	v
+claude-3.7-sonnet	vr
+claude-4-5-sonnet	vr
+claude-4-6-sonnet	vr
+claude-4.0-opus	vr
+claude-4.0-sonnet	vr
+claude-4.1-opus	vr
+claude-4.5-haiku	vr
+claude-4.5-opus	vr
+claude-4.5-sonnet	vr
+claude-code	r
+claude-fable-5	vr
+claude-fable-5-1	vr
+claude-fable-5-1@default	vr
+claude-fable-5-2	vr
+claude-fable-5-2@default	vr
+claude-fable-5.1	vr
+claude-fable-5.1@eu	vr
+claude-fable-5.2	vr
+claude-fable-5.2-fast	vr
+claude-fable-5@default	vr
+claude-fable-5@eu	vr
+claude-fable-latest	vr
+claude-haiku-3	v
+claude-haiku-3.5	v
+claude-haiku-4-5	vr
+claude-haiku-4-5-20251001	vr
+claude-haiku-4-5@20251001	vr
+claude-haiku-4-5@eu	vr
+claude-haiku-4.5	vr
+claude-haiku-5-5	vr
+claude-haiku-5-5@default	vr
+claude-haiku-5-5@eu	vr
+claude-haiku-5.5	vr
+claude-haiku-latest	vr
+claude-mythos-5	vr
+claude-opus-4	vr
+claude-opus-4-1	vr
+claude-opus-4-1-20250805	vr
+claude-opus-4-1-20250805-thinking	vr
+claude-opus-4-1@20250805	vr
+claude-opus-4-20250514	vr
+claude-opus-4-5	vr
+claude-opus-4-5-20251101	vr
+claude-opus-4-5-think	vr
+claude-opus-4-5@20251101	vr
+claude-opus-4-5@eu	vr
+claude-opus-4-6	vr
+claude-opus-4-6-think	vr
+claude-opus-4-6@default	vr
+claude-opus-4-6@eu	vr
+claude-opus-4-7	vr
+claude-opus-4-7-think	vr
+claude-opus-4-7-thinking	vr
+claude-opus-4-7@default	vr
+claude-opus-4-7@eu	vr
+claude-opus-4-8	vr
+claude-opus-4-8-think	vr
+claude-opus-4-8@default	vr
+claude-opus-4-8@eu	vr
+claude-opus-4.1	vr
+claude-opus-4.5	vr
+claude-opus-4.6	vr
+claude-opus-4.7	vr
+claude-opus-4.8	vr
+claude-opus-4.8-fast	vr
+claude-opus-4@20250514	vr
+claude-opus-5	vr
+claude-opus-5-5	vr
+claude-opus-5-5-fast	vr
+claude-opus-5-5@default	vr
+claude-opus-5-5@eu	vr
+claude-opus-5-fast	vr
+claude-opus-5-thinking	vr
+claude-opus-5.5	vr
+claude-opus-5.5-fast	vr
+claude-opus-5@default	vr
+claude-opus-5@eu	vr
+claude-opus-latest	vr
+claude-opus4-5	vr
+claude-opus4-6	vr
+claude-opus4-7	vr
+claude-opus4-8	vr
+claude-sonnet-3.5	v
+claude-sonnet-3.5-june	v
+claude-sonnet-3.7	vr
+claude-sonnet-4	vr
+claude-sonnet-4-20250514	vr
+claude-sonnet-4-5	vr
+claude-sonnet-4-5-20250929	vr
+claude-sonnet-4-5-20250929-thinking	vr
+claude-sonnet-4-5-think	vr
+claude-sonnet-4-5@20250929	vr
+claude-sonnet-4-5@eu	vr
+claude-sonnet-4-6	vr
+claude-sonnet-4-6-think	vr
+claude-sonnet-4-6-thinking	vr
+claude-sonnet-4-6@default	vr
+claude-sonnet-4-6@eu	vr
+claude-sonnet-4.5	vr
+claude-sonnet-4.6	vr
+claude-sonnet-4@20250514	vr
+claude-sonnet-5	vr
+claude-sonnet-5-5	vr
+claude-sonnet-5-5@default	vr
+claude-sonnet-5-5@eu	vr
+claude-sonnet-5.5	vr
+claude-sonnet-5@default	vr
+claude-sonnet-5@eu	vr
+claude-sonnet-latest	vr
+claudinio	vr
+claudius	vr
+claw-high	r
+claw-low	r
+claw-medium	r
+clover-2	r
+cobuddy	r
+code-max	vr
+code-prime	r
+code-standard	r
+codestral	
+codestral-2	
+codestral-2501	
+codestral-2508	
+codestral-2508@eu	
+codestral-embed	
+codestral-latest	
+codestral-latest@eu	
+codex-mini	vr
+coding-glm-5.1	r
+coding-glm-5.1-free	r
+coding-glm-5.2-free	r
+coding-glm-5.3-flash-free	vr
+coding-glm-5.3-free	r
+coding-minimax-m2.7	r
+coding-minimax-m2.7-free	r
+coding-minimax-m2.7-highspeed	r
+coding-router	r
+coding-xiaomi-mimo-v2.5	vr
+coding-xiaomi-mimo-v2.5-pro	r
+cogito-v1-preview-qwen-32b	
+cohere--command-a-reasoning	r
+cohere-command-a	r
+cohere-embed-v-4-0	v
+cohere-embed-v3-english	
+cohere-embed-v3-multilingual	
+command-a	
+command-a-03-2025	
+command-a-plus	vr
+command-a-plus-05-2026	vr
+command-a-reasoning-08-2025	r
+command-a-translate-08-2025	
+command-a-vision-07-2025	v
+command-r-08-2024	
+command-r-plus-08-2024	
+command-r7b-12-2024	
+command-r7b-arabic-02-2025	
+cosmos-reason2-8b	vr
+cosmos-transfer2_5-2b	v
+crouton-alpha-free	vr
+custom	v
+cyberheabsy	r
+cydonia-24b-v4.1	
+daisyrose-27b	vr
+dall-e-3	
+databricks-claude-haiku-4-5	vr
+databricks-claude-opus-4-1	vr
+databricks-claude-opus-4-5	vr
+databricks-claude-opus-4-6	vr
+databricks-claude-opus-4-7	vr
+databricks-claude-sonnet-4	vr
+databricks-claude-sonnet-4-5	vr
+databricks-claude-sonnet-4-6	vr
+databricks-gemini-2-5-flash	vr
+databricks-gemini-2-5-pro	vr
+databricks-gemini-3-1-flash-lite	vr
+databricks-gemini-3-1-pro	vr
+databricks-gemini-3-5-flash	vr
+databricks-gemini-3-flash	vr
+databricks-gemini-3-pro	vr
+databricks-glm-5-2	r
+databricks-gpt-5	vr
+databricks-gpt-5-1	vr
+databricks-gpt-5-2	vr
+databricks-gpt-5-4	vr
+databricks-gpt-5-4-mini	vr
+databricks-gpt-5-4-nano	vr
+databricks-gpt-5-5	vr
+databricks-gpt-5-6-luna	vr
+databricks-gpt-5-6-sol	vr
+databricks-gpt-5-6-terra	vr
+databricks-gpt-5-mini	vr
+databricks-gpt-5-nano	vr
+databricks-gpt-oss-120b	r
+databricks-gpt-oss-120b@eu	r
+databricks-gpt-oss-20b	r
+databricks-gpt-oss-20b@eu	r
+databricks-kimi-k2-7-code	vr
+databricks-qwen3-next-80b-a3b-instruct	
+databricks-qwen3-next-80b-a3b-instruct@eu	
+deep-deepseek-v4-flash	r
+deep-deepseek-v4-pro	r
+deep-research-max-preview-04-2026	vr
+deep-research-preview-04-2026	vr
+deepseek-3.2	r
+deepseek-4-flash	
+deepseek-chat	
+deepseek-chat-v3-0324	
+deepseek-chat-v3.1	r
+deepseek-flash	vr
+deepseek-flash-1017	vr
+deepseek-flash-latest	vr
+deepseek-latest	r
+deepseek-math-v2	r
+deepseek-ocr	v
+deepseek-ocr-2	v
+deepseek-pro-latest	r
+deepseek-r1	r
+deepseek-r1-0528	r
+deepseek-r1-0528-qwen3-8b	r
+deepseek-r1-distill-llama-70b	r
+deepseek-r1-distill-llama-70b-abliterated	r
+deepseek-r1-distill-llama-8b	r
+deepseek-r1-distill-qwen-1-5b	r
+deepseek-r1-distill-qwen-14b	r
+deepseek-r1-distill-qwen-32b	r
+deepseek-r1-distill-qwen-32b-abliterated	r
+deepseek-r1-distill-qwen-7b	r
+deepseek-r1-turbo	r
+deepseek-reasoner	r
+deepseek-tng-r1t2-chimera	
+deepseek-v3	
+deepseek-v3-0324	
+deepseek-v3-1	
+deepseek-v3-2-exp	
+deepseek-v3.1	r
+deepseek-v3.1-maas	r
+deepseek-v3.1-terminus	r
+deepseek-v3.1-terminus-thinking	r
+deepseek-v3.2	r
+deepseek-v3.2-251201	r
+deepseek-v3.2-exp	r
+deepseek-v3.2-exp-thinking	r
+deepseek-v3.2-maas	r
+deepseek-v3.2-speciale	r
+deepseek-v3.2-tee	r
+deepseek-v3.2-thinking	r
+deepseek-v4-1-fast	vr
+deepseek-v4-1-flash	vr
+deepseek-v4-1-flash-1017	vr
+deepseek-v4-1-flash-1017-ultrafast	vr
+deepseek-v4-1-flash-1017-uncensored	vr
+deepseek-v4-1-flash-260910	vr
+deepseek-v4-1-flash-261017	vr
+deepseek-v4-1-flash-economy-261017	vr
+deepseek-v4-1-flash-fast	vr
+deepseek-v4-1-flash-uncensored	vr
+deepseek-v4-flash	r
+deepseek-v4-flash-0423	r
+deepseek-v4-flash-0731	r
+deepseek-v4-flash-0731-fast	r
+deepseek-v4-flash-0731-tee	r
+deepseek-v4-flash-0731@eu	r
+deepseek-v4-flash-260425	r
+deepseek-v4-flash-el	r
+deepseek-v4-flash-fast	r
+deepseek-v4-flash-free	r
+deepseek-v4-flash-ga-260731	r
+deepseek-v4-flash-latest	r
+deepseek-v4-flash-vision-exp	vr
+deepseek-v4-pro	r
+deepseek-v4-pro-0423	r
+deepseek-v4-pro-0813	r
+deepseek-v4-pro-0813@eu	r
+deepseek-v4-pro-20260423	r
+deepseek-v4-pro-260425	r
+deepseek-v4-pro-el	r
+deepseek-v4-pro-fast	r
+deepseek-v4-pro-ga-260813	r
+deepseek-v4-pro-qwen3.5-9b-uncensored-heretic	
+deepseek-v4-pro@eu	r
+deepseek-v4.1-flash	vr
+deepseek-v4.1-flash-0910-uncensored	vr
+deepseek-v4.1-flash-1017	r
+deepseek-v4.1-flash-1017-abliterated	r
+deepseek-v4.1-flash-1017-abliterated-lossless-csf	r
+deepseek-v4.1-flash-1017-economy	vr
+deepseek-v4.1-flash-1017-fast	vr
+deepseek-v4.1-flash-1017-heretic	vr
+deepseek-v4.1-flash-1017-thinking	vr
+deepseek-v4.1-flash-1017-tl5	r
+deepseek-v4.1-flash-1017-ultrafast	vr
+deepseek-v4.1-flash-1017-uncensored	vr
+deepseek-v4.1-flash-1017@eu	vr
+deepseek-v4.1-flash-552b	r
+deepseek-v4.1-flash-abliterated	r
+deepseek-v4.1-flash-abliterated-free	r
+deepseek-v4.1-flash-cyber	vr
+deepseek-v4.1-flash-economy	vr
+deepseek-v4.1-flash-fast	vr
+deepseek-v4.1-flash-flex	vr
+deepseek-v4.1-flash-free	vr
+deepseek-v4.1-flash-latest	vr
+deepseek-v4.1-flash-marathon	vr
+deepseek-v4.1-flash-original	vr
+deepseek-v4.1-flash-speed	vr
+deepseek-v4.1-flash-ultra	vr
+deepseek-v4.1-flash-uncensored	vr
+deepseek-v4.1-flash@eu	vr
+deepseek-v4p1-flash	vr
+deepseek-v4p1-flash-1017	vr
+deepseek-v4p1-flash-1017-spot	vr
+deepseek-v4p1-flash-1017-ultrafast	vr
+deepseek-v4p1-flash-spot	vr
+deepseek.r1-v1	r
+deepseek.v3-v1	r
+deepseek.v3.2	r
+deepseek_v3	
+deepseekv4.1-flash-1017	vr
+deepseekv4.1-flash-1017-interactive	vr
+devstral-2-123b-instruct-2512	
+devstral-2-123b-instruct-2512-int4-autoround	
+devstral-2512	
+devstral-2512@eu	
+devstral-latest	
+devstral-latest@eu	vr
+devstral-medium-latest	
+devstral-medium-latest@eu	
+devstral-small-2505	
+diffusiongemma	r
+diffusiongemma-26b-a4b-it	vr
+dola-seed-2-1-turbo-260628	vr
+dola-seed-2.0-code	v
+dola-seed-2.0-code-preview	
+dola-seed-2.0-lite	v
+dola-seed-2.0-mini	v
+dola-seed-2.0-pro	vr
+dolly1-security	r
+dolly2-security	r
+dolphin-mistral-24b-venice-edition	
+dots-3-note-preview	vr
+doubao-1.5-pro-32k	
+doubao-1.5-thinking-pro	r
+doubao-1.5-vision-pro	v
+doubao-seed-1-6-251015	vr
+doubao-seed-1-6-flash-250828	vr
+doubao-seed-1-6-thinking-250715	vr
+doubao-seed-1-6-vision-250815	vr
+doubao-seed-1-8-251215	v
+doubao-seed-1-8-251228	vr
+doubao-seed-1.6	vr
+doubao-seed-1.6-flash	vr
+doubao-seed-1.6-thinking	vr
+doubao-seed-1.8	vr
+doubao-seed-2-0-code-preview	vr
+doubao-seed-2-0-code-preview-260215	vr
+doubao-seed-2-0-lite-260215	
+doubao-seed-2-0-lite-260428	vr
+doubao-seed-2-0-mini-260215	
+doubao-seed-2-0-mini-260428	vr
+doubao-seed-2-0-pro	vr
+doubao-seed-2-0-pro-260215	vr
+doubao-seed-2-1-pro-260628	vr
+doubao-seed-2-1-turbo-260628	vr
+doubao-seed-2.0-code	vr
+doubao-seed-2.0-lite	vr
+doubao-seed-2.0-mini	vr
+doubao-seed-2.0-pro	vr
+doubao-seed-2.1-lite	vr
+doubao-seed-2.1-pro	vr
+doubao-seed-2.1-turbo	vr
+doubao-seed-character	vr
+doubao-seed-character-260628	vr
+doubao-seed-code	vr
+doubao-seed-evolving	vr
+dracarys-72b-instruct	
+drama-3	
+dsv4	r
+duo-chat-fable-5	vr
+duo-chat-fable-5-1	vr
+duo-chat-gpt-5-1	vr
+duo-chat-gpt-5-2	vr
+duo-chat-gpt-5-2-codex	vr
+duo-chat-gpt-5-3-codex	vr
+duo-chat-gpt-5-4	vr
+duo-chat-gpt-5-4-mini	vr
+duo-chat-gpt-5-4-nano	vr
+duo-chat-gpt-5-5	vr
+duo-chat-gpt-5-6-luna	vr
+duo-chat-gpt-5-6-sol	vr
+duo-chat-gpt-5-6-terra	vr
+duo-chat-gpt-5-codex	vr
+duo-chat-gpt-5-mini	vr
+duo-chat-gpt-6-1-sol	vr
+duo-chat-gpt-6-astra	vr
+duo-chat-gpt-6-luna	vr
+duo-chat-gpt-6-sol	vr
+duo-chat-haiku-4-5	vr
+duo-chat-haiku-5-5	vr
+duo-chat-opus-4-5	vr
+duo-chat-opus-4-6	vr
+duo-chat-opus-4-7	vr
+duo-chat-opus-4-8	vr
+duo-chat-opus-5	vr
+duo-chat-opus-5-5	vr
+duo-chat-sonnet-4-5	vr
+duo-chat-sonnet-4-6	vr
+duo-chat-sonnet-5	vr
+duo-chat-sonnet-5-5	vr
+e2e	vr
+e5-large-v2	
+e5-mistral-7b-instruct	
+echo	r
+efficient	vr
+elevenlabs-music	
+elevenlabs-v2.5-turbo	
+elevenlabs-v3	
+embed-v4.0	
+embed-v5.0-fast	
+embed-v5.0-pro	
+ember-1	vr
+ernie-4.5-21b-a3b	
+ernie-4.5-21b-a3b-thinking	r
+ernie-4.5-300b-a47b-paddle	
+ernie-4.5-vl-424b-a47b	vr
+ernie-5.0-thinking-preview	vr
+ernie-5.5-flash-preview	r
+ernie-light-dt-1.0-intl	r
+eu.amazon.nova-2-lite-v1	vr
+eu.amazon.nova-lite-v1	v
+eu.amazon.nova-micro-v1	
+eu.amazon.nova-pro-v1	v
+eu.anthropic.claude-fable-5	vr
+eu.anthropic.claude-haiku-4-5-20251001-v1	vr
+eu.anthropic.claude-haiku-5-5	vr
+eu.anthropic.claude-opus-4-5-20251101-v1	vr
+eu.anthropic.claude-opus-4-6-v1	vr
+eu.anthropic.claude-opus-4-7	vr
+eu.anthropic.claude-opus-4-8	vr
+eu.anthropic.claude-opus-5	vr
+eu.anthropic.claude-opus-5-5	vr
+eu.anthropic.claude-sonnet-4-20250514-v1	vr
+eu.anthropic.claude-sonnet-4-5-20250929-v1	vr
+eu.anthropic.claude-sonnet-4-6	vr
+eu.anthropic.claude-sonnet-5	vr
+eu.anthropic.claude-sonnet-5-5	vr
+eu.mistral.pixtral-large-2502-v1	v
+eva-llama-3.33-70b-v0.0	
+eva-llama-3.33-70b-v0.1	
+eva-qwen2.5-32b-v0.2	
+eva-qwen2.5-72b-v0.2	
+exo-free	vr
+extract	v
+extract-1	v
+fast	vr
+fast-sdxl	
+faster-whisper-large-v3	
+fastgpt	
+fledge-alpha-free	vr
+flint-40b-free	r
+flint-v1.0	r
+flux-2-flex	v
+flux-2-klein-4b	v
+flux-2-klein-9b	v
+flux-2-max	v
+flux-2-pro	v
+flux-3-image	v
+flux-3-image-klein	v
+flux-3-video	v
+flux-kontext-max	v
+flux-kontext-pro	v
+flux-pro-1.0-fill	v
+flux-pro-1.1	
+flux-pro-1.1-ultra	
+flux.1-dev	
+flux.2-klein-4b	v
+flux_1-kontext-dev	v
+flux_1-schnell	
+flux_2-klein-4b	v
+free	vr
+frontier	vr
+fugu	vr
+fugu-max	vr
+fugu-ultra	vr
+fugu-ultra-20260615	vr
+fugu-ultra-v1-0	vr
+fugu-ultra-v1-1	vr
+fugu-ultra-v1.1	vr
+fugu-ultra-v2	vr
+fugu-ultra-v2-0	vr
+fugu-ultra-v2.0	vr
+fusion	vr
+fusion-flash	r
+fusion-mini	vr
+gelab-zero-4b-preview	v
+gemini-2.0-flash	v
+gemini-2.0-flash-lite	v
+gemini-2.5-computer-use-preview-10-2025	vr
+gemini-2.5-flash	vr
+gemini-2.5-flash-image	v
+gemini-2.5-flash-lite	vr
+gemini-2.5-flash-lite-preview-06-17	vr
+gemini-2.5-flash-lite-preview-09-2025	vr
+gemini-2.5-flash-lite@eu	vr
+gemini-2.5-flash-nothink	v
+gemini-2.5-flash-nothinking	v
+gemini-2.5-flash-preview-05-20	vr
+gemini-2.5-flash-preview-09-2025	v
+gemini-2.5-flash-preview-tts	
+gemini-2.5-flash-tts	
+gemini-2.5-flash@eu	vr
+gemini-2.5-pro	vr
+gemini-2.5-pro-preview	vr
+gemini-2.5-pro-preview-06-05	vr
+gemini-2.5-pro-preview-tts	
+gemini-2.5-pro-tts	
+gemini-2.5-pro@eu	vr
+gemini-3-1-flash-lite	vr
+gemini-3-1-pro	vr
+gemini-3-1-pro-preview	vr
+gemini-3-5-flash	vr
+gemini-3-5-flash-lite	vr
+gemini-3-6-flash	vr
+gemini-3-7-flash	vr
+gemini-3-8-flash	vr
+gemini-3-8-flash-lite-tts	
+gemini-3-flash	vr
+gemini-3-flash-preview	vr
+gemini-3-flash-preview-thinking	vr
+gemini-3-pro	vr
+gemini-3-pro-image	vr
+gemini-3-pro-image-preview	vr
+gemini-3-pro-preview	vr
+gemini-3.0-flash-preview	vr
+gemini-3.0-pro-image-preview	v
+gemini-3.0-pro-preview	vr
+gemini-3.1-flash-image	vr
+gemini-3.1-flash-image-preview	vr
+gemini-3.1-flash-lite	vr
+gemini-3.1-flash-lite-image	vr
+gemini-3.1-flash-lite-preview	vr
+gemini-3.1-flash-lite@eu	vr
+gemini-3.1-flash-lite@us	vr
+gemini-3.1-flash-live-preview	vr
+gemini-3.1-flash-tts-preview	r
+gemini-3.1-pro	vr
+gemini-3.1-pro-preview	vr
+gemini-3.1-pro-preview-customtools	vr
+gemini-3.1-pro-preview-high	vr
+gemini-3.1-pro-preview-low	vr
+gemini-3.5-flash	vr
+gemini-3.5-flash-lite	vr
+gemini-3.5-flash-lite@eu	vr
+gemini-3.5-flash-lite@us	vr
+gemini-3.5-flash-thinking	vr
+gemini-3.5-flash@eu	vr
+gemini-3.5-flash@us	vr
+gemini-3.5-live-translate-preview	
+gemini-3.5-transcribe	
+gemini-3.5-transcribe-live	
+gemini-3.6-flash	vr
+gemini-3.6-flash@eu	vr
+gemini-3.6-flash@us	vr
+gemini-3.7-flash	vr
+gemini-3.7-flash@eu	vr
+gemini-3.7-flash@us	vr
+gemini-3.8-flash	vr
+gemini-3.8-flash-lite-tts	
+gemini-3.8-flash-tts	
+gemini-3.8-flash@eu	vr
+gemini-3.8-flash@us	vr
+gemini-3.8-live	
+gemini-3.8-live-extended-thinking	
+gemini-4-argon	vr
+gemini-4-argon-contributor	vr
+gemini-4-argon@eu	vr
+gemini-4-argon@us	vr
+gemini-4-carbon	vr
+gemini-4-carbon@eu	vr
+gemini-4-hydrogen	vr
+gemini-4-hydrogen@eu	vr
+gemini-4-hydrogen@us	vr
+gemini-4-neon	vr
+gemini-4-neon@eu	vr
+gemini-4-neon@us	vr
+gemini-deep-research	vr
+gemini-embedding	
+gemini-embedding-001	
+gemini-embedding-2	v
+gemini-flash-latest	vr
+gemini-flash-lite-latest	vr
+gemini-nano-banana-2.1	vr
+gemini-omni-1.1-flash	vr
+gemini-omni-1.2-flash	vr
+gemini-omni-flash-preview	vr
+gemini-pro-latest	vr
+gemini-robotics-er-1.6-preview	vr
+gemini-robotics-er-2-preview	vr
+gemma-2-27b-it	
+gemma-3	v
+gemma-3-12b	v
+gemma-3-12b-it	v
+gemma-3-27b	v
+gemma-3-27b-it	v
+gemma-3-4b-it	v
+gemma-4	vr
+gemma-4-12b-it	v
+gemma-4-12b-it-semancer	vr
+gemma-4-12b-it-starry-ocean	vr
+gemma-4-12b-it-station-keeper	vr
+gemma-4-26b	vr
+gemma-4-26b-a4b	vr
+gemma-4-26b-a4b-it	vr
+gemma-4-26b-a4b-it-chimerax	vr
+gemma-4-26b-a4b-it-chimeraxheretic	vr
+gemma-4-26b-a4b-it-cybersecurity	vr
+gemma-4-26b-a4b-it-darksoul	vr
+gemma-4-26b-a4b-it-free	vr
+gemma-4-26b-a4b-it-luminous	v
+gemma-4-26b-a4b-it-maas	vr
+gemma-4-26b-a4b-it-moonlight	vr
+gemma-4-26b-a4b-it-musica	vr
+gemma-4-26b-a4b-it-opusdistill	vr
+gemma-4-26b-a4b-it-shadowsiren	vr
+gemma-4-26b-a4b-meromero	vr
+gemma-4-26b-a4b-uncensored	
+gemma-4-31b	vr
+gemma-4-31b-agares-v1	vr
+gemma-4-31b-animus-v14.1	vr
+gemma-4-31b-assguard	vr
+gemma-4-31b-claude-4.6-opus-reasoning-distilled	vr
+gemma-4-31b-cognitive-unshackled	vr
+gemma-4-31b-dark-gemistry	vr
+gemma-4-31b-darkidol	vr
+gemma-4-31b-fabled	vr
+gemma-4-31b-garnetv2	vr
+gemma-4-31b-gembrain-uncensored-heretic	vr
+gemma-4-31b-gembrain-x-core	vr
+gemma-4-31b-isometry-rp	vr
+gemma-4-31b-it	vr
+gemma-4-31b-it-darkidol	vr
+gemma-4-31b-it-fabled	vr
+gemma-4-31b-it-fp8	vr
+gemma-4-31b-it-free	vr
+gemma-4-31b-it-garnet	vr
+gemma-4-31b-it-gembrain	vr
+gemma-4-31b-it-gemsicle	vr
+gemma-4-31b-it-isometry	vr
+gemma-4-31b-it-novelist	vr
+gemma-4-31b-it-scarlet	vr
+gemma-4-31b-k1-v5	vr
+gemma-4-31b-meromero	vr
+gemma-4-31b-meromero-v2	vr
+gemma-4-31b-novelist	vr
+gemma-4-31b-queen	vr
+gemma-4-31b-sdft-heretic-rp	vr
+gemma-4-31b-styletune	vr
+gemma-4-31b-turbo-tee	vr
+gemma-4-e4b	vr
+gemma-4-e4b-it	vr
+gemma-4-e4b-it-iq4_xs	
+gemma-4-e4b-it-mlx-4bit	
+gemma-4-uncensored	v
+gemma-sea-lion-v4-27b-it	
+gemma2-9b-it	
+gemma4	vr
+gemma4-26b	r
+gemma4-31b	vr
+gemma4-31b-splituntied	
+gliguard-llmguardrails-300m	
+gliguard-pii-multi	
+glimpse	vr
+gliner-2.5-decide	
+gliner2-base-v1	
+gliner2-large-v1	
+gliner2-multi-large-v1	
+gliner2-multi-v1	
+gliner2-privacy-filter-pii-multi	
+gliner2.5-base-v1	
+gliner2.5-multi-v1	
+glm-4-32b-0414-128k	
+glm-4-5-flash	r
+glm-4-6v-flash	vr
+glm-4-7-flash	r
+glm-4-7-flashx	r
+glm-4.5	r
+glm-4.5-air	r
+glm-4.5-airx	
+glm-4.5-flash	r
+glm-4.5-fp8	r
+glm-4.5-x	r
+glm-4.5v	vr
+glm-4.6	r
+glm-4.6-derestricted-v5	r
+glm-4.6-original	r
+glm-4.6-turbo	r
+glm-4.6v	vr
+glm-4.6v-flash	vr
+glm-4.6v-flash-free	vr
+glm-4.6v-flashx	vr
+glm-4.6v-original	v
+glm-4.7	r
+glm-4.7-flash	r
+glm-4.7-flash-free	r
+glm-4.7-flashx	r
+glm-4.7-free	r
+glm-4.7-maas	r
+glm-4.7-n	r
+glm-4.7-original	r
+glm-5	r
+glm-5-1	r
+glm-5-2	r
+glm-5-2-260617	r
+glm-5-3	r
+glm-5-3-flash	vr
+glm-5-3-flash-260828	vr
+glm-5-3-flash-uncensored	vr
+glm-5-fp8	r
+glm-5-free	r
+glm-5-maas	r
+glm-5-original	r
+glm-5-turbo	r
+glm-5.1	r
+glm-5.1-fp8	r
+glm-5.1-tee	r
+glm-5.1-thinking	r
+glm-5.2	r
+glm-5.2-caveman	r
+glm-5.2-caveman-lite	r
+glm-5.2-caveman-ultra	r
+glm-5.2-fast	r
+glm-5.2-fp8	r
+glm-5.2-highspeed	r
+glm-5.2-honey	r
+glm-5.2-honey-lite	r
+glm-5.2-honey-ultra	r
+glm-5.2-maas	r
+glm-5.2-nitro	r
+glm-5.2-ponytail	r
+glm-5.2-ponytail-lite	r
+glm-5.2-ponytail-ultra	r
+glm-5.2-tee	r
+glm-5.2@eu	r
+glm-5.3	r
+glm-5.3-abliterated	r
+glm-5.3-fast	r
+glm-5.3-flash	r
+glm-5.3-flash-abliterated	vr
+glm-5.3-flash-apex	vr
+glm-5.3-flash-apex-abliterated	vr
+glm-5.3-flash-cybersecurity	vr
+glm-5.3-flash-flex	vr
+glm-5.3-flash-free	vr
+glm-5.3-flash-nvfp4	vr
+glm-5.3-flash-uncensored	r
+glm-5.3-flash@eu	vr
+glm-5.3-flashx	vr
+glm-5.3-flashx-legal	vr
+glm-5.3-flex	r
+glm-5.3-free	r
+glm-5.3-highspeed	r
+glm-5.3-marathon	r
+glm-5.3-prime	r
+glm-5.3-uncensored	r
+glm-5.3@eu	r
+glm-5.4	vr
+glm-5.x-menthol	r
+glm-5p3	r
+glm-5p3-fast	r
+glm-5p3-flash	vr
+glm-5p3-spot	r
+glm-5v-turbo	vr
+glm-fast-latest	r
+glm-flash-latest	vr
+glm-image	
+glm-latest	r
+glm5.2	r
+glm5.3	r
+glm5.3-754b	r
+glm5.3-flash	vr
+global.amazon.nova-2-lite-v1	vr
+global.anthropic.claude-fable-5	vr
+global.anthropic.claude-fable-5-1	vr
+global.anthropic.claude-fable-5-2	vr
+global.anthropic.claude-haiku-4-5-20251001-v1	vr
+global.anthropic.claude-haiku-5-5	vr
+global.anthropic.claude-opus-4-5-20251101-v1	vr
+global.anthropic.claude-opus-4-6-v1	vr
+global.anthropic.claude-opus-4-7	vr
+global.anthropic.claude-opus-4-8	vr
+global.anthropic.claude-opus-5	vr
+global.anthropic.claude-opus-5-5	vr
+global.anthropic.claude-sonnet-4-20250514-v1	vr
+global.anthropic.claude-sonnet-4-5-20250929-v1	vr
+global.anthropic.claude-sonnet-4-6	vr
+global.anthropic.claude-sonnet-5	vr
+global.anthropic.claude-sonnet-5-5	vr
+global.moonshotai.kimi-k3	vr
+global.moonshotai.kimi-k3.1	vr
+global.openai.gpt-5.6-luna	vr
+global.openai.gpt-5.6-sol	vr
+global.openai.gpt-5.6-terra	vr
+global.openai.gpt-6-astra	vr
+global.openai.gpt-6-luna	vr
+global.openai.gpt-6-sol	vr
+global.openai.gpt-6.1-sol	vr
+global.openai.gpt-6.1-terra	vr
+global.openai.gpt-6.2-astra	vr
+global.openai.gpt-6.2-sol	vr
+global.xai.grok-4.6	vr
+global.xai.grok-4.7	vr
+global.zai.glm-5.3	r
+glyph-cluster	r
+google-gemma-3-27b-it	v
+google-gemma-4-26b-a4b-it	vr
+google-gemma-4-31b-it	vr
+google-paligemma	v
+google.gemma-3-12b-it	v
+google.gemma-3-12b-it@us	v
+google.gemma-3-27b-it	v
+google.gemma-3-27b-it@us	v
+google.gemma-3-4b-it	v
+google.gemma-3-4b-it@us	v
+google.gemma-4-26b-a4b	vr
+google.gemma-4-31b	vr
+google.gemma-4-e2b	vr
+gpt-3.5-turbo	
+gpt-3.5-turbo-0125	
+gpt-3.5-turbo-0613	
+gpt-3.5-turbo-1106	
+gpt-3.5-turbo-16k	
+gpt-3.5-turbo-instruct	
+gpt-3.5-turbo-raw	v
+gpt-4	
+gpt-4-turbo	v
+gpt-4-turbo-vision	v
+gpt-4.1	v
+gpt-4.1-fast	v
+gpt-4.1-mini	v
+gpt-4.1-mini-2025-04-14	v
+gpt-4.1-mini-fast	v
+gpt-4.1-mini@eu	v
+gpt-4.1-nano	v
+gpt-4.1-nano@eu	v
+gpt-4.1-nano@us	v
+gpt-4.1@eu	v
+gpt-4o	v
+gpt-4o-2024-05-13	v
+gpt-4o-2024-08-06	v
+gpt-4o-2024-11-20	v
+gpt-4o-aug	v
+gpt-4o-fast	v
+gpt-4o-mini	v
+gpt-4o-mini-2024-07-18	v
+gpt-4o-mini-fast	v
+gpt-4o-mini-search	
+gpt-4o-mini-transcribe	
+gpt-4o-mini@eu	v
+gpt-4o-search	
+gpt-4o-transcribe	
+gpt-5	vr
+gpt-5-1	vr
+gpt-5-2	vr
+gpt-5-3-codex	vr
+gpt-5-4	vr
+gpt-5-4-mini	vr
+gpt-5-4-nano	vr
+gpt-5-5	vr
+gpt-5-5-pro	vr
+gpt-5-6-luna	vr
+gpt-5-6-sol	vr
+gpt-5-6-terra	vr
+gpt-5-chat	v
+gpt-5-chat-latest	v
+gpt-5-codex	vr
+gpt-5-fast	vr
+gpt-5-image	vr
+gpt-5-image-mini	vr
+gpt-5-mini	vr
+gpt-5-mini-fast	vr
+gpt-5-mini@eu	vr
+gpt-5-nano	vr
+gpt-5-nano@eu	vr
+gpt-5-pro	vr
+gpt-5-search-api	v
+gpt-5-thinking	vr
+gpt-5.1	vr
+gpt-5.1-2025-11-13	r
+gpt-5.1-chat-latest	vr
+gpt-5.1-codex	vr
+gpt-5.1-codex-max	vr
+gpt-5.1-codex-mini	vr
+gpt-5.1-instant	vr
+gpt-5.1-thinking	vr
+gpt-5.1-thinking-fast	vr
+gpt-5.1@eu	vr
+gpt-5.2	vr
+gpt-5.2-chat-latest	vr
+gpt-5.2-codex	vr
+gpt-5.2-fast	vr
+gpt-5.2-instant	v
+gpt-5.2-pro	vr
+gpt-5.3-chat-latest	v
+gpt-5.3-codex	vr
+gpt-5.3-codex-fast	vr
+gpt-5.3-codex-spark	vr
+gpt-5.3-codex-xhigh	vr
+gpt-5.3-instant	v
+gpt-5.4	vr
+gpt-5.4-fast	vr
+gpt-5.4-image-2	vr
+gpt-5.4-mini	vr
+gpt-5.4-mini-fast	vr
+gpt-5.4-nano	vr
+gpt-5.4-pro	vr
+gpt-5.4@eu	vr
+gpt-5.5	vr
+gpt-5.5-fast	vr
+gpt-5.5-pro	vr
+gpt-5.5@eu	vr
+gpt-5.6	vr
+gpt-5.6-luna	vr
+gpt-5.6-luna-fast	vr
+gpt-5.6-luna-pro	vr
+gpt-5.6-luna@eu	vr
+gpt-5.6-sol	vr
+gpt-5.6-sol-fast	vr
+gpt-5.6-sol-pro	vr
+gpt-5.6-sol@eu	vr
+gpt-5.6-terra	vr
+gpt-5.6-terra-fast	vr
+gpt-5.6-terra-pro	vr
+gpt-5.6-terra@eu	vr
+gpt-5@eu	vr
+gpt-6-1-sol	vr
+gpt-6-1-terra	vr
+gpt-6-2-astra	vr
+gpt-6-2-sol	vr
+gpt-6-astra	vr
+gpt-6-astra-fast	vr
+gpt-6-astra-pro	vr
+gpt-6-luna	vr
+gpt-6-luna-fast	vr
+gpt-6-luna-pro	vr
+gpt-6-luna@eu	vr
+gpt-6-sol	vr
+gpt-6-sol-fast	vr
+gpt-6-sol-pro	vr
+gpt-6-sol@eu	vr
+gpt-6.1-sol	vr
+gpt-6.1-sol-fast	vr
+gpt-6.1-sol-pro	vr
+gpt-6.1-sol@eu	vr
+gpt-6.1-terra	vr
+gpt-6.1-terra-fast	vr
+gpt-6.1-terra-pro	vr
+gpt-6.1-terra@eu	vr
+gpt-6.2-astra	vr
+gpt-6.2-astra-fast	vr
+gpt-6.2-astra-pro	vr
+gpt-6.2-astra@eu	vr
+gpt-6.2-sol	vr
+gpt-6.2-sol-fast	vr
+gpt-6.2-sol-pro	vr
+gpt-6.2-sol@eu	vr
+gpt-astra-latest	vr
+gpt-audio	
+gpt-audio-mini	
+gpt-chat-latest	vr
+gpt-daybreak-blue-latest	vr
+gpt-daybreak-red-latest	vr
+gpt-image-1	v
+gpt-image-1-mini	v
+gpt-image-1.5	v
+gpt-image-2	v
+gpt-image-2-5-flare	v
+gpt-image-2-5-sunburst	v
+gpt-image-2-6-flare	v
+gpt-image-2-6-sunburst	v
+gpt-image-2-c	v
+gpt-image-2.5-flare	v
+gpt-image-2.5-sunburst	v
+gpt-latest	vr
+gpt-live-1	
+gpt-live-transcribe	
+gpt-luna-latest	vr
+gpt-mini-latest	vr
+gpt-oss	r
+gpt-oss-120b	r
+gpt-oss-120b-cs	r
+gpt-oss-120b-high-throughput	r
+gpt-oss-120b-maas	r
+gpt-oss-20b	r
+gpt-oss-20b-maas	r
+gpt-oss-20b@eu	r
+gpt-oss-safeguard-120b	r
+gpt-oss-safeguard-20b	r
+gpt-pro-latest	vr
+gpt-realtime-1.5	
+gpt-realtime-2	
+gpt-realtime-2.1	vr
+gpt-realtime-mini	
+gpt-realtime-whisper	
+gpt-sol-latest	vr
+gpt-terra-latest	vr
+gpt-transcribe	
+granite-4-h-small	
+granite-4.0-h-micro	
+granite-4.2-8b	r
+grayline-qwen3-8b	
+green-l	v
+green-l-raw	v
+green-r	vr
+green-r-raw	vr
+green-s	
+green-s-pro	
+grok-3	
+grok-3-mini	r
+grok-4	vr
+grok-4-0709	vr
+grok-4-1-fast-non-reasoning	v
+grok-4-1-fast-reasoning	vr
+grok-4-20	vr
+grok-4-20-0309-non-reasoning	v
+grok-4-20-beta-0309-non-reasoning	v
+grok-4-20-beta-0309-reasoning	vr
+grok-4-20-multi-agent	vr
+grok-4-20-non-reasoning	v
+grok-4-20-reasoning	vr
+grok-4-3	vr
+grok-4-5	vr
+grok-4-6	vr
+grok-4-7	vr
+grok-4-fast	vr
+grok-4-fast-non-reasoning	v
+grok-4-fast-reasoning	vr
+grok-4.1	v
+grok-4.1-fast	r
+grok-4.1-fast-non-reasoning	v
+grok-4.1-fast-reasoning	vr
+grok-4.2-beta	v
+grok-4.2-fast	v
+grok-4.2-fast-non-reasoning	v
+grok-4.20	vr
+grok-4.20-0309-non-reasoning	v
+grok-4.20-0309-reasoning	vr
+grok-4.20-beta-0309-reasoning	vr
+grok-4.20-multi-agent	vr
+grok-4.20-multi-agent-0309	vr
+grok-4.20-multi-agent-beta	vr
+grok-4.20-non-reasoning	v
+grok-4.20-non-reasoning-beta	v
+grok-4.20-reasoning	vr
+grok-4.20-reasoning-beta	vr
+grok-4.3	vr
+grok-4.5	vr
+grok-4.6	vr
+grok-4.7	vr
+grok-build-0-1	vr
+grok-build-0.1	vr
+grok-code	r
+grok-code-fast-1	r
+grok-imagine-image	v
+grok-imagine-image-2-0	v
+grok-imagine-image-2.0	v
+grok-imagine-image-quality	v
+grok-imagine-video	v
+grok-imagine-video-1.5	v
+grok-imagine-video-1.5-lite	v
+grok-latest	vr
+grok-stt	
+grok-tts	
+grok-voice-stt-1.0	
+grok-voice-tts-1.0	
+gte-large-en-v1.5	
+happyhorse-1.1-i2v	v
+happyhorse-1.1-r2v	v
+happyhorse-1.1-t2v	
+hermes-2-pro-llama-3-8b	
+hermes-3-llama-3.1-405b	
+hermes-3-llama-3.1-70b	
+hermes-4-405b	r
+hermes-high	r
+hermes-low	r
+hermes-medium	r
+heygen-video-1	v
+holo2-30b-a3b	vr
+holo3-35b-a3b	vr
+humain-m3-preview	r
+humain-m3-research-preview	r
+hunyuan-2.0-instruct	
+hunyuan-2.0-thinking	r
+hunyuan-a13b-instruct	r
+hunyuan-t1	r
+hunyuan-turbos	
+hy-mt2-1.8b	
+hy-mt2-30b-a3b	
+hy-mt2-7b	
+hy-mt2-lite	
+hy-mt2-plus	
+hy-mt2-pro	
+hy3	r
+hy3-free	r
+hy3-paid	r
+hy3-preview	r
+hy3-preview-free	r
+hy4	vr
+hy4-flash	vr
+hy4-flash-free	vr
+hy4-preview	r
+ibm-granite-micro	
+iceman-contributor-free	r
+iceman-free	r
+ideogram	v
+ideogram-v2	v
+ideogram-v2a	
+ideogram-v2a-turbo	
+imagen-3	
+imagen-3-fast	
+imagen-4	
+imagen-4-fast	
+imagen-4-ultra	
+in.anthropic.claude-haiku-4-5-20251001-v1	vr
+in.anthropic.claude-opus-5	vr
+in.anthropic.claude-sonnet-5	vr
+in.openai.gpt-5.6-luna	vr
+in.openai.gpt-5.6-terra	vr
+inkling	vr
+inkling-2-mini	vr
+inkling-2-small	vr
+inkling-2-small-free	vr
+inkling-256k	vr
+inkling-nvfp4	vr
+inkling-small	vr
+interfaze-beta	vr
+jad-ai	vr
+jad-code	vr
+jad-go	vr
+jamba-large	
+jamba-mini	
+jp.amazon.nova-2-lite-v1	vr
+jp.anthropic.claude-haiku-4-5-20251001-v1	vr
+jp.anthropic.claude-haiku-5-5	vr
+jp.anthropic.claude-opus-4-7	vr
+jp.anthropic.claude-opus-4-8	vr
+jp.anthropic.claude-opus-5	vr
+jp.anthropic.claude-opus-5-5	vr
+jp.anthropic.claude-sonnet-4-5-20250929-v1	vr
+jp.anthropic.claude-sonnet-4-6	vr
+jp.anthropic.claude-sonnet-5	vr
+k3	vr
+k3-256k	vr
+k3.1-pro	vr
+k3.1-pro-highspeed	vr
+kb-whisper-large	
+kimi-fast-latest	vr
+kimi-for-coding	vr
+kimi-for-coding-highspeed	vr
+kimi-k2	
+kimi-k2-0711	
+kimi-k2-0905	
+kimi-k2-0905-preview	
+kimi-k2-5	vr
+kimi-k2-6	vr
+kimi-k2-7-code	vr
+kimi-k2-7-code-highspeed	vr
+kimi-k2-instruct	
+kimi-k2-instruct-0711	
+kimi-k2-instruct-0905	
+kimi-k2-instruct-fast	
+kimi-k2-instruct-fp4	
+kimi-k2-thinking	r
+kimi-k2-thinking-maas	r
+kimi-k2-turbo-preview	
+kimi-k2.5	vr
+kimi-k2.5-free	vr
+kimi-k2.5-fw	v
+kimi-k2.5@eu	vr
+kimi-k2.6	vr
+kimi-k2.6-fast	vr
+kimi-k2.6-nitro	vr
+kimi-k2.6-tee	vr
+kimi-k2.7-code	vr
+kimi-k2.7-code-highspeed	vr
+kimi-k2.7-code-nitro	vr
+kimi-k2.7-code@eu	vr
+kimi-k2.8-preview	vr
+kimi-k2_6	vr
+kimi-k3	vr
+kimi-k3-1-pro	vr
+kimi-k3-1-pro-highspeed	vr
+kimi-k3-fast	vr
+kimi-k3-fast-api	vr
+kimi-k3-spot	vr
+kimi-k3-tee	vr
+kimi-k3.1-pro	vr
+kimi-k3.1-pro-abliterated	r
+kimi-k3.1-pro-flex	vr
+kimi-k3.1-pro-highspeed	vr
+kimi-k3.1-pro-prime	vr
+kimi-k3.1-pro@eu	vr
+kimi-k3@eu	vr
+kimi-k3p1-pro	vr
+kimi-latest	vr
+kling-v2-6	v
+kling-v2.5-turbo-i2v	v
+kling-v2.5-turbo-t2v	
+kling-v2.6-i2v	v
+kling-v2.6-motion-control	v
+kling-v2.6-t2v	
+kling-v3.0-i2v	v
+kling-v3.0-motion-control	v
+kling-v3.0-t2v	
+kloker	
+kloker-integration-architect	
+kloker-integration-developer	
+kolibri-1	r
+kolibri-1-tl5	r
+l3-lunaris-8b	
+l3.1-70b-celeste-v0.1-bf16	
+l3.1-euryale-70b	
+l3.3-70b-euryale-v2.3	
+l3.3-cu-mai-r1-70b	
+l3.3-electra-r1-70b	
+l3.3-ms-nevoria-70b	
+l3.3-nevoria-r1-70b	
+labs-devstral-small-2512	v
+labs-leanstral-1-5-1	vr
+laguna-m.1	r
+laguna-s-2.1	r
+laguna-s-2.1-free	r
+laguna-xs-2.1	r
+large	r
+leanstral-1-5	vr
+leanstral-1-5@eu	vr
+lfm-2.5-2.6b	r
+lfm-2.5-24b-a2b	r
+lfm-3-1.7b	r
+lfm2-24b-a2b	
+lfm2.5-24b-a2b	r
+lightonocr-2-1b	v
+lightonocr-3-0.8b	v
+ling-2.6-flash-free	
+ling-3.0-flash	r
+ling-3.0-flash-fin	r
+ling-3.0-flash-fin-free	r
+ling-3.0-flash-free	r
+ling-3.0-flash-sante	r
+ling-3.0-flash-vl	vr
+ling-3.0-tiny	r
+ling-3.0-tiny-free	r
+ling-3.1-flash	r
+ling-3.1-flash-1019	r
+ling-3.1-flash-free	r
+ling-3.2-flash	vr
+ling-flash-2.0	
+liquid.auto	vr
+ll-alpha-free	r
+llama-3-3-70b-instruct	
+llama-3.1-70b	
+llama-3.1-70b-instruct	
+llama-3.1-8b	
+llama-3.1-8b-cs	
+llama-3.1-8b-instant	
+llama-3.1-8b-instruct	
+llama-3.1-8b-instruct-fast	
+llama-3.1-8b-instruct-fp8	
+llama-3.1-8b-instruct-turbo	
+llama-3.1-nemotron-70b-instruct	
+llama-3.1-nemotron-70b-instruct-hf	
+llama-3.1-nemotron-safety-guard-8b-v3	
+llama-3.1-nemotron-ultra-253b-v1	r
+llama-3.2-11b-instruct	
+llama-3.2-11b-vision-instruct	v
+llama-3.2-1b-instruct	
+llama-3.2-3b	
+llama-3.2-3b-instruct	
+llama-3.2-90b-vision-instruct	v
+llama-3.3-70b	
+llama-3.3-70b-cs	
+llama-3.3-70b-instruct	
+llama-3.3-70b-instruct-abliterated	
+llama-3.3-70b-instruct-fp8	
+llama-3.3-70b-instruct-fp8-dynamic	
+llama-3.3-70b-instruct-fp8-fast	
+llama-3.3-70b-instruct-maas	
+llama-3.3-70b-instruct-turbo	
+llama-3.3-70b-versatile	
+llama-3.3-nemotron-super-49b-v1.5	r
+llama-32-3b-uncensored	
+llama-4-maverick	v
+llama-4-maverick-17b-128e-instruct-fp8	v
+llama-4-maverick-17b-128e-instruct-maas	v
+llama-4-maverick-17b-instruct	v
+llama-4-scout	v
+llama-4-scout-17b-16e-instruct	v
+llama-4-scout-17b-16e-instruct-maas	v
+llama-4-scout-17b-instruct	v
+llama-guard-3-8b	
+llama-guard-4	v
+llama-guard-4-12b	v
+llama-nemotron-embed-vl-1b-v2	v
+llama-nemotron-rerank-vl-1b-v2	v
+llama-prompt-guard-2-22m	
+llama-prompt-guard-2-86m	
+llama3-3-70b	
+llama3.3	
+longcat-2-5	vr
+longcat-2.0	r
+longcat-2.0-free	r
+longcat-2.5	vr
+longcat-2.5-free	vr
+longcat-2.5-preview	vr
+longcat-2.5-preview-free	vr
+longcat-flash-chat	
+longcat-flash-lite	r
+lucid-origin	
+lucid-realism	
+lucidnova-rf1-100b	r
+lucidquery-agi-01-frontier	vr
+lucidquery-agi-01-swift	vr
+lucidquery-nexus-coder	r
+lynkr-auto	
+lyria	
+lyria-3-5	v
+lyria-3-clip-preview	v
+lyria-3-pro-preview	v
+m2-her	r
+m3.1-flash	vr
+macaron-v1-tall	r
+macaron-v1-venti	r
+magibu-11b-v8	
+magistral-medium-latest	vr
+magistral-medium-latest@eu	vr
+magistral-small-2506	
+magnum-v2-72b	
+magnum-v4-72b	
+magpie-tts-zeroshot	
+mai-code-1.1-flash	vr
+mai-code-2	vr
+mai-code-2-flash	vr
+mai-image-2.6	v
+mai-image-2.6-flash	v
+mai-transcribe-2	
+mai-transcribe-2-streaming	
+mai-voice-2	
+mai-voice-2-flash	
+mai-voice-2.1	
+mai-voice-2.1-flash	
+manta-flash-1.0	
+manta-mini-1.0	
+manta-pro-1.0	
+medgemma-4b	v
+mercury-2	r
+mercury-2.5	r
+mercury-2.5-preview	r
+mercury-3	r
+mercury-coder-small	
+mercury-edit-2	
+meta-llama-3-1-8b-instruct	
+meta-llama-3-1-8b-instruct-fp8	
+meta-llama-3-3-70b-instruct	
+meta-llama-3-70b-instruct-abliterated-v3.5	
+meta-llama-3.1-405b-instruct-turbo	
+meta-llama-3.1-8b-instruct	
+meta-llama-3.3-70b-instruct	
+meta-llama-3_1-8b-instruct-gguf	
+meta-llama-3_3-70b-instruct	
+meta.llama-3.3-70b-instruct	
+meta.llama-4-maverick-17b-128e-instruct-fp8	v
+meta.llama-4-scout-17b-16e-instruct	v
+meta.llama3-1-70b-instruct-v1	
+meta.llama3-1-8b-instruct-v1	
+meta.llama3-3-70b-instruct-v1	
+meta.llama4-maverick-17b-instruct-v1	v
+meta.llama4-scout-17b-instruct-v1	v
+midm-k-3.0-pro	r
+mimo-v2-6-flash	vr
+mimo-v2-6-pro	vr
+mimo-v2-6-pro-ultraspeed	vr
+mimo-v2-flash	r
+mimo-v2-flash-free	r
+mimo-v2-omni-free	vr
+mimo-v2-pro	r
+mimo-v2-pro-free	r
+mimo-v2.5	vr
+mimo-v2.5-free	vr
+mimo-v2.5-pro	r
+mimo-v2.5-pro-ultraspeed	r
+mimo-v2.5-tts	
+mimo-v2.5-tts-voiceclone	
+mimo-v2.5-tts-voicedesign	
+mimo-v2.6-flash	vr
+mimo-v2.6-flash-abliterated	vr
+mimo-v2.6-flash-free	vr
+mimo-v2.6-flash-rl	vr
+mimo-v2.6-flash-uncensored	vr
+mimo-v2.6-pro	vr
+mimo-v2.6-pro-flex	vr
+mimo-v2.6-pro-rl	vr
+mimo-v2.6-pro-ultraspeed	vr
+mimo-v25	vr
+mineru2.5-2509-1.2b	v
+mini_lm_l12_v2	
+minicpm-v-4.7-1b	vr
+minicpm-v-4.7-35b-a3b	vr
+minicpm5-2b	r
+minimax-01	
+minimax-h3	v
+minimax-h3-max	v
+minimax-latest	r
+minimax-m-3-0	vr
+minimax-m1	r
+minimax-m1-80k	r
+minimax-m2	r
+minimax-m2-1	r
+minimax-m2-1-highspeed	r
+minimax-m2-5	r
+minimax-m2-5-highspeed	r
+minimax-m2-7	r
+minimax-m2-7-highspeed	r
+minimax-m2.1	r
+minimax-m2.1-free	r
+minimax-m2.1-lightning	r
+minimax-m2.5	r
+minimax-m2.5-free	r
+minimax-m2.5-highspeed	r
+minimax-m2.5-lightning	r
+minimax-m2.7	r
+minimax-m2.7-highspeed	r
+minimax-m2.7-turbo	r
+minimax-m25	r
+minimax-m27	r
+minimax-m2_5-high-throughput	r
+minimax-m3	vr
+minimax-m3-1-flash	vr
+minimax-m3-free	vr
+minimax-m3-preview	vr
+minimax-m3.1-flash	vr
+minimax-m3.1-flash-free	vr
+minimax-m3.1-flash-preview	vr
+minimax-m3.1-flash@eu	vr
+minimax-m3@eu	vr
+minimax-m3p1-flash	vr
+minimax-text-01	r
+minimax.minimax-m2	r
+minimax.minimax-m2.1	r
+minimax.minimax-m2.5	r
+ministral-14b	v
+ministral-14b-2512	v
+ministral-14b-2512@eu	v
+ministral-14b-instruct-2512	v
+ministral-3-14b-instruct-2512	v
+ministral-3-14b-reasoning-2512	vr
+ministral-3-3b	v
+ministral-3-3b-reasoning-2512	vr
+ministral-3-8b	v
+ministral-3b	v
+ministral-3b-2512	v
+ministral-3b-2512@eu	v
+ministral-3b-latest	v
+ministral-8b	v
+ministral-8b-2512	v
+ministral-8b-2512@eu	v
+ministral-8b-latest	v
+mistral-3-14b	
+mistral-7b-instruct-v0.2	
+mistral-7b-instruct-v0.3	
+mistral-code-agent-latest	
+mistral-code-latest	
+mistral-embed	
+mistral-large	
+mistral-large-2402	r
+mistral-large-2407	
+mistral-large-2407@eu	
+mistral-large-2411	
+mistral-large-2512	v
+mistral-large-2512@eu	v
+mistral-large-3	v
+mistral-large-4	vr
+mistral-large-4-0	vr
+mistral-large-4-0-8	vr
+mistral-large-4@eu	vr
+mistral-large-instruct-2411	
+mistral-large-latest	vr
+mistral-large-latest@eu	v
+mistral-large2	
+mistral-medium-2505	v
+mistral-medium-2508	v
+mistral-medium-2604	vr
+mistral-medium-2604@eu	vr
+mistral-medium-3	v
+mistral-medium-3-5	vr
+mistral-medium-3-5@eu	vr
+mistral-medium-3-instruct	v
+mistral-medium-3.1	v
+mistral-medium-3.5	vr
+mistral-medium-3.5-128b	vr
+mistral-medium-3@eu	v
+mistral-medium-latest	vr
+mistral-medium-latest@eu	vr
+mistral-nemo	
+mistral-nemo-12b-instruct	
+mistral-nemo-instruct-2407	
+mistral-saba	
+mistral-small	v
+mistral-small-24b-instruct-2501	
+mistral-small-2503	v
+mistral-small-2506	v
+mistral-small-2603	vr
+mistral-small-2603@eu	vr
+mistral-small-3-1-24b-instruct-2503	v
+mistral-small-3-2-24b-instruct	v
+mistral-small-3.1	
+mistral-small-3.1-24b-instruct	v
+mistral-small-3.2	v
+mistral-small-3.2-24b-instruct	v
+mistral-small-3.2-24b-instruct-2506	v
+mistral-small-4	v
+mistral-small-4-119b	vr
+mistral-small-4-119b-2603	vr
+mistral-small-latest	vr
+mistral-small-latest@eu	vr
+mistral.devstral-2-123b	
+mistral.magistral-small-2509	vr
+mistral.ministral-3-14b-instruct	v
+mistral.ministral-3-3b-instruct	v
+mistral.ministral-3-8b-instruct	v
+mistral.mistral-large-3-675b-instruct	v
+mistral.pixtral-large-2502-v1	v
+mistral.voxtral-mini-3b-2507	
+mistral.voxtral-mini-3b-2507@us	
+mistral.voxtral-small-24b-2507	
+mistral.voxtral-small-24b-2507@us	
+mistral4-119b	r
+mistralai--mistral-medium	vr
+mistralai--mistral-medium-instruct	v
+mistralai--mistral-small	vr
+mixtral-8x22b-instruct	
+mixtral-8x22b-instruct-v0.1	
+mixtral-8x7b-instruct-v0.1	r
+mm-poly-8b	v
+mn-12b-mag-mell-r1	
+model-router	v
+moondream3-preview	vr
+moondream3.1-9b-a2b	vr
+moonshot-kimi-k2-instruct	
+moonshot.kimi-k2-thinking	r
+moonshotai.kimi-k2.5	vr
+morph-dsv41flash	vr
+morph-dsv41flash-1017	vr
+morph-dsv4flash	r
+morph-glm52-744b	r
+morph-glm53-744b	r
+morph-glm53flash	vr
+morph-kimik3	vr
+morph-kimik3-fast	vr
+morph-kimik31	vr
+morph-v3-fast	
+morph-v3-large	
+motif-3	r
+ms3.2-24b-magnum-diamond	
+ms3.2-the-omega-directive-24b-unslop-v2.0	
+multi-qa-mpnet-base-dot-v1	
+multilingual-e5-large-instruct	
+multilingual-v2	
+muse-ember	vr
+muse-ember-1-0	vr
+muse-ember-1.0	vr
+muse-glimmer-30b	vr
+muse-glimmer-30b-tr	vr
+muse-image-1.0	v
+muse-spark-1-1	vr
+muse-spark-1-2	vr
+muse-spark-1-2-contributor	vr
+muse-spark-1-3	vr
+muse-spark-1-3-contributor	vr
+muse-spark-1.1	vr
+muse-spark-1.2	vr
+muse-spark-1.2-contributor	vr
+muse-spark-1.2-contributor-free	vr
+muse-spark-1.3	vr
+muse-spark-1.3-contributor	vr
+muse-spark-1.3-contributor-free	vr
+muse-spark-open	vr
+muse-spark-open-816b-a42b	vr
+muse-wonder	vr
+muse-wonder-1-0	vr
+muse-wonder-1.0	vr
+mythomax-l2-13b	
+namazu	vr
+nano-banana	v
+nano-banana-2	vr
+nano-banana-2-lite	vr
+nano-banana-pro	vr
+nano-gpt-help	
+nemotron-3-120b	r
+nemotron-3-120b-a12b	r
+nemotron-3-nano	r
+nemotron-3-nano-30b	r
+nemotron-3-nano-30b-a3b	r
+nemotron-3-nano-omni	vr
+nemotron-3-nano-omni-30b-a3b-reasoning	vr
+nemotron-3-nano-omni-30b-a3b-reasoning-free	vr
+nemotron-3-nano-omni-reasoning-30b-a3b	vr
+nemotron-3-super	r
+nemotron-3-super-120b-a12b	r
+nemotron-3-super-120b-a12b-free	r
+nemotron-3-super-free	r
+nemotron-3-ultra	r
+nemotron-3-ultra-550b	r
+nemotron-3-ultra-550b-a55b	r
+nemotron-3-ultra-550b-a55b-free	r
+nemotron-3-ultra-free	r
+nemotron-3-ultra-nvfp4	r
+nemotron-3.5-content-safety	vr
+nemotron-3.5-content-safety-free	vr
+nemotron-3.5-lightning	r
+nemotron-3.5-lightning-30b-a3b	r
+nemotron-3.5-lightning-free	r
+nemotron-3.5-lightning-nvfp4	r
+nemotron-3.5-super-120b-a12b	r
+nemotron-3.5-super-vl	vr
+nemotron-3.5-super-vl-120b-a12b	vr
+nemotron-3.5-super-vl-free	vr
+nemotron-3.5-super-vl-nvfp4	vr
+nemotron-3_5-lightning	r
+nemotron-lightning-3.5-30b	r
+nemotron-lightning-3.5-30b-a3b	r
+nemotron-nano-12b-v2-vl	vr
+nemotron-nano-9b-v2	r
+nemotron-nano-v2-12b	vr
+nemotron-voicechat	
+nemotron3-super	r
+neosmith.intelligent-basic	vr
+neosmith.intelligent-maestro	vr
+neosmith.intelligent-pro	vr
+neosmith.neolite	vr
+neuraldaredevil-8b-abliterated	
+nex-n2-pro	vr
+nex-n2.5-mini	vr
+nex-n2.5-pro	vr
+nex-n2.6	vr
+nodecode-cyber-v1	vr
+nomic-embed-text	
+north-mini-code-1-0	r
+north-mini-code-free	r
+north-small-translate-09-2026	
+nova-2-lite	vr
+nova-2-lite-v1	vr
+nova-2-pro-v1	vr
+nova-lite	v
+nova-lite-v1	v
+nova-micro	
+nova-micro-v1	
+nova-premier-v1	v
+nova-pro	v
+nova-pro-v1	v
+nvidia--llama-3.2-nv-embedqa-1b	
+nvidia--llama-nemotron-embed-1b	
+nvidia-nemotron-3-5-super-vl-120b-a12b	vr
+nvidia-nemotron-3-nano-30b-a3b	r
+nvidia-nemotron-3-nano-30b-a3b-bf16	r
+nvidia-nemotron-3-nano-30b-a3b-fp8	r
+nvidia-nemotron-3-super-120b-a12b	r
+nvidia-nemotron-3-super-120b-a12b-bf16	r
+nvidia-nemotron-3-ultra	r
+nvidia-nemotron-3-ultra-550b-a55b	r
+nvidia-nemotron-3-ultra-550b-a55b-bf16	r
+nvidia-nemotron-3-ultra-550b-a55b-nvfp4	r
+nvidia-nemotron-3.5-lightning-30b-a3b	r
+nvidia-nemotron-3.5-lightning-30b-a3b-bf16	r
+nvidia-nemotron-3.5-super-vl	vr
+nvidia-nemotron-3.5-super-vl-120b-a12b	vr
+nvidia-nemotron-3.5-super-vl-120b-a12b-bf16	vr
+nvidia-nemotron-3.5-super-vl-120b-a12b-nvfp4	vr
+nvidia.nemotron-nano-12b-v2	v
+nvidia.nemotron-nano-3-30b	r
+nvidia.nemotron-nano-9b-v2	
+nvidia.nemotron-super-3-120b	r
+nw-flash	vr
+nw-flash-flex	vr
+nw-large	vr
+nw-large-flex	vr
+nw-small	vr
+nw-small-flex	vr
+o1	vr
+o1-mini	r
+o1-pro	vr
+o3	vr
+o3-deep-research	r
+o3-fast	vr
+o3-mini	r
+o3-mini-high	vr
+o3-pro	vr
+o3-pro-2025-06-10	r
+o4-mini	vr
+o4-mini-deep-research	r
+o4-mini@eu	vr
+oathbreaker-glm-5.3	r
+oathbreaker-glm-5.3-flash	r
+olafangensan-glm-4.7-flash-heretic	r
+olmocr-2-7b	v
+open-glm-5-3	r
+open-mistral-nemo	
+open-qwen-3.8-flash-next	r
+openai-gpt-4.1	v
+openai-gpt-4o	v
+openai-gpt-4o-2024-11-20	v
+openai-gpt-4o-mini	vr
+openai-gpt-4o-mini-2024-07-18	v
+openai-gpt-5	vr
+openai-gpt-5-mini	vr
+openai-gpt-5-nano	vr
+openai-gpt-5.1	vr
+openai-gpt-5.2	vr
+openai-gpt-5.2-pro	vr
+openai-gpt-5.3-codex	vr
+openai-gpt-5.4	vr
+openai-gpt-5.4-mini	vr
+openai-gpt-5.4-nano	vr
+openai-gpt-5.4-pro	vr
+openai-gpt-5.5	vr
+openai-gpt-5.6-luna	vr
+openai-gpt-5.6-sol	vr
+openai-gpt-5.6-terra	vr
+openai-gpt-52	r
+openai-gpt-53-codex	vr
+openai-gpt-54	vr
+openai-gpt-54-mini	vr
+openai-gpt-54-pro	vr
+openai-gpt-55	vr
+openai-gpt-55-pro	vr
+openai-gpt-56-luna	vr
+openai-gpt-56-luna-pro	vr
+openai-gpt-56-sol	vr
+openai-gpt-56-sol-pro	vr
+openai-gpt-56-terra	vr
+openai-gpt-56-terra-pro	vr
+openai-gpt-6-1-sol	vr
+openai-gpt-6-astra	vr
+openai-gpt-6-astra-pro	vr
+openai-gpt-6-luna	vr
+openai-gpt-6-sol	vr
+openai-gpt-6.1-terra	vr
+openai-gpt-6.2-astra	vr
+openai-gpt-6.2-sol	vr
+openai-gpt-61-sol	vr
+openai-gpt-61-sol-ultrafast	vr
+openai-gpt-61-terra	vr
+openai-gpt-62-astra	vr
+openai-gpt-62-astra-pro	vr
+openai-gpt-62-sol	vr
+openai-gpt-62-sol-pro	vr
+openai-gpt-image-1	v
+openai-gpt-image-1.5	v
+openai-gpt-image-2	v
+openai-gpt-oss-120b	r
+openai-gpt-oss-20b	r
+openai-o1	vr
+openai-o3	vr
+openai-o3-mini	vr
+openai.gpt-5.4	vr
+openai.gpt-5.5	vr
+openai.gpt-5.6-luna	vr
+openai.gpt-5.6-sol	vr
+openai.gpt-5.6-terra	vr
+openai.gpt-6-astra	vr
+openai.gpt-6-luna	vr
+openai.gpt-6-sol	vr
+openai.gpt-6.1-sol	vr
+openai.gpt-6.1-terra	vr
+openai.gpt-6.2-astra	vr
+openai.gpt-6.2-sol	vr
+openai.gpt-oss-120b	r
+openai.gpt-oss-120b-1	r
+openai.gpt-oss-20b	r
+openai.gpt-oss-20b-1	r
+openai.gpt-oss-safeguard-120b	r
+openai.gpt-oss-safeguard-20b	r
+openai.gpt-oss-safeguard-20b@us	r
+openpangu-2.0-flash	r
+openpangu-2.0-pro	r
+orcacyber-flash-1.0	vr
+orcacyber-glm-5.3	r
+orcacyber-glm-5.3-flash	vr
+orcacyber-hy4	r
+orcacyber-k3.1-pro	vr
+orcacyber-mimo-flash	r
+orcacyber-minimax-m3.1-flash	r
+orcacyber-qwen3.8-flash-next	vr
+orcacyber-ultra-1.0	r
+orcacyber-zero-1.0	r
+orcacyber-zero-1.5	r
+ornith-1.0-35b-fp8	vr
+ornith-1.5-122b	vr
+ornith-1.5-35b-a3b	vr
+orpheus-arabic-saudi	
+orpheus-v1-english	
+osmosis-structure-0.6b	
+ossington-4-1	vr
+ossington-5	vr
+ousia-1	
+paddleocr-vl	v
+paddleocr-vl-1.5	v
+palmyra-x4	
+palmyra-x5	
+pareto	v
+pareto-26.10	v
+pareto-26.10-preview	v
+pareto-26.9	v
+pareto-code	
+pareto-latest	v
+particle-1	vr
+perceptron-mk1	vr
+perceptron-mk1.5	vr
+phi-4	
+phi-4-mini	
+phi-4-mini-instruct	
+phi-4-mini-reasoning	r
+phi-4-multimodal	v
+phi-4-multimodal-instruct	
+phi-4-reasoning	r
+phi-4-reasoning-plus	r
+pixtral-12b	v
+pixtral-12b-2409	v
+pixtral-large-2502	v
+pixtral-large-latest	v
+pokee-isaac	r
+pplx-embed-v1-0.6b	
+pplx-embed-v1-4b	
+prism	v
+prism-core	v
+prism-flash	v
+proteus	
+pulse-alpha-free	vr
+qvq-max	vr
+qwen-2.5-72b-instruct	
+qwen-2.5-7b-instruct	
+qwen-2.5-7b-vision-instruct	v
+qwen-2.5-coder-32b	
+qwen-2.5-coder-32b-instruct	
+qwen-3-14b	r
+qwen-3-30b	r
+qwen-3-32b	r
+qwen-3-6-plus	vr
+qwen-3-7-max	vr
+qwen-3-7-plus	vr
+qwen-3-8-2-4t-a95b	r
+qwen-3-8-27b	vr
+qwen-3-8-flash	vr
+qwen-3-8-max	vr
+qwen-3.6-plus	vr
+qwen-3.8-27b	vr
+qwen-3.8-27b-flex	vr
+qwen-4-max	vr
+qwen-deep-research	
+qwen-doc-turbo	
+qwen-flash	r
+qwen-image	
+qwen-image-2.0	
+qwen-image-2.0-pro	
+qwen-image-edit	v
+qwen-long	
+qwen-math-plus	
+qwen-math-turbo	
+qwen-max	
+qwen-max-2025-01-25	
+qwen-max-latest	vr
+qwen-mt-plus	
+qwen-mt-turbo	
+qwen-omni-turbo	v
+qwen-omni-turbo-realtime	v
+qwen-plus	r
+qwen-plus-character	
+qwen-plus-character-ja	
+qwen-plus-latest	v
+qwen-sea-lion-v4-32b-it	
+qwen-turbo	r
+qwen-vl-max	v
+qwen-vl-max-2025-01-25	v
+qwen-vl-ocr	v
+qwen-vl-plus	v
+qwen.qwen3-235b-a22b-2507-v1	
+qwen.qwen3-32b-v1	r
+qwen.qwen3-coder-30b-a3b-v1	
+qwen.qwen3-coder-480b-a35b-v1	
+qwen.qwen3-coder-next	
+qwen.qwen3-next-80b-a3b	
+qwen.qwen3-vl-235b-a22b	v
+qwen2-5-omni-7b	v
+qwen2.5-32b-instruct-abliterated	
+qwen2.5-72b-instruct	
+qwen2.5-7b-instruct	
+qwen2.5-7b-instruct-turbo	
+qwen2.5-coder-32b-instruct	
+qwen2.5-coder-7b-fast	
+qwen2.5-vl-32b-instruct	v
+qwen2.5-vl-72b-instruct	v
+qwen3-14b	r
+qwen3-235b	r
+qwen3-235b-2507-cs	r
+qwen3-235b-a22b	r
+qwen3-235b-a22b-2507	
+qwen3-235b-a22b-fp8	r
+qwen3-235b-a22b-instruct	
+qwen3-235b-a22b-instruct-2507	
+qwen3-235b-a22b-instruct-2507-maas	
+qwen3-235b-a22b-instruct-2507-tput	
+qwen3-235b-a22b-thinking	r
+qwen3-235b-a22b-thinking-2507	r
+qwen3-30b	r
+qwen3-30b-a3b	r
+qwen3-30b-a3b-2507	
+qwen3-30b-a3b-fp8	r
+qwen3-30b-a3b-instruct	
+qwen3-30b-a3b-instruct-2507	
+qwen3-30b-a3b-thinking-2507	r
+qwen3-32b	r
+qwen3-32b-cs	r
+qwen3-32b-fp8	r
+qwen3-5-122b-a10b	vr
+qwen3-5-27b	vr
+qwen3-5-35b-a3b	vr
+qwen3-5-397b-a17b	vr
+qwen3-5-4b	vr
+qwen3-5-9b	vr
+qwen3-5-flash	vr
+qwen3-5-plus	vr
+qwen3-6-27b	vr
+qwen3-6-35b	vr
+qwen3-6-35b-a3b	vr
+qwen3-6-flash	vr
+qwen3-6-plus	vr
+qwen3-7-flash	vr
+qwen3-7-max	r
+qwen3-7-plus	vr
+qwen3-8-27b	vr
+qwen3-8-flash	vr
+qwen3-8-max	vr
+qwen3-8-max-0902	vr
+qwen3-8-omni-flash	vr
+qwen3-80b	
+qwen3-8b	r
+qwen3-asr-flash	
+qwen3-coder	
+qwen3-coder-30b	
+qwen3-coder-30b-a3b	r
+qwen3-coder-30b-a3b-instruct	
+qwen3-coder-480b	
+qwen3-coder-480b-a35b	
+qwen3-coder-480b-a35b-instruct	
+qwen3-coder-480b-a35b-instruct-fp8	
+qwen3-coder-480b-a35b-instruct-int4-mixed-ar	
+qwen3-coder-480b-a35b-instruct-turbo	
+qwen3-coder-flash	
+qwen3-coder-next	
+qwen3-coder-next-fp8	
+qwen3-coder-next-fp8-no-thinking	
+qwen3-coder-plus	
+qwen3-embedding-0.6b	
+qwen3-embedding-4b	
+qwen3-embedding-8b	
+qwen3-livetranslate-flash-realtime	v
+qwen3-max	r
+qwen3-max-2025-09-23	
+qwen3-max-2026-01-23	
+qwen3-max-preview	
+qwen3-max-thinking	r
+qwen3-next-80b	
+qwen3-next-80b-a3b	
+qwen3-next-80b-a3b-instruct	
+qwen3-next-80b-a3b-thinking	r
+qwen3-omni-30b-a3b-thinking	vr
+qwen3-omni-flash	vr
+qwen3-omni-flash-realtime	v
+qwen3-reranker-0.6b	
+qwen3-reranker-4b	
+qwen3-reranker-8b	
+qwen3-tts-voicedesign	
+qwen3-vl	vr
+qwen3-vl-235b-a22b	vr
+qwen3-vl-235b-a22b-instruct	v
+qwen3-vl-235b-a22b-instruct-fp8	v
+qwen3-vl-235b-a22b-instruct-original	v
+qwen3-vl-235b-a22b-thinking	vr
+qwen3-vl-30b-a3b	vr
+qwen3-vl-30b-a3b-instruct	v
+qwen3-vl-30b-a3b-thinking	vr
+qwen3-vl-32b-instruct	v
+qwen3-vl-32b-thinking	vr
+qwen3-vl-8b-instruct	v
+qwen3-vl-embedding-8b	v
+qwen3-vl-flash	v
+qwen3-vl-instruct	v
+qwen3-vl-plus	vr
+qwen3.5-0.8b	
+qwen3.5-122b	vr
+qwen3.5-122b-a10b	vr
+qwen3.5-122b-a10b-fp8	vr
+qwen3.5-27b	vr
+qwen3.5-27b-blossom-v6.4-derestricted	vr
+qwen3.5-27b-bluestar-v3-derestricted	vr
+qwen3.5-27b-claude-4.6-opus-reasoning-distilled-derestricted	vr
+qwen3.5-27b-claude-4.6-opus-reasoning-distilled-derestricted-lite	vr
+qwen3.5-27b-queen-derestricted	vr
+qwen3.5-27b-tee	vr
+qwen3.5-2b	vr
+qwen3.5-35b-a3b	vr
+qwen3.5-35b-a3b-base	
+qwen3.5-35b-a3b-fp8	vr
+qwen3.5-35b-a3b-fp8-dottxt	vr
+qwen3.5-397b	vr
+qwen3.5-397b-a17b	vr
+qwen3.5-397b-a17b-fp8	vr
+qwen3.5-397b-a17b-tee	vr
+qwen3.5-4b	vr
+qwen3.5-9b	vr
+qwen3.5-9b-base	
+qwen3.5-flash	vr
+qwen3.5-flash-02-23	vr
+qwen3.5-omni-flash	v
+qwen3.5-omni-plus	v
+qwen3.5-plus	vr
+qwen3.5-plus-02-15	vr
+qwen3.5-plus-20260420	vr
+qwen3.6	vr
+qwen3.6-27b	vr
+qwen3.6-27b-fp8	vr
+qwen3.6-27b-tee	vr
+qwen3.6-35b	vr
+qwen3.6-35b-a3b	vr
+qwen3.6-35b-a3b-eu	vr
+qwen3.6-35b-a3b-fp8	vr
+qwen3.6-35b-a3b-fp8-no-thinking	v
+qwen3.6-35b-fast	v
+qwen3.6-35b-flex	vr
+qwen3.6-flash	vr
+qwen3.6-max-preview	r
+qwen3.6-plus	vr
+qwen3.6-plus-free	vr
+qwen3.7-flash	vr
+qwen3.7-max	r
+qwen3.7-max-2026-06-08	r
+qwen3.7-plus	vr
+qwen3.8-2.4t-a95b	r
+qwen3.8-2.4t-a95b-nvfp4	r
+qwen3.8-2.4t-a95b@eu	r
+qwen3.8-27b	vr
+qwen3.8-27b-abliterated	vr
+qwen3.8-27b-antislop	vr
+qwen3.8-27b-cybersecurity	vr
+qwen3.8-27b-darkidol	vr
+qwen3.8-27b-fable	vr
+qwen3.8-27b-fimi	vr
+qwen3.8-27b-fp8	vr
+qwen3.8-27b-gguf	
+qwen3.8-27b-kimiko	vr
+qwen3.8-27b-kiwen	vr
+qwen3.8-27b-novelist	vr
+qwen3.8-27b-nvfp4	vr
+qwen3.8-27b-queen	vr
+qwen3.8-27b-swift	vr
+qwen3.8-27b-synthia	
+qwen3.8-27b-tee	vr
+qwen3.8-27b-uncensored	vr
+qwen3.8-27b-uncensored-fast	vr
+qwen3.8-flash	vr
+qwen3.8-flash-free	vr
+qwen3.8-flash-next	vr
+qwen3.8-flash-next@eu	vr
+qwen3.8-max	vr
+qwen3.8-max-0902	vr
+qwen3.8-max-free	vr
+qwen3.8-max-preview	vr
+qwen3.8-max-prime	vr
+qwen3.8-max-vl-thinking	vr
+qwen3.8-omni-flash	vr
+qwen35-122b-a10b	r
+qwen35-397b-a17b	vr
+qwen38-flash-next-nvfp4	vr
+qwen3_5-9b-mlx-4bit	v
+qwen3_5-9b-q4_k_m	v
+qwen3guard-gen-0.6b	
+qwen3guard-gen-8b	
+qwen3p8-2p4t-a95b	r
+qwen3p8-max	vr
+qwen4-max	vr
+qwen4-max-free	vr
+qwerky-72b	
+qwq-32b	r
+qwq-plus	r
+ray2	v
+recraft-v2	
+recraft-v3	
+recraft-v4	
+recraft-v4-pro	
+recraft-v4.1	
+recraft-v4.1-flash	
+recraft-v4.1-pro	
+recraft-v4.1-utility	
+recraft-v4.1-utility-pro	
+reflection-beam	r
+reka-edge	v
+reka-edge-2603	v
+reka-flash-3	r
+relace-apply-3	
+relace-search	
+remm-slerp-l2-13b	
+rerank-2.5	
+rerank-2.5-lite	
+rerank-3	
+rerank-3-lite	
+rerank-qa-mistral-4b	
+rerank-v3.5	
+rerank-v4-fast	
+rerank-v4-pro	
+rerank-v5-fast	
+rerank-v5-pro	
+restyler-1	
+ring-2.6-1t	r
+ring-2.6-1t-free	r
+ripple-65b-preview	r
+riva-translate-4b-instruct-v1.1	
+rnj-1-instruct	
+roc	vr
+rosedale-1	vr
+route-llm	v
+runway	v
+runway-gen-4-turbo	v
+s1	
+s2-pro	
+s2.1-pro	
+sakana-namazu	vr
+sap-abap-1	
+sarvam-105b	r
+sarvam-105b-conversations	
+scaledown-extract-1	
+scaledown-summarize-1	
+schematron-v2-small	
+schematron-v2-turbo	
+schnell	
+seed-1.8	vr
+seed-2-0-code	vr
+seed-2-0-code-preview-260328	vr
+seed-2-0-lite	vr
+seed-2-0-lite-260428	vr
+seed-2-0-mini	vr
+seed-2-0-mini-260428	vr
+seed-2-0-pro	vr
+seed-2-0-pro-260328	vr
+seed-2-1-turbo	vr
+seed-2.0-code	vr
+seed-2.0-lite	vr
+seed-2.0-mini	vr
+seed-2.0-pro	vr
+seed-2.1-turbo	vr
+seed-oss-36b-instruct	
+seedance-2	v
+seedance-2.0	v
+seedance-2.0-fast	v
+seedance-2.0-mini	v
+seedance-2.5	
+seedance-v1.0-pro	v
+seedance-v1.0-pro-fast	v
+seedream-4.0	v
+seedream-4.5	v
+seedream-5.0-lite	v
+seedream-5.0-pro	v
+sensenova-6.8-flash-lite	vr
+shisa-v2-llama3.3-70b	
+shisa-v2.1-llama3.3-70b	
+skyfall-36b-v2	
+small	vr
+snowflake-llama3.3-70b	
+solar-mini	
+solar-mini4	r
+solar-pro2	r
+solar-pro3	r
+solar-pro4	r
+sonar	
+sonar-deep-research	r
+sonar-pro	v
+sonar-pro-search	vr
+sonar-reasoning	r
+sonar-reasoning-pro	vr
+sora-2	v
+sora-2-pro	v
+space-bunny	vr
+space-bunny-free	vr
+sparsedrive	
+stable-diffusion-3.5-large	
+stablediffusionxl	v
+standardcompute	vr
+starlight-precise-2.6	
+step-3-5-flash	r
+step-3-5-flash-2603	r
+step-3-7-flash	vr
+step-3.5-flash	r
+step-3.5-flash-2603	r
+step-3.7-flash	vr
+step-5-preview	vr
+step-5-preview-free	vr
+step-router-v1	
+step-tts-2	
+stepaudio-2.5-asr	
+stepaudio-2.5-tts	
+streampetr	
+studiovoice	
+summarize	v
+superbot	vr
+superbot-fast	vr
+supergemma4-26b-uncensored	v
+synth	vr
+synth-2.5-flash	
+synth-2.5-pro	
+synth-code	vr
+synthetic-video-detector	
+tako	
+tc-code-latest	
+ternary-bonsai-2-27b	vr
+ternary-bonsai-2-9b	vr
+text-embedding-005	
+text-embedding-3-large	
+text-embedding-3-small	
+text-embedding-ada-002	
+text-max	vr
+text-multilingual-embedding-002	
+text-prime	r
+text-standard	r
+text-to-audio	
+tidepool-alpha-free	r
+tiny-aya-earth	
+tiny-aya-fire	
+tiny-aya-global	
+tiny-aya-water	
+titan-embed-text-v2	
+toast-1	
+tofino-3	v
+tongyi-intent-detect-v3	
+topazlabs	v
+transcribe-1	
+trendyol-asure-12b	v
+trinity-large-preview-free	
+trinity-large-thinking	r
+trinity-mini	r
+tts-1	
+tts-1-hd	
+ui-tars-1.5-7b	v
+ultramarine-1-flash	vr
+umans-coder	vr
+umans-deepseek-v4-flash-0731	r
+umans-deepseek-v4.1-flash	vr
+umans-deepseek-v4.1-flash-1017	vr
+umans-flash	vr
+umans-glm-5.3	r
+umans-glm-5.3-flash	vr
+umans-kimi-k3	vr
+umans-kimi-k3.1-pro	vr
+umans-qwen3.6-35b-a3b	vr
+universal-summarizer	
+unslopnemo-12b	
+us-gov.openai.gpt-oss-120b-1	r
+us-gov.openai.gpt-oss-20b-1	r
+us.amazon.nova-2-lite-v1	vr
+us.amazon.nova-lite-v1	v
+us.amazon.nova-micro-v1	
+us.amazon.nova-premier-v1	v
+us.amazon.nova-pro-v1	v
+us.anthropic.claude-fable-5	vr
+us.anthropic.claude-fable-5-1	vr
+us.anthropic.claude-fable-5-2	vr
+us.anthropic.claude-haiku-4-5-20251001-v1	vr
+us.anthropic.claude-haiku-5-5	vr
+us.anthropic.claude-opus-4-1-20250805-v1	vr
+us.anthropic.claude-opus-4-5-20251101-v1	vr
+us.anthropic.claude-opus-4-6-v1	vr
+us.anthropic.claude-opus-4-7	vr
+us.anthropic.claude-opus-4-8	vr
+us.anthropic.claude-opus-5	vr
+us.anthropic.claude-opus-5-5	vr
+us.anthropic.claude-sonnet-4-20250514-v1	vr
+us.anthropic.claude-sonnet-4-5-20250929-v1	vr
+us.anthropic.claude-sonnet-4-6	vr
+us.anthropic.claude-sonnet-5	vr
+us.anthropic.claude-sonnet-5-5	vr
+us.deepseek.r1-v1	r
+us.meta.llama3-1-70b-instruct-v1	
+us.meta.llama3-1-8b-instruct-v1	
+us.meta.llama3-3-70b-instruct-v1	
+us.meta.llama4-maverick-17b-instruct-v1	v
+us.meta.llama4-scout-17b-instruct-v1	v
+us.mistral.pixtral-large-2502-v1	v
+us.moonshotai.kimi-k3	vr
+us.moonshotai.kimi-k3.1	vr
+us.openai.gpt-5.6-luna	vr
+us.openai.gpt-5.6-sol	vr
+us.openai.gpt-5.6-terra	vr
+us.openai.gpt-6-astra	vr
+us.openai.gpt-6-luna	vr
+us.openai.gpt-6-sol	vr
+us.openai.gpt-6.1-sol	vr
+us.openai.gpt-6.1-terra	vr
+us.openai.gpt-6.2-astra	vr
+us.openai.gpt-6.2-sol	vr
+us.writer.palmyra-x4-v1	r
+us.writer.palmyra-x5-v1	r
+us.xai.grok-4.6	vr
+us.xai.grok-4.7	vr
+us.zai.glm-5.3	r
+usdcode	
+usdvalidate	
+veiled-calla-12b	
+venice-uncensored	
+venice-uncensored-1-2	v
+venice-uncensored-role-play	v
+veo-2	
+veo-3	
+veo-3-fast	
+veo-3.1	
+veo-3.1-fast	v
+veo-3.1-fast-generate-001	v
+veo-3.1-generate-001	v
+veo-3.1-lite-generate-001	v
+veo3.1	v
+veo3.1-fast	v
+veo3.1-lite	v
+vision-large	vr
+vision-medium	vr
+vision-small	vr
+viv-fast	vr
+voxtral-mini-3b	
+voxtral-mini-latest	
+voxtral-mini-transcribe-3	
+voxtral-mini-tts-3	
+voxtral-mini-tts-latest	
+voxtral-small-24b-2507	
+voxtral-small-2507	
+voxtral-small-latest	
+voxtral-small-latest@eu	
+voxtral-small-transcribe-3	
+voyage-3-large	
+voyage-3.5	
+voyage-3.5-lite	
+voyage-4	
+voyage-4-large	
+voyage-4-lite	
+voyage-code-2	
+voyage-code-3	
+voyage-finance-2	
+voyage-law-2	
+wan-v2-6	v
+wan-v2.5-t2v-preview	
+wan-v2.6-i2v	v
+wan-v2.6-i2v-flash	v
+wan-v2.6-r2v	v
+wan-v2.6-r2v-flash	v
+wan-v2.6-t2v	
+wan-v2.7-r2v	v
+wan-v2.7-t2v	
+wan-v3.0-video	v
+wan-v3.0-video-prime	v
+wan2-2-t2v-a14b	
+wan2.7-image	
+wan2.7-image-pro	
+wayfarer-large-70b-llama-3.3	
+weaver	
+whisper-1	
+whisper-large-v3	
+whisper-large-v3-turbo	
+wizardlm-2-8x22b	
+wonder-3.5	v
+writer.palmyra-vision-7b	v
+writer.palmyra-x4-v1	r
+writer.palmyra-x5-v1	r
+x-preview-f-free	vr
+xai.grok-4.20-non-reasoning	v
+xai.grok-4.20-reasoning	vr
+xai.grok-4.3	vr
+xai.grok-4.6	vr
+xiaomi-mimo-v2-5	vr
+xiaomi-mimo-v2-6-flash	vr
+xiaomi-mimo-v2.5	vr
+xiaomi-mimo-v2.5-free	vr
+xiaomi-mimo-v2.5-pro	r
+xiaomi-mimo-v2.5-pro-free	r
+xpersona-frieren-coder	vr
+xpersona-gpt-5.5	vr
+z-ai-glm-5-3	r
+z-ai-glm-5-3-flash	vr
+z-ai-glm-5-turbo	r
+z-ai-glm-5v-turbo	vr
+zai-glm-5-1	
+zai-glm-5-2	r
+zai-glm-5-3	r
+zai-glm-5-3-flash	vr
+zai-glm-5.1	r
+zai-org-glm-4.6	r
+zai-org-glm-4.7	r
+zai-org-glm-5	r
+zai-org-glm-5-1	r
+zai-org-glm-5-2	r
+zai.glm-4.7	r
+zai.glm-4.7-flash	r
+zai.glm-4.7-flash@us	r
+zai.glm-5	r
+zdev	vr
+zdr	vr

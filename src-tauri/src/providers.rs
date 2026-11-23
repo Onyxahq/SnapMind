@@ -10,7 +10,8 @@ use snapmind_providers::ProviderMeta;
 /// 内置服务商目录（设置页「添加服务商」用）。
 #[tauri::command]
 pub fn provider_catalog() -> Vec<ProviderMeta> {
-    snapmind_providers::CATALOG.to_vec()
+    // 国内外各有一套地址的服务商，按地区填默认地址
+    snapmind_providers::catalog(snapmind_platform::region::mainland_china())
 }
 
 /// 哪些服务商已经保存了 Key（只回答有没有，不回传内容）。
@@ -36,15 +37,13 @@ pub struct FetchedModel {
     pub tags: Vec<ModelTag>,
 }
 
-/// 用已保存的 Key 获取模型列表，同时就是「测试连接」。标签按模型名推断。
+/// 用已保存的 Key 获取模型列表，同时就是「测试连接」。服务商在列表里说了能不能看图就听它的，
+/// 没说再按模型名推断。
 #[tauri::command]
 pub async fn provider_fetch_models(id: String, kind: ProviderKind, base_url: String) -> Result<Vec<FetchedModel>, String> {
     let key = secrets::get(&id).map_err(|e| e.to_string())?;
-    let ids = snapmind_providers::list_models(kind, &base_url, key.as_deref()).await.map_err(|e| e.to_string())?;
-    Ok(ids
-        .into_iter()
-        .map(|m| FetchedModel { tags: snapmind_providers::infer_tags(kind, &m), id: m })
-        .collect())
+    let list = snapmind_providers::list_models(kind, &base_url, key.as_deref()).await.map_err(|e| e.to_string())?;
+    Ok(list.iter().map(|m| FetchedModel { tags: snapmind_providers::tags_for(kind, m), id: m.id.clone() }).collect())
 }
 
 /// 测试机器翻译：用已保存的 Key 把一句英文翻成简体中文，返回译文。

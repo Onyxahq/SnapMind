@@ -15,7 +15,7 @@
     type ProviderMeta,
   } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';
-  import { FORMAT_LABEL, MT_SERVICES, TAGS, canAdd, mergeModels, mtAccount, newProviderId, toggleTag, visibleModels } from '$lib/providers';
+  import { FORMAT_LABEL, MT_SERVICES, TAGS, canAdd, mergeModels, mtAccount, newProviderId, regionOf, toggleTag, visibleModels } from '$lib/providers';
   import MtDetail from './MtDetail.svelte';
   import { keyStatus, refreshKeys } from '$lib/keys.svelte';
   import Card from '$lib/ui/Card.svelte';
@@ -245,18 +245,30 @@
                 />
               </Row>
             {/if}
-            <Row title="Base URL" desc={cur.kind === 'custom' ? '填到 /v1 为止' : undefined}>
-              <Field
-                mono
-                width="300px"
-                aria-label="Base URL"
-                value={cur.baseUrl}
-                spellcheck="false"
-                onchange={(e) => {
-                  const baseUrl = e.currentTarget.value.trim() || curMeta.defaultUrl;
-                  void patchCur((p) => ({ ...p, baseUrl }));
-                }}
-              />
+            <Row
+              title="Base URL"
+              desc={cur.kind === 'custom' ? '填到 /v1 为止' : curMeta.altUrl ? '国内站和国际站的 Key 不通用' : undefined}
+            >
+              <div class="url">
+                <Field
+                  mono
+                  width="300px"
+                  aria-label="Base URL"
+                  value={cur.baseUrl}
+                  spellcheck="false"
+                  onchange={(e) => {
+                    const baseUrl = e.currentTarget.value.trim() || curMeta.defaultUrl;
+                    void patchCur((p) => ({ ...p, baseUrl }));
+                  }}
+                />
+                {#if curMeta.altUrl}
+                  {@const alt = curMeta.altUrl}
+                  {@const next = cur.baseUrl === alt ? curMeta.defaultUrl : alt}
+                  <button type="button" class="swap" title={next} onclick={() => void patchCur((p) => ({ ...p, baseUrl: next }))}>
+                    改用{regionOf(next)}
+                  </button>
+                {/if}
+              </div>
             </Row>
             <Row
               title="API Key"
@@ -351,6 +363,23 @@
 </div>
 
 <style>
+  .url { display: flex; align-items: center; gap: 8px; }
+  .swap {
+    flex: none;
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--r-ctl, 8px);
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--d-hover, 150ms) var(--ease-out, ease);
+  }
+  .swap:hover { background: var(--accent-soft, var(--sunken)); }
+  .swap:active { transform: scale(.97); }
   .wrap {
     display: flex;
     gap: 14px;
@@ -360,6 +389,13 @@
     width: 200px;
     flex: none;
     padding: 6px;
+    /* 服务商多了以后自己滚动，右边详情不跟着跑 */
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
     display: flex;
     flex-direction: column;
     gap: 2px;
