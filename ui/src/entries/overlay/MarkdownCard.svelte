@@ -2,7 +2,8 @@
   // Markdown 结果卡片（需求 3.8、M8.1）：「编辑」视图改源码，「预览」视图实时渲染（Obsidian 方言）。
   // 复制、存为 .md 会结束截图；关闭卡片不会。
   import type { Rect } from '$lib/geometry';
-  import { placeCard, type TranslateCard } from '$lib/task';
+  import type { TranslateCard } from '$lib/task';
+  import { floatCard } from '$lib/floatCard';
   import { renderMarkdown } from '$lib/markdown';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Button from '$lib/ui/Button.svelte';
@@ -25,9 +26,7 @@
     onclose: () => void;
   } = $props();
 
-  let height = $state(360);
   const WIDTH = 420;
-  const pos = $derived(placeCard(sel, { width: WIDTH, height }, { width: innerWidth, height: innerHeight }));
   const busy = $derived(card.stage === 'markdown');
   const canAct = $derived(!busy && card.stage !== 'error' && !!card.src.trim());
   let view = $state<'edit' | 'preview'>('preview');
@@ -49,10 +48,7 @@
   role="dialog"
   tabindex="-1"
   aria-label="Markdown"
-  style:left="{pos.x}px"
-  style:top="{pos.y}px"
-  style:width="{WIDTH}px"
-  bind:clientHeight={height}
+  use:floatCard={{ sel, width: WIDTH }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
@@ -160,7 +156,12 @@
     color: var(--text);
     padding: 10px 12px;
     overflow: auto;
+    /* 拉伸卡片时填满 */
+    flex: 1 1 auto;
+    min-height: 60px;
   }
+  .sk { flex: 1 1 auto; min-height: 60px; }
+  .card:global(.sized) .field { resize: none; }
   .field {
     resize: vertical;
     font: 13px/20px var(--font-mono, Consolas, monospace);

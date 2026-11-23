@@ -1,9 +1,9 @@
 <script lang="ts">
   // 公式结果卡片（需求 3.8、M8.3）：上面是 KaTeX 预览，下面是可以直接改的 LaTeX 源码，改动实时渲染。
   // 「复制 LaTeX」「复制 $$…$$」会结束截图；关闭卡片不会。
-  import { untrack } from 'svelte';
   import type { Rect } from '$lib/geometry';
-  import { placeCard, type TranslateCard } from '$lib/task';
+  import type { TranslateCard } from '$lib/task';
+  import { floatCard } from '$lib/floatCard';
   import { renderLatex, splitFormulas } from '$lib/formula';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Button from '$lib/ui/Button.svelte';
@@ -24,23 +24,8 @@
     onclose: () => void;
   } = $props();
 
-  let height = $state(300);
   const WIDTH = 440;
   const busy = $derived(card.stage === 'formula');
-  const placed = $derived(placeCard(sel, { width: WIDTH, height }, { width: innerWidth, height: innerHeight }));
-  // 识别完就钉住位置：编辑时卡片变高不会跳到选区另一侧，只在放不下时往上挪
-  let pinned = $state<{ x: number; y: number } | null>(null);
-  const selKey = $derived(`${sel.x},${sel.y},${sel.width},${sel.height}`);
-  $effect(() => {
-    void selKey; // 选区动了就跟着选区重新摆
-    pinned = null;
-  });
-  $effect(() => {
-    if (!busy && !pinned) pinned = untrack(() => placed);
-  });
-  const pos = $derived(
-    pinned ? { x: pinned.x, y: Math.max(8, Math.min(pinned.y, innerHeight - height - 8)) } : placed,
-  );
   const canAct = $derived(!busy && card.stage !== 'error' && !!card.src.trim());
 
   const all = $derived(splitFormulas(card.src).map((tex) => ({ tex, ...renderLatex(tex) })));
@@ -54,10 +39,7 @@
   role="dialog"
   tabindex="-1"
   aria-label="公式"
-  style:left="{pos.x}px"
-  style:top="{pos.y}px"
-  style:width="{WIDTH}px"
-  bind:clientHeight={height}
+  use:floatCard={{ sel, width: WIDTH }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
@@ -170,6 +152,11 @@
     font: 12.5px/19px var(--font-mono, Consolas, monospace); padding: 8px 10px;
     transition: border-color var(--d-hover) var(--ease-hover), box-shadow var(--d-hover) var(--ease-hover);
   }
+  /* 拉伸卡片时预览和源码按 3 : 2 分高度 */
+  .preview { flex: 3 1 auto; }
+  .field, .sk { flex: 2 1 auto; min-height: 48px; }
+  .card:global(.sized) .preview { max-height: none; }
+  .card:global(.sized) .field { resize: none; }
   .field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .field[readonly] { color: var(--text2); }
   .sk { height: 96px; box-sizing: border-box; padding: 18px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }

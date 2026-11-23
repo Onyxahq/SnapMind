@@ -2,7 +2,8 @@
   // 翻译结果卡片（需求 3.8）：原文和译文都可编辑；改了原文点 ↻ 重新翻译；
   // 复制译文 / 贴图会结束截图，关闭卡片不会。
   import type { Rect } from '$lib/geometry';
-  import { placeCard, stageLabel, type TranslateCard } from '$lib/task';
+  import { stageLabel, type TranslateCard } from '$lib/task';
+  import { floatCard } from '$lib/floatCard';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Button from '$lib/ui/Button.svelte';
   import Seg from '$lib/ui/Seg.svelte';
@@ -35,9 +36,7 @@
     onclose: () => void;
   } = $props();
 
-  let height = $state(320);
   const WIDTH = 380;
-  const pos = $derived(placeCard(sel, { width: WIDTH, height }, { width: innerWidth, height: innerHeight }));
   const busy = $derived(card.stage === 'recognize' || card.stage === 'oneshot' || card.stage === 'translate');
   const streamingSrc = $derived(card.stage === 'recognize' || card.stage === 'oneshot');
   const waitingDst = $derived(card.stage === 'translate' && !card.dst);
@@ -61,10 +60,7 @@
   role="dialog"
   tabindex="-1"
   aria-label="翻译结果"
-  style:left="{pos.x}px"
-  style:top="{pos.y}px"
-  style:width="{WIDTH}px"
-  bind:clientHeight={height}
+  use:floatCard={{ sel, width: WIDTH }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
@@ -202,7 +198,13 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    /* 拉伸卡片时原文、译文按 1 : 2 分高度 */
+    flex: 1 1 auto;
+    min-height: 0;
   }
+  .blk + .blk { flex-grow: 2; }
+  .blk > .field, .blk > .sk { flex: 1 1 auto; min-height: 44px; }
+  .card:global(.sized) .field { resize: none; }
   .cap {
     font-size: 11px;
     color: var(--text3);

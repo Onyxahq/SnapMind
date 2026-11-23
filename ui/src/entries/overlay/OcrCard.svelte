@@ -3,7 +3,7 @@
   // 本地 OCR 模型第一次用时在这里下载（约 21 MB，PaddlePaddle 官方仓库，逐个校验 SHA-256）。
   import type { Rect } from '$lib/geometry';
   import type { OcrStatus } from '$lib/ipc';
-  import { placeCard } from '$lib/task';
+  import { floatCard } from '$lib/floatCard';
   import { ocrMeta, progressLabel, type OcrCard } from '$lib/ocr';
   import IconButton from '$lib/ui/IconButton.svelte';
   import Button from '$lib/ui/Button.svelte';
@@ -32,9 +32,7 @@
     onclose: () => void;
   } = $props();
 
-  let height = $state(300);
   const WIDTH = 380;
-  const pos = $derived(placeCard(sel, { width: WIDTH, height }, { width: innerWidth, height: innerHeight }));
   const canAct = $derived(card.stage === 'done' && !!card.text.trim());
   const empty = $derived(card.stage === 'done' && !!card.result && card.result.lines.length === 0);
   const pct = $derived(model && model.total ? Math.min(100, (model.received / model.total) * 100) : 0);
@@ -50,10 +48,7 @@
   role="dialog"
   tabindex="-1"
   aria-label="识别文字"
-  style:left="{pos.x}px"
-  style:top="{pos.y}px"
-  style:width="{WIDTH}px"
-  bind:clientHeight={height}
+  use:floatCard={{ sel, width: WIDTH }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
@@ -200,6 +195,9 @@
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .field.mono { white-space: pre; overflow-x: auto; }
+  /* 拉伸卡片时文字框填满 */
+  .field, .sk { flex: 1 1 auto; min-height: 60px; }
+  .card:global(.sized) .field { resize: none; }
   .cap {
     font-size: 11px;
     color: var(--text3);

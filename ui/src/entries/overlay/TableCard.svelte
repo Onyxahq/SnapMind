@@ -1,11 +1,12 @@
 <script lang="ts">
   // 表格结果卡片（需求 3.8、M8.2、F5）：「表格」视图是渲染好的 HTML 表格，默认只看（预览），点笔切到编辑，
   // 单元格直接改（选哪种会记住）；「Markdown」「CSV」视图里改源码，切回表格时解析回来。
-  // 两个复制：「复制纯文本」复制当前视图的文字（表格视图是制表符分隔）；「复制」同时放 HTML 和制表符文本，
-  // 粘贴进 Excel / Word 直接成表格、保留表头和合并单元格。复制和导出 .xlsx 会结束截图。
+  // 表格视图两个复制：「复制纯文本」是制表符分隔的文字；「复制」同时放 HTML 和制表符文本，
+  // 粘贴进 Excel / Word 直接成表格、保留表头和合并单元格。Markdown / CSV 视图只有一个「复制」，复制源码。
+  // 复制和导出 .xlsx 会结束截图。卡片可拖动、可拉伸（floatCard）。
   import type { Rect } from '$lib/geometry';
   import type { OcrStatus } from '$lib/ipc';
-  import { placeCard } from '$lib/task';
+  import { floatCard } from '$lib/floatCard';
   import { progressLabel } from '$lib/ocr';
   import { parseCsv, parseMarkdown, toCsv, toMarkdown, toTsv, type TableCardState, type TableView, type TRows } from '$lib/table';
   import IconButton from '$lib/ui/IconButton.svelte';
@@ -38,9 +39,7 @@
     onclose: () => void;
   } = $props();
 
-  let height = $state(320);
   const WIDTH = 500;
-  const pos = $derived(placeCard(sel, { width: WIDTH, height }, { width: innerWidth, height: innerHeight }));
   const canAct = $derived(card.stage === 'done' && card.rows.length > 0);
   const pct = $derived(model && model.total ? Math.min(100, (model.received / model.total) * 100) : 0);
 
@@ -98,10 +97,7 @@
   role="dialog"
   tabindex="-1"
   aria-label="表格"
-  style:left="{pos.x}px"
-  style:top="{pos.y}px"
-  style:width="{WIDTH}px"
-  bind:clientHeight={height}
+  use:floatCard={{ sel, width: WIDTH, minWidth: 340 }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
@@ -185,8 +181,12 @@
   <footer>
     <span class="meta" title={card.meta}>{card.meta}</span>
     <Button disabled={!canAct} onclick={onexport} title="导出为 Excel 文件">导出 .xlsx</Button>
-    <Button disabled={!canAct} onclick={copyText} title={view === 'grid' ? '复制为制表符分隔的纯文本' : `复制 ${view === 'csv' ? 'CSV' : 'Markdown'} 源码`}>复制纯文本</Button>
-    <Button variant="primary" disabled={!canAct} onclick={copyExcel} title="复制后在 Excel / Word 里直接粘贴成表格，保留表头和合并单元格">复制</Button>
+    {#if view === 'grid'}
+      <Button disabled={!canAct} onclick={copyText} title="复制为制表符分隔的纯文本">复制纯文本</Button>
+      <Button variant="primary" disabled={!canAct} onclick={copyExcel} title="复制后在 Excel / Word 里直接粘贴成表格，保留表头和合并单元格">复制</Button>
+    {:else}
+      <Button variant="primary" disabled={!canAct} onclick={copyText} title={`复制 ${view === 'csv' ? 'CSV' : 'Markdown'} 源码`}>复制</Button>
+    {/if}
   </footer>
 </div>
 
@@ -220,6 +220,8 @@
   @keyframes pulse { from { opacity: .35; transform: scale(calc(1 - .2 * var(--m))); } }
   .grid {
     max-height: 320px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
     border-radius: var(--r-ctl);
     border: 1px solid var(--line2);
@@ -245,6 +247,10 @@
     font: 12.5px/19px var(--font-mono, Consolas, monospace); padding: 8px 10px;
     transition: border-color var(--d-hover) var(--ease-hover), box-shadow var(--d-hover) var(--ease-hover);
   }
+  .field, .sk { flex: 1 1 auto; min-height: 60px; }
+  /* 拉伸过的卡片定高，表格 / 源码填满 */
+  .card:global(.sized) .grid { max-height: none; }
+  .card:global(.sized) .field { resize: none; }
   .field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .sk { height: 180px; box-sizing: border-box; padding: 10px 2px; display: grid; grid-template-rows: repeat(4, 1fr); gap: 8px; }
   .sk span {
