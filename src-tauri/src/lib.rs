@@ -193,6 +193,7 @@ pub fn run() {
             ocr::pin_copy_text,
             selcard::selcard_resize,
             selcard::selcard_pin,
+            selcard::selcard_drag,
             selcard::selcard_close,
             selcard::selcard_pending,
             commands::pin_info,

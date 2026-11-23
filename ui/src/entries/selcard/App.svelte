@@ -1,7 +1,8 @@
 <script lang="ts">
-  // 划词卡片（需求第 5 节、M7.2）：Ctrl+Alt+D 取到选中的文字后出现在鼠标旁，流式显示译文。
-  // 点别处就消失（Rust 在窗口失去焦点时收起）；点图钉固定后不再自动消失，可以拖动、改原文重新翻译、
-  // 改译文、切换目标语言。
+  // 划词卡片（需求第 5 节、M7.2、F4）：Ctrl+Alt+D 取到选中的文字后出现在鼠标旁，流式显示译文。
+  // 随时可以拖动（标题栏、页脚和空白处），拖过之后内容变高也不会跳回鼠标旁。
+  // 点别处就消失（Rust 在窗口失去焦点时收起）；点图钉固定后一直留着，可以改原文重新翻译、改译文、
+  // 切换目标语言，之后再按 Ctrl+Alt+D 新取到的文字就在这张卡片里接着翻译。
   import { onMount, tick } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import {
@@ -13,6 +14,7 @@
     onTaskEvent,
     selcardPending,
     selcardClose,
+    selcardDrag,
     selcardPin,
     selcardResize,
     taskCancel,
@@ -75,10 +77,11 @@
     }
   }
 
-  /** 固定后拖标题栏移动卡片（按钮、下拉框上不拖） */
-  function onHeaderDown(e: PointerEvent) {
-    if (!pinned || e.button !== 0 || (e.target as Element).closest('button, select')) return;
-    if (inTauri()) getCurrentWindow().startDragging();
+  /** 按住卡片空白处、标题栏或页脚拖动（按钮、输入框和可以选中复制的译文上不拖） */
+  function onCardDown(e: PointerEvent) {
+    if (e.button !== 0 || (e.target as Element).closest('button, select, textarea, input, .dst-text, [role="listbox"]')) return;
+    e.preventDefault();
+    selcardDrag();
   }
 
   function onKey(e: KeyboardEvent) {
@@ -97,8 +100,8 @@
   async function pull() {
     const s = await selcardPending();
     if (!s) return;
-    pinned = false;
-    target = config.value.translation.targetLang;
+    // 固定着的卡片接着用：保留图钉和选好的目标语言
+    if (!pinned) target = config.value.translation.targetLang;
     start(s.text);
     await tick();
     log('info', `划词卡片：${s.method}，${s.text.length} 字`);
@@ -127,9 +130,9 @@
 <svelte:window onkeydown={onKey} />
 
 {#if card}
-  <div class="card" class:pinned role="dialog" aria-label="划词翻译" bind:clientHeight={height}>
-    <!-- svelte-ignore a11y_no_static_element_interactions -- 拖动标题栏移动窗口，键盘用户不需要 -->
-    <header onpointerdown={onHeaderDown}>
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- 拖动移动窗口，键盘用户不需要 -->
+  <div class="card" class:pinned role="dialog" tabindex="-1" aria-label="划词翻译" bind:clientHeight={height} onpointerdown={onCardDown}>
+    <header>
       <span class="chip" class:busy>
         {#if busy}<span class="dot" aria-hidden="true"></span>翻译中{who}
         {:else if card.stage === 'error'}出错了
@@ -212,6 +215,7 @@
     color: var(--text);
     animation: card-in var(--d-in) var(--ease-in) both;
   }
+  .card:focus { outline: none; }
   .card.pinned { box-shadow: 0 0 0 1.5px var(--accent), var(--elev); }
   @keyframes card-in {
     from { opacity: 0; transform: translateY(calc(4px * var(--m))) scale(calc(1 - .02 * var(--m))); }
@@ -221,7 +225,8 @@
     align-items: center;
     gap: 6px;
   }
-  .pinned header { cursor: move; }
+  header, footer, .src-line { cursor: grab; }
+  .card:active header { cursor: grabbing; }
   .grow { flex: 1; }
   .chip {
     display: inline-flex;

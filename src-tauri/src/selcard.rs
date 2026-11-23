@@ -2,9 +2,10 @@
 //!
 //! - 卡片是独立的透明窗口 `selcard-<n>`。启动时预先建好一张（隐藏），弹出时只是挪位置、显示，
 //!   不用等 WebView 加载。
-//! - 没固定的卡片失去焦点（点了别处）就隐藏，回到「空闲」等下次使用；固定（图钉）的卡片退出空闲，
-//!   下次划词会另开一张，所以可以同时钉住好几张。多出来的卡片关掉时直接销毁。
+//! - 没固定的卡片失去焦点（点了别处）就隐藏，回到「空闲」等下次使用；固定（图钉）的卡片一直留着，
+//!   之后再划词就在最近钉住的那张里接着翻译（F4：不挪位置、不另开卡片）。多出来的卡片关掉时直接销毁。
 //! - 位置：鼠标右下方，放不下时翻到鼠标上方，并夹在所在显示器内；页面排版后报告实际高度再调整。
+//!   用户拖过的卡片（以及接着用的固定卡片）调整高度时左上角不动，只在超出屏幕底部时往上挪。
 //! - 要翻译的文字先存在 Rust 这边，页面收到 `selcard:show` 或刚加载完时来取（只取一次）：新建的卡片
 //!   页面还没加载好时发出的事件会丢，靠加载完再取补上。
 
@@ -34,6 +35,10 @@ struct Inner {
     /// 空闲的卡片（隐藏着，等下次划词）
     free: Option<String>,
     pinned: HashSet<String>,
+    /// 最近钉住的卡片：下次划词在它里面接着翻译
+    last_pinned: Option<String>,
+    /// 用户挪过（或接着用）的卡片：调整高度时不再按鼠标位置摆
+    moved: HashSet<String>,
     /// 每张卡片弹出时的鼠标位置和所在显示器（x, y, 宽, 高，物理像素），调整高度时据此重新摆放
     anchor: HashMap<String, Anchor>,
     /// 等页面来取的文字
@@ -108,17 +113,67 @@ pub fn place(cursor: (i32, i32), monitor: (i32, i32, i32, i32), size: (i32, i32)
     (x, y)
 }
 
+/// 挪过的卡片换了高度：左上角不动，超出所在显示器底部时往上挪（但不越过顶部）。
+pub fn keep_in(pos: (i32, i32), height: i32, monitor: (i32, i32, i32, i32), margin: i32) -> (i32, i32) {
+    let (_, my, _, mh) = monitor;
+    let bottom = my + mh - margin;
+    let y = if pos.1 + height > bottom { (bottom - height).max(my + margin) } else { pos.1 };
+    (pos.0, y)
+}
+
 fn apply<R: Runtime>(app: &AppHandle<R>, label: &str, height_css: f64) {
-    let Some(a) = app.state::<SelState>().inner.lock().expect("划词卡片锁").anchor.get(label).copied() else { return };
+    let (anchor, moved) = {
+        let state = app.state::<SelState>();
+        let inner = state.inner.lock().expect("划词卡片锁");
+        (inner.anchor.get(label).copied(), inner.moved.contains(label))
+    };
     let Some(win) = app.get_webview_window(label) else { return };
+    if moved {
+        let scale = win.scale_factor().unwrap_or(1.0);
+        let size = ((WIDTH_CSS * scale).round() as i32, (height_css * scale).round() as i32);
+        let Ok(pos) = win.outer_position() else { return };
+        let monitor = win
+            .current_monitor()
+            .ok()
+            .flatten()
+            .map(|m| (m.position().x, m.position().y, m.size().width as i32, m.size().height as i32));
+        let _ = win.set_size(PhysicalSize::new(size.0 as u32, size.1 as u32));
+        if let Some(mon) = monitor {
+            let (x, y) = keep_in((pos.x, pos.y), size.1, mon, (GAP_CSS * scale / 2.0).round() as i32);
+            if (x, y) != (pos.x, pos.y) {
+                let _ = win.set_position(PhysicalPosition::new(x, y));
+            }
+        }
+        return;
+    }
+    let Some(a) = anchor else { return };
     let size = ((WIDTH_CSS * a.scale).round() as i32, (height_css * a.scale).round() as i32);
     let (x, y) = place(a.cursor, a.monitor, size, (GAP_CSS * a.scale).round() as i32);
     let _ = win.set_size(PhysicalSize::new(size.0 as u32, size.1 as u32));
     let _ = win.set_position(PhysicalPosition::new(x, y));
 }
 
-/// 在鼠标旁弹出卡片显示这段文字（在取词的后台线程里调用）。
+/// 在鼠标旁弹出卡片显示这段文字（在取词的后台线程里调用）。有钉住的卡片时在它里面接着翻译。
 pub fn show<R: Runtime>(app: &AppHandle<R>, sel: SelectionText) {
+    let reuse = {
+        let state = app.state::<SelState>();
+        let mut inner = state.inner.lock().expect("划词卡片锁");
+        let hit = inner.last_pinned.clone().filter(|l| inner.pinned.contains(l) && app.get_webview_window(l).is_some());
+        if let Some(l) = &hit {
+            inner.moved.insert(l.clone());
+            inner.pending.insert(l.clone(), ShowPayload { text: sel.text.clone(), method: sel.method });
+        }
+        hit
+    };
+    if let Some(label) = reuse {
+        if let Some(win) = app.get_webview_window(&label) {
+            let _ = win.emit_to(label.as_str(), "selcard:show", ());
+            let _ = win.unminimize();
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+        return;
+    }
     let free = app.state::<SelState>().inner.lock().expect("划词卡片锁").free.take();
     let Some(label) = free.or_else(|| build(app)) else { return };
     let Some(win) = app.get_webview_window(&label) else { return };
@@ -164,11 +219,15 @@ pub fn set_pinned<R: Runtime>(app: &AppHandle<R>, label: &str, on: bool) {
         let mut inner = state.inner.lock().expect("划词卡片锁");
         if on {
             inner.pinned.insert(label.to_string());
+            inner.last_pinned = Some(label.to_string());
             if inner.free.as_deref() == Some(label) {
                 inner.free = None;
             }
         } else {
             inner.pinned.remove(label);
+            if inner.last_pinned.as_deref() == Some(label) {
+                inner.last_pinned = inner.pinned.iter().next().cloned();
+            }
         }
         inner.free.is_none()
     };
@@ -212,6 +271,10 @@ pub fn close<R: Runtime>(app: &AppHandle<R>, label: &str) {
         let state = app.state::<SelState>();
         let mut inner = state.inner.lock().expect("划词卡片锁");
         inner.pinned.remove(label);
+        if inner.last_pinned.as_deref() == Some(label) {
+            inner.last_pinned = inner.pinned.iter().next().cloned();
+        }
+        inner.moved.remove(label);
         inner.anchor.remove(label);
         inner.pending.remove(label);
         match inner.free.as_deref() {
@@ -240,6 +303,13 @@ pub fn selcard_pin(app: AppHandle, window: tauri::WebviewWindow, on: bool) {
     set_pinned(&app, window.label(), on);
 }
 
+/// 页面上按下鼠标要拖动卡片：记下「用户挪过」，再交给系统拖动（跟手、能拖到别的显示器）。
+#[tauri::command]
+pub async fn selcard_drag(app: AppHandle, window: tauri::WebviewWindow) {
+    app.state::<SelState>().inner.lock().expect("划词卡片锁").moved.insert(window.label().to_string());
+    let _ = window.start_dragging();
+}
+
 #[tauri::command]
 pub fn selcard_pending(app: AppHandle, window: tauri::WebviewWindow) -> Option<ShowPayload> {
     take_pending(&app, window.label())
@@ -265,5 +335,16 @@ mod tests {
         assert_eq!(place((100, 1000), mon, (380, 160), 14), (114, 1000 - 14 - 160));
         // 第二块屏在左边（负坐标）
         assert_eq!(place((-500, 50), (-1920, 0, 1920, 1080), (380, 160), 14), (-486, 64));
+    }
+
+    #[test]
+    fn moved_card_keeps_its_corner_unless_it_would_fall_off() {
+        let mon = (0, 0, 1920, 1080);
+        // 放得下：原地变高
+        assert_eq!(keep_in((600, 300), 400, mon, 7), (600, 300));
+        // 变高后超出底部：往上挪到贴着底边
+        assert_eq!(keep_in((600, 900), 400, mon, 7), (600, 1080 - 7 - 400));
+        // 比屏幕还高：顶到上边为止
+        assert_eq!(keep_in((600, 900), 2000, mon, 7), (600, 7));
     }
 }

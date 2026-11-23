@@ -697,7 +697,7 @@ export interface FetchedModel {
 const FAKE_CATALOG: ProviderMeta[] = [
   { kind: 'deepseek', name: 'DeepSeek', mono: 'DS', color: '#4D6BFE', format: 'openAi', defaultUrl: 'https://api.deepseek.com/v1', needsKey: true, desc: '性价比高的中文文本模型' },
   { kind: 'anthropic', name: 'Anthropic', mono: 'AN', color: '#C2410C', format: 'claude', defaultUrl: 'https://api.anthropic.com', needsKey: true, desc: 'Claude 系列，支持图片输入' },
-  { kind: 'moonshot', name: 'Kimi（月之暗面）', mono: 'KI', color: '#16191E', format: 'openAi', defaultUrl: 'https://api.moonshot.cn/v1', altUrl: 'https://api.moonshot.ai/v1', needsKey: true, desc: 'Kimi 系列，K2.5 支持图片输入' },
+  { kind: 'moonshot', name: 'Kimi', mono: 'KI', color: '#16191E', format: 'openAi', defaultUrl: 'https://api.moonshot.cn/v1', altUrl: 'https://api.moonshot.ai/v1', needsKey: true, desc: 'Kimi 系列，K2.5 支持图片输入' },
   { kind: 'ollama', name: 'Ollama（本地）', mono: 'OL', color: '#334155', format: 'openAi', defaultUrl: 'http://localhost:11434/v1', needsKey: false, desc: '在本机运行模型，不需要 Key' },
   { kind: 'custom', name: '自定义服务', mono: '+', color: '#64748B', format: 'openAi', defaultUrl: 'https://', needsKey: true, desc: '任意 OpenAI 兼容接口' },
 ];
@@ -1356,6 +1356,12 @@ export async function selcardResize(height: number): Promise<void> {
 export async function selcardPin(on: boolean): Promise<void> {
   if (!inTauri()) return;
   return invoke('selcard_pin', { on });
+}
+
+/** 开始拖动卡片（Rust 记下「用户挪过」，之后调整高度不再把它摆回鼠标旁）。 */
+export async function selcardDrag(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('selcard_drag');
 }
 
 export async function selcardClose(): Promise<void> {

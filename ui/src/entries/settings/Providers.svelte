@@ -392,7 +392,7 @@
     /* 服务商多了以后自己滚动，右边详情不跟着跑 */
     position: sticky;
     top: 0;
-    max-height: calc(100vh - 96px);
+    max-height: calc(100vh - 120px);
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
@@ -446,7 +446,7 @@
     text-overflow: ellipsis;
   }
   .pt small { font-size: 11px; color: var(--text3); }
-  .nm { font-size: 13px; color: var(--text2); }
+  .nm { font-size: 13px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .logo {
     width: 28px;
     height: 28px;
