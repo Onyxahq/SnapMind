@@ -40,6 +40,9 @@ describe('ocr card helpers', () => {
     expect(progressLabel({ installed: false, tableInstalled: false, downloading: true, received: 8_703_180, total: 21_510_548, error: null })).toBe(
       '8.3 / 20.5 MB',
     );
+    expect(progressLabel({ installed: false, tableInstalled: false, downloading: true, received: 0, total: 21_510_548, error: null, source: '魔搭 ModelScope' })).toBe(
+      '0.0 / 20.5 MB · 魔搭 ModelScope',
+    );
     const c = { ...newOcrCard('x', { x: 0, y: 0, width: 1, height: 1 }), stage: 'done' as const, result };
     expect(ocrMeta(c)).toBe('3 行 · 2 段 · 本地 OCR 0.21 s');
     expect(ocrMeta({ ...c, pick: [0] })).toBe('已选 1 / 3 行 · 右键单击恢复全部');

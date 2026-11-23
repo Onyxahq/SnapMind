@@ -32,6 +32,8 @@ pub struct OcrStatus {
     pub received: u64,
     pub total: u64,
     pub error: Option<String>,
+    /// 正在用（或最后用）哪个源下载
+    pub source: Option<String>,
 }
 
 #[derive(Default)]
@@ -335,9 +337,15 @@ async fn download<R: Runtime>(app: &AppHandle<R>, files: &[&models::ModelFile]) 
     let dir = user_models_dir(app);
     std::fs::create_dir_all(&dir).map_err(|e| format!("建立模型目录失败：{e}"))?;
     let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(15))
+        // 魔搭对不带 User-Agent 的请求回 403
+        .user_agent(concat!("SnapMind/", env!("CARGO_PKG_VERSION")))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        // 连上了但半天不来数据（被墙时常见）也算失败，好换下一个源
+        .read_timeout(std::time::Duration::from_secs(20))
         .build()
         .map_err(|e| e.to_string())?;
+    // 按地区排先后；某个源成功过就一直先用它
+    let mut order = models::sources(snapmind_platform::region::mainland_china()).to_vec();
     let mut received = 0u64;
     for &f in files {
         let path = dir.join(f.name);
@@ -347,11 +355,27 @@ async fn download<R: Runtime>(app: &AppHandle<R>, files: &[&models::ModelFile]) 
             continue;
         }
         let part = dir.join(format!("{}.part", f.name));
-        let r = fetch(app, &client, f, &part, received).await;
-        if r.is_err() {
-            let _ = std::fs::remove_file(&part);
+        let mut errors = Vec::new();
+        for i in 0..order.len() {
+            let src = order[i];
+            set_source(app, src);
+            match fetch(app, &client, f, src, &part, received).await {
+                Ok(()) => {
+                    order.swap(0, i);
+                    errors.clear();
+                    break;
+                }
+                Err(e) => {
+                    let _ = std::fs::remove_file(&part);
+                    crate::log_warn!("从 {} 下载 {} 失败：{e}", src.label(), f.name);
+                    set_received(app, received);
+                    errors.push(format!("{}：{e}", src.label()));
+                }
+            }
         }
-        r?;
+        if !errors.is_empty() {
+            return Err(format!("下载 {} 失败（{}）", f.name, errors.join("；")));
+        }
         std::fs::rename(&part, &path).map_err(|e| format!("保存 {} 失败：{e}", f.name))?;
         received += f.size;
         set_received(app, received);
@@ -362,19 +386,25 @@ async fn download<R: Runtime>(app: &AppHandle<R>, files: &[&models::ModelFile]) 
     Ok(())
 }
 
-/// 下载一个文件到 `part`，边收边算哈希，不符就报错。
+fn set_source<R: Runtime>(app: &AppHandle<R>, src: models::Source) {
+    app.state::<OcrState>().download.lock().expect("OCR 状态锁").source = Some(src.label().into());
+    let _ = app.emit(DOWNLOAD_EVENT, status(app));
+}
+
+/// 从 `src` 下载一个文件到 `part`，边收边算哈希，不符就报错。
 async fn fetch<R: Runtime>(
     app: &AppHandle<R>,
     client: &reqwest::Client,
     f: &models::ModelFile,
+    src: models::Source,
     part: &Path,
     base: u64,
 ) -> Result<(), String> {
     use std::io::Write;
-    let net = |e: reqwest::Error| format!("下载 {} 失败：{e}", f.name);
-    let mut resp = client.get(f.url).send().await.map_err(net)?;
+    let net = |e: reqwest::Error| if e.is_timeout() { "连接超时".to_string() } else { e.to_string() };
+    let mut resp = client.get(f.url(src)).send().await.map_err(net)?;
     if !resp.status().is_success() {
-        return Err(format!("下载 {} 失败：HTTP {}", f.name, resp.status().as_u16()));
+        return Err(format!("HTTP {}", resp.status().as_u16()));
     }
     let mut file = std::fs::File::create(part).map_err(|e| e.to_string())?;
     let mut hasher = Sha256::new();
@@ -392,7 +422,7 @@ async fn fetch<R: Runtime>(
     file.flush().map_err(|e| e.to_string())?;
     let sum = hex(&hasher.finalize());
     if sum != f.sha256 {
-        return Err(format!("{} 校验失败（SHA-256 不符），可能下载被篡改或不完整", f.name));
+        return Err("校验失败（SHA-256 不符），可能下载被篡改或不完整".into());
     }
     Ok(())
 }

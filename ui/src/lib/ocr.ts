@@ -51,7 +51,8 @@ export function pickLines(r: OcrResult, area: Rect): number[] {
 /** 下载进度：「8.3 / 20.5 MB」。 */
 export function progressLabel(s: OcrStatus): string {
   const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
-  return `${mb(s.received)} / ${mb(s.total)} MB`;
+  const from = s.source ? ` · ${s.source}` : '';
+  return `${mb(s.received)} / ${mb(s.total)} MB${from}`;
 }
 
 /** 卡片底部的说明：「12 行 · 4 段 · 0.21 s」，划选时「已选 3 / 12 行」。 */

@@ -2,7 +2,7 @@
 //
 // 用法：node scripts/fetch-models.mjs [--force]
 //
-// - 地址固定到 Hugging Face 仓库的某个提交，内容不会悄悄变化；
+// - 地址固定到 Hugging Face 仓库的某个提交，内容不会悄悄变化；Hugging Face 连不上时换魔搭（ModelScope）上的同一份文件；
 // - 每个文件都校验 SHA-256，不符就删除并报错；已存在且校验通过的文件跳过；
 // - models/ 不入库（见 .gitignore），只给命令行评测和调试版用；安装包不带模型，应用第一次用时自己下载，
 //   地址和哈希在 crates/snapmind-ocr/src/models.rs 里有同一份，改动时两边一起改。
@@ -14,18 +14,22 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'models', 'ppocrv5');
 
-const hf = (repo, rev, file) => `https://huggingface.co/PaddlePaddle/${repo}/resolve/${rev}/${file}`;
-const DET = ['PP-OCRv5_mobile_det_onnx', 'e6f4fa85f00e168c862bc462aebca69eef9b3d3d'];
-const REC = ['PP-OCRv5_mobile_rec_onnx', 'ed152b8b495f84de93cda5709d768548a9127622'];
+// 每个仓库：[名字, Hugging Face 提交, 魔搭提交]
+const hf = (repo, rev, ms, file) => [
+  `https://huggingface.co/PaddlePaddle/${repo}/resolve/${rev}/${file}`,
+  `https://modelscope.cn/models/PaddlePaddle/${repo}/resolve/${ms}/${file}`,
+];
+const DET = ['PP-OCRv5_mobile_det_onnx', 'e6f4fa85f00e168c862bc462aebca69eef9b3d3d', 'e52de0a85ad887349cb9b5b68ef28902001ad9ef'];
+const REC = ['PP-OCRv5_mobile_rec_onnx', 'ed152b8b495f84de93cda5709d768548a9127622', '5fc501974a0c6e957f0d4fe61ff14169f1afef47'];
 // 表格结构识别（M8.2）：SLANet_plus，输出 HTML 结构和每个单元格的框
-const TABLE = ['SLANet_plus_onnx', '7dbe640e127602bf506815e822c09758de73c482'];
+const TABLE = ['SLANet_plus_onnx', '7dbe640e127602bf506815e822c09758de73c482', '94f0331c7f840bca30b3ad257a4246c59090bc58'];
 
 export const FILES = [
-  { name: 'det.onnx', url: hf(...DET, 'inference.onnx'), sha256: 'a431985659dc921974177a95adcfbb90fd9e51989a5e04d70d0b75f597b6e61d' },
-  { name: 'det.yml', url: hf(...DET, 'inference.yml'), sha256: '98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699' },
-  { name: 'rec.onnx', url: hf(...REC, 'inference.onnx'), sha256: 'da72dc72ca4dc220df0dfde68c1dedc31c58d3e76a25871122e5056227d50092' },
-  { name: 'rec.yml', url: hf(...REC, 'inference.yml'), sha256: '5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e' },
-  { name: 'table.onnx', url: hf(...TABLE, 'inference.onnx'), sha256: '7790c0c13ce064782c9d22ebeb16b4da8216f83d3ba576da962c106ef58386da' },
+  { name: 'det.onnx', urls: hf(...DET, 'inference.onnx'), sha256: 'a431985659dc921974177a95adcfbb90fd9e51989a5e04d70d0b75f597b6e61d' },
+  { name: 'det.yml', urls: hf(...DET, 'inference.yml'), sha256: '98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699' },
+  { name: 'rec.onnx', urls: hf(...REC, 'inference.onnx'), sha256: 'da72dc72ca4dc220df0dfde68c1dedc31c58d3e76a25871122e5056227d50092' },
+  { name: 'rec.yml', urls: hf(...REC, 'inference.yml'), sha256: '5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e' },
+  { name: 'table.onnx', urls: hf(...TABLE, 'inference.onnx'), sha256: '7790c0c13ce064782c9d22ebeb16b4da8216f83d3ba576da962c106ef58386da' },
 ];
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
@@ -37,9 +41,19 @@ async function fetchOne(f, force) {
     return;
   }
   process.stdout.write(`  ↓ ${f.name} … `);
-  const res = await fetch(f.url, { redirect: 'follow' });
-  if (!res.ok) throw new Error(`${f.name}：HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
+  let buf;
+  const errors = [];
+  for (const url of f.urls) {
+    try {
+      const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(120_000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      buf = Buffer.from(await res.arrayBuffer());
+      break;
+    } catch (e) {
+      errors.push(`${new URL(url).host}：${e.message}`);
+    }
+  }
+  if (!buf) throw new Error(`${f.name}：${errors.join('；')}`);
   const got = sha256(buf);
   if (got !== f.sha256) throw new Error(`${f.name}：SHA-256 不符\n  期望 ${f.sha256}\n  实际 ${got}`);
   writeFileSync(`${path}.part`, buf);

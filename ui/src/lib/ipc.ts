@@ -1394,6 +1394,8 @@ export interface OcrStatus {
   received: number;
   total: number;
   error: string | null;
+  /** 正在用（或最后用）哪个源下载 */
+  source?: string | null;
 }
 
 const OCR_TOTAL = 21_510_548;
