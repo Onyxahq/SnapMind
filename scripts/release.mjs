@@ -101,16 +101,20 @@ function ps(script) {
   return execFileSync('powershell', ['-NoProfile', '-Command', `${script}; exit 0`], { encoding: 'utf8' }).trim();
 }
 
-const installDir = () => join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'SnapMind');
+const localAppData = () => process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local');
+/** 只为当前用户安装时可能的位置：新版安装包装进 %LOCALAPPDATA%\Programs\SnapMind，旧版在 %LOCALAPPDATA%\SnapMind。 */
+const userDirs = () => [join(localAppData(), 'Programs', 'SnapMind'), join(localAppData(), 'SnapMind')];
+/** 实际装在哪：有 exe 的那个，都没有就取第一个（报错时显示）。 */
+const installDir = () => userDirs().find((d) => existsSync(join(d, 'snapmind.exe'))) ?? userDirs()[0];
 const startMenuLink = () =>
   join(process.env.APPDATA ?? '', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'SnapMind.lnk');
 
 /** 为所有用户安装时的位置（安装包 installMode 是 both，管理员账号默认装在这里）。 */
 const machineDir = () => join(process.env.ProgramFiles ?? 'C:\\Program Files', 'SnapMind');
 
-/** 结束已安装版本的进程（只匹配两个安装位置里的 exe，连同 WebView2 子进程），以便覆盖安装。 */
+/** 结束已安装版本的进程（只匹配几个安装位置里的 exe，连同 WebView2 子进程），以便覆盖安装。 */
 function stopInstalled() {
-  const exes = [installDir(), machineDir()].map((d) => `'${join(d, 'snapmind.exe')}'`).join(',');
+  const exes = [...userDirs(), machineDir()].map((d) => `'${join(d, 'snapmind.exe')}'`).join(',');
   const ids = ps(
     `Get-Process snapmind -ErrorAction SilentlyContinue | Where-Object { @(${exes}) -contains $_.Path } | ForEach-Object { $_.Id }`,
   );
@@ -124,7 +128,7 @@ function install(setup, version) {
   stopInstalled();
   console.log(`\n▶ 静默安装 ${setup}`);
   // 安装包会请求「最高可用权限」（管理员账号弹 UAC、装进 Program Files）。本机自动安装没人点 UAC，
-  // 用 RunAsInvoker 以当前权限运行，并指定只为当前用户安装（%LOCALAPPDATA%\SnapMind，和以前一样）。
+  // 用 RunAsInvoker 以当前权限运行，并指定只为当前用户安装（见 userDirs）。
   const r = spawnSync(setup, ['/S', '/CURRENTUSER'], { stdio: 'inherit', env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' } });
   if (r.status !== 0) throw new Error(`安装程序退出码 ${r.status}`);
   const exe = join(installDir(), 'snapmind.exe');
