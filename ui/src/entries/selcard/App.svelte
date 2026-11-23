@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 划词卡片（需求第 5 节、M7.2、F4）：Ctrl+Alt+D 取到选中的文字后出现在鼠标旁，流式显示译文。
   // 随时可以拖动（标题栏、页脚和空白处），拖过之后内容变高也不会跳回鼠标旁。
   // 点别处就消失（Rust 在窗口失去焦点时收起）；点图钉固定后一直留着，可以改原文重新翻译、改译文、
@@ -71,9 +72,9 @@
     if (!card?.dst.trim()) return;
     try {
       await clipboardWriteText(card.dst.trim());
-      toast('已复制译文');
+      toast(t('已复制译文'));
     } catch (e) {
-      toast(`复制失败：${e}`, { kind: 'error' });
+      toast(t('复制失败：{e}', { e }), { kind: 'error' });
     }
   }
 
@@ -131,31 +132,31 @@
 
 {#if card}
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- 拖动移动窗口，键盘用户不需要 -->
-  <div class="card" class:pinned role="dialog" tabindex="-1" aria-label="划词翻译" bind:clientHeight={height} onpointerdown={onCardDown}>
+  <div class="card" class:pinned role="dialog" tabindex="-1" aria-label={t('划词翻译')} bind:clientHeight={height} onpointerdown={onCardDown}>
     <header>
       <span class="chip" class:busy>
-        {#if busy}<span class="dot" aria-hidden="true"></span>翻译中{who}
-        {:else if card.stage === 'error'}出错了
-        {:else}译文{who}{/if}
+        {#if busy}<span class="dot" aria-hidden="true"></span>{t('翻译中{who}', { who })}
+        {:else if card.stage === 'error'}{t('出错了')}
+        {:else}{t('译文{who}', { who })}{/if}
       </span>
       <span class="grow"></span>
       {#if pinned && langs.length}
         <Select
-          aria-label="目标语言"
+          aria-label={t('目标语言')}
           width="112px"
-          options={langs.map((l) => ({ value: l.code, label: l.name }))}
+          options={langs.map((l) => ({ value: l.code, label: t(l.name) }))}
           bind:value={target}
           onchange={retranslate}
         />
       {/if}
-      <IconButton icon="pin" label={pinned ? '取消固定' : '固定（不再自动消失）'} size={28} on={pinned} onclick={togglePin} />
-      <IconButton icon="close" label="关闭  Esc" size={28} onclick={close} />
+      <IconButton icon="pin" label={pinned ? t('取消固定') : t('固定（不再自动消失）')} size={28} on={pinned} onclick={togglePin} />
+      <IconButton icon="close" label={t('关闭 Esc')} size={28} onclick={close} />
     </header>
 
     {#if pinned}
       <textarea
         class="field src"
-        aria-label="原文"
+        aria-label={t('原文')}
         spellcheck="false"
         value={card.src}
         oninput={(e) => card && (card = { ...card, src: e.currentTarget.value })}
@@ -167,11 +168,11 @@
     {#if card.stage === 'error'}
       <p class="err" role="alert">{card.error}</p>
     {:else if waiting}
-      <div class="sk" aria-label="等待译文"><span style:width="90%"></span><span style:width="64%"></span></div>
+      <div class="sk" aria-label={t('等待译文')}><span style:width="90%"></span><span style:width="64%"></span></div>
     {:else if pinned}
       <textarea
         class="field dst"
-        aria-label="译文"
+        aria-label={t('译文')}
         spellcheck="false"
         readonly={busy}
         value={card.dst}
@@ -184,9 +185,9 @@
     <footer>
       <span class="meta" title={card.meta}>{card.meta}</span>
       {#if pinned}
-        <IconButton icon="refresh" label="按当前原文重新翻译" size={28} disabled={busy || !card.src.trim()} onclick={retranslate} />
+        <IconButton icon="refresh" label={t('按当前原文重新翻译')} size={28} disabled={busy || !card.src.trim()} onclick={retranslate} />
       {/if}
-      <Button variant="primary" disabled={busy || !card.dst.trim()} onclick={copy}>复制</Button>
+      <Button variant="primary" disabled={busy || !card.dst.trim()} onclick={copy}>{t('复制')}</Button>
     </footer>
   </div>
 {/if}

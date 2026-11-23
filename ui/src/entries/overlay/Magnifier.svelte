@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 放大镜：光标周围 11×7 个截图像素放大 14 倍，中间一格是当前像素；下方显示坐标和颜色值。
   // 直接从已解码的冻结帧 <img> 画到画布上，不把整张截图读成像素数组。
   import type { MonitorGeom, Point } from '$lib/geometry';
@@ -106,7 +107,7 @@
   <div class="info">
     <span class="num">({mon.x + px.x}, {mon.y + px.y})</span>
     <span class="val"><span class="sw" style:background={swatch}></span><span class="mono">{value}</span></span>
-    <span class="hint">P 切换格式 · C 复制颜色</span>
+    <span class="hint">{t('P 切换格式 · C 复制颜色')}</span>
   </div>
 </div>
 

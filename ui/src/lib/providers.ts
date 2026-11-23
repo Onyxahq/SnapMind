@@ -1,5 +1,6 @@
 // 模型服务的纯逻辑：新服务商的 id、合并获取到的模型列表、标签切换。
 import type { FetchedModel, ModelConfig, ModelTag, MtKind, ProviderConfig, ProviderKind, ProviderMeta } from './ipc';
+import { msg } from './i18n.svelte';
 
 export interface MtService {
   kind: MtKind;
@@ -12,25 +13,25 @@ export interface MtService {
 
 /** 机器翻译服务（固定三家，不用添加；填了 Key 就能进备用链）。 */
 export const MT_SERVICES: MtService[] = [
-  { kind: 'deepl', name: 'DeepL', mono: 'DL', color: '#0F2B46', desc: '欧洲语言质量好；免费版每月 50 万字符', keyHint: '免费版 Key 以 :fx 结尾，会自动用免费接口' },
-  { kind: 'google', name: 'Google 翻译', mono: 'GT', color: '#4285F4', desc: 'Google Cloud Translation，支持的语言最多', keyHint: '在 Google Cloud 控制台创建的 API Key' },
-  { kind: 'microsoft', name: '微软翻译', mono: 'MS', color: '#0078D4', desc: 'Azure Translator；免费层每月 200 万字符', keyHint: 'Azure 翻译资源的「密钥 1」或「密钥 2」' },
+  { kind: 'deepl', name: 'DeepL', mono: 'DL', color: '#0F2B46', desc: msg('欧洲语言质量好；免费版每月 50 万字符'), keyHint: msg('免费版 Key 以 :fx 结尾，会自动用免费接口') },
+  { kind: 'google', name: msg('Google 翻译'), mono: 'GT', color: '#4285F4', desc: msg('Google Cloud Translation，支持的语言最多'), keyHint: msg('在 Google Cloud 控制台创建的 API Key') },
+  { kind: 'microsoft', name: msg('微软翻译'), mono: 'MS', color: '#0078D4', desc: msg('Azure Translator；免费层每月 200 万字符'), keyHint: msg('Azure 翻译资源的「密钥 1」或「密钥 2」') },
 ];
 
 /** 机器翻译 Key 在系统凭据库里的账户名（与 Rust 端 MtKind::secret_account 一致）。 */
 export const mtAccount = (kind: MtKind): string => `mt-${kind}`;
 
 export const TAGS: { tag: ModelTag; label: string }[] = [
-  { tag: 'vision', label: '视觉' },
-  { tag: 'text', label: '文本' },
-  { tag: 'reasoning', label: '推理' },
-  { tag: 'local', label: '本地' },
+  { tag: 'vision', label: msg('视觉') },
+  { tag: 'text', label: msg('文本') },
+  { tag: 'reasoning', label: msg('推理') },
+  { tag: 'local', label: msg('本地') },
 ];
 
 export const FORMAT_LABEL: Record<ProviderMeta['format'], string> = {
-  openAi: 'OpenAI 兼容',
-  claude: 'Claude 原生',
-  gemini: 'Gemini 原生',
+  openAi: msg('OpenAI 兼容'),
+  claude: msg('Claude 原生'),
+  gemini: msg('Gemini 原生'),
 };
 
 /** 新服务商的 id：内置服务商用种类名；自定义服务可以加多个，依次 custom、custom-2…… */

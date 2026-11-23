@@ -38,7 +38,7 @@ pub async fn list_models(kind: ProviderKind, base_url: &str, key: Option<&str>) 
     if m.needs_key && key.is_none() {
         return Err(ProviderError::MissingKey);
     }
-    let client = reqwest::Client::builder().timeout(TIMEOUT).build().map_err(net)?;
+    let client = crate::net::client(reqwest::Client::builder().timeout(TIMEOUT)).await.map_err(net)?;
     let req = match m.format {
         ApiFormat::OpenAi => {
             let r = client.get(join(base_url, "models"));

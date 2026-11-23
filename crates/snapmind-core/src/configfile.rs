@@ -64,7 +64,7 @@ impl Section {
     /// 这一类包含 Config 的哪些字段（camelCase，和 JSON 一致）。
     pub fn fields(self) -> &'static [&'static str] {
         match self {
-            Section::General => &["appearance", "capture", "save", "translation", "record", "history", "backup", "ball", "update"],
+            Section::General => &["general", "appearance", "capture", "save", "translation", "record", "history", "backup", "ball", "update"],
             Section::Keys => &["hotkeys", "toolbar"],
             Section::Prompts => &["prompts"],
             Section::Providers => &["providers", "mt", "chains"],

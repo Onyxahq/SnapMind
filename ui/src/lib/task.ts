@@ -2,6 +2,7 @@
 import type { Rect } from './geometry';
 import type { TaskEvent } from './ipc';
 import type { OverlayBlock } from './overlay';
+import { t } from './i18n.svelte';
 
 export type CardStage = 'recognize' | 'oneshot' | 'translate' | 'markdown' | 'formula' | 'done' | 'error';
 
@@ -55,18 +56,18 @@ export function stageLabel(c: TranslateCard): string {
   const who = c.backend ? ` · ${c.backend}` : '';
   switch (c.stage) {
     case 'recognize':
-      return `识别中${who}`;
+      return t('识别中{who}', { who });
     case 'oneshot':
-      return `一步到位${who}`;
+      return t('一步到位{who}', { who });
     case 'translate':
-      return `翻译中${who}`;
+      return t('翻译中{who}', { who });
     case 'markdown':
     case 'formula':
-      return `识别中${who}`;
+      return t('识别中{who}', { who });
     case 'done':
-      return '翻译';
+      return t('翻译');
     case 'error':
-      return '出错了';
+      return t('出错了');
   }
 }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 截图遮罩（编辑态的底座）。每个显示器一个窗口，常驻在屏幕外，截图时移进来。
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
@@ -255,7 +256,7 @@
   const hintList = $derived(
     hintsFor(
       rec ? (rec.phase === 'setup' ? 'rec-setup' : 'rec') : long ? 'long' : ann.tool ? 'annotate' : ocrBoxes ? 'ocr' : sel ? 'selected' : 'idle',
-      ann.tool ? TOOL_INFO[ann.tool].label : '',
+      ann.tool ? t(TOOL_INFO[ann.tool].label) : '',
     ),
   );
 
@@ -414,7 +415,7 @@
     const t1 = performance.now();
     await captureSetAnnotations(index, layer);
     const t2 = performance.now();
-    const size = layer ? `${layer.width}×${layer.height}` : '空';
+    const size = layer ? `${layer.width}×${layer.height}` : t('空');
     log('info', `标注层（选区 ${r.width}×${r.height}，内容 ${size}）：渲染 ${(t1 - t0).toFixed(0)} ms，上传 ${(t2 - t1).toFixed(0)} ms`);
   }
 
@@ -581,7 +582,7 @@
       ocr = { ...ocr, stage: 'done', result: res, text: res.text, pick: null };
       if (ocrAutoCopy && res.text.trim()) {
         await clipboardWriteText(res.text);
-        toast('已复制识别出的文字');
+        toast(t('已复制识别出的文字'));
       }
     } catch (e) {
       if (ocr?.id === id) ocr = { ...ocr, stage: 'error', error: String(e) };
@@ -663,7 +664,7 @@
       const path = await saveMarkdown(mdCard.src.trim() + '\n');
       if (path) close(); // 取消另存为：留在截图里
     } catch (e) {
-      toast(`保存失败：${e}`, { kind: 'error' });
+      toast(t('保存失败：{e}', { e }), { kind: 'error' });
     }
   }
 
@@ -689,7 +690,7 @@
       await longStart(session.index, sel, axis);
     } catch (e) {
       long = null;
-      toast(`长截图失败：${e}`, { kind: 'error' });
+      toast(t('长截图失败：{e}', { e }), { kind: 'error' });
     }
   }
 
@@ -727,7 +728,7 @@
       const msg = String(e);
       toast(msg, { kind: 'error' });
       // 识别前就发现没有模型时长截图还在继续；其余错误时截图已经结束
-      if (msg.includes('OCR 模型')) long = long && { ...long, busy: false };
+      if (msg.includes(t('OCR 模型'))) long = long && { ...long, busy: false };
       else resetView();
     }
   }
@@ -816,7 +817,7 @@
     try {
       await recordStart(session.index, sel, rec.options);
     } catch (e) {
-      toast(`录屏失败：${e}`, { kind: 'error' });
+      toast(t('录屏失败：{e}', { e }), { kind: 'error' });
       return;
     }
     rec = { ...rec, phase: 'rec', elapsed: 0 };
@@ -940,12 +941,12 @@
       const res = await captureTable(index, r);
       if (tableCard?.id !== id) return;
       const rows = res.rows ?? (res.html ? parseHtml(res.html) : null);
-      if (!rows?.length) tableCard = { ...tableCard, stage: 'error', error: '没有识别出表格' };
+      if (!rows?.length) tableCard = { ...tableCard, stage: 'error', error: t('没有识别出表格') };
       else tableCard = { ...tableCard, stage: 'done', rows, meta: res.meta };
     } catch (e) {
       if (tableCard?.id !== id) return;
       const msg = String(e);
-      if (msg.includes('表格模型还没有下载')) {
+      if (msg.includes(t('表格模型还没有下载'))) {
         ocrModel = await ocrStatus();
         tableCard = { ...tableCard, stage: 'model' };
       } else tableCard = { ...tableCard, stage: 'error', error: msg };
@@ -963,7 +964,7 @@
       if (kind === 'excel') await clipboardWriteHtml(toClipboardHtml(rows), text);
       else await clipboardWriteText(text);
     } catch (e) {
-      toast(`复制失败：${e}`, { kind: 'error' });
+      toast(t('复制失败：{e}', { e }), { kind: 'error' });
       return;
     }
     close();
@@ -975,7 +976,7 @@
       const path = await saveXlsx(tableCard.rows);
       if (path) close(); // 取消另存为：留在截图里
     } catch (e) {
-      toast(`导出失败：${e}`, { kind: 'error' });
+      toast(t('导出失败：{e}', { e }), { kind: 'error' });
     }
   }
 
@@ -1304,9 +1305,9 @@
     const text = formatColor(pickRgb, config.value.capture.colorFormat);
     try {
       await clipboardWriteText(text);
-      toast(`已复制 ${text}`);
+      toast(t('已复制 {text}', { text }));
     } catch (err) {
-      toast('复制颜色失败', { kind: 'error' });
+      toast(t('复制颜色失败'), { kind: 'error' });
       log('warn', `复制颜色失败：${err}`);
     }
   }
@@ -1352,7 +1353,7 @@
   class:live
   style:cursor
   role="application"
-  aria-label="截图区域"
+  aria-label={t('截图区域')}
   onpointerdown={onDown}
   onpointermove={onMoveEvt}
   onpointerup={onUp}
@@ -1379,7 +1380,7 @@
   {#if selCss}
     <Selection
       rect={selCss}
-      label={long ? '长截图 · 滚动页面自动拼接' : rec && rec.phase !== 'setup' ? `录屏 · ${sel?.width ?? 0} × ${sel?.height ?? 0}` : sizeLabel}
+      label={long ? t('长截图 · 滚动页面自动拼接') : rec && rec.phase !== 'setup' ? t('录屏 · {v} × {v2}', { v: sel?.width ?? 0, v2: sel?.height ?? 0 }) : sizeLabel}
       handles={sel !== null && !ann.tool && !long && !rec && (!drag || drag.kind !== 'create')}
       recording={rec?.phase === 'rec' || rec?.phase === 'paused'}
       animate={!sel && !drag}

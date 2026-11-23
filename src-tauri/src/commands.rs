@@ -1,5 +1,6 @@
 //! 暴露给前端的命令。
 
+use snapmind_core::i18n::tr;
 use serde::Serialize;
 use serde_json::Value;
 use snapmind_core::config::Config;
@@ -47,6 +48,12 @@ pub fn config_path(state: State<'_, AppState>) -> String {
 #[tauri::command]
 pub fn settings_open(app: AppHandle, page: Option<String>) {
     crate::wm::show_settings(&app, page.as_deref());
+}
+
+/// 系统首选的界面语言标签（如 zh-CN），「界面语言：跟随系统」时前端据此选语言。
+#[tauri::command]
+pub fn system_language() -> String {
+    snapmind_platform::locale::system_ui_language()
 }
 
 /// 开机自启的实际状态。
@@ -198,8 +205,8 @@ pub async fn pin_copy(app: AppHandle, state: State<'_, AppState>, id: u32) -> Re
 pub async fn pin_save(app: AppHandle, state: State<'_, AppState>, id: u32) -> Result<Option<String>, String> {
     use snapmind_core::export::{self, ImageFormat};
     use tauri_plugin_dialog::DialogExt;
-    let image = crate::pin::image(&app, id).ok_or("贴图已关闭")?;
-    let window = app.get_webview_window(&crate::pin::label(id)).ok_or("贴图已关闭")?;
+    let image = crate::pin::image(&app, id).ok_or_else(|| tr("贴图已关闭"))?;
+    let window = app.get_webview_window(&crate::pin::label(id)).ok_or_else(|| tr("贴图已关闭"))?;
     let config = state.config.get();
     let dir = crate::export::default_dir(&app, &config);
     let name = export::render_filename(&config.save.filename_template, export::now_local());
@@ -235,12 +242,12 @@ pub async fn pin_save(app: AppHandle, state: State<'_, AppState>, id: u32) -> Re
 /// 文字卡片排版完成：页面把卡片渲染成 RGBA 交回（二进制请求体，请求头 x-width / x-height）。
 #[tauri::command]
 pub fn pin_set_image(app: AppHandle, window: tauri::WebviewWindow, request: tauri::ipc::Request<'_>) -> Result<(), String> {
-    let id = crate::pin::id_of(window.label()).ok_or("不是贴图窗口")?;
-    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("需要二进制数据".into()) };
+    let id = crate::pin::id_of(window.label()).ok_or_else(|| tr("不是贴图窗口"))?;
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err(tr("需要二进制数据")) };
     let header = |n: &str| request.headers().get(n).and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u32>().ok());
     let (w, h) = (header("x-width").unwrap_or(0), header("x-height").unwrap_or(0));
     if w == 0 || h == 0 || (w * h * 4) as usize != bytes.len() {
-        return Err("卡片图片尺寸不对".into());
+        return Err(tr("卡片图片尺寸不对"));
     }
     crate::pin::set_image(&app, id, snapmind_core::export::RgbaImage { width: w, height: h, data: bytes.clone() });
     Ok(())
@@ -257,8 +264,8 @@ pub fn pin_keep(app: AppHandle, window: tauri::WebviewWindow, on: bool) {
 /// 上传贴图的标注层：RGBA（为空表示清除），请求头 x-x / x-y / x-width / x-height。
 #[tauri::command]
 pub fn pin_set_annotations(app: AppHandle, window: tauri::WebviewWindow, request: tauri::ipc::Request<'_>) -> Result<(), String> {
-    let id = crate::pin::id_of(window.label()).ok_or("不是贴图窗口")?;
-    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("需要二进制数据".into()) };
+    let id = crate::pin::id_of(window.label()).ok_or_else(|| tr("不是贴图窗口"))?;
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err(tr("需要二进制数据")) };
     if bytes.is_empty() {
         crate::pin::set_annotations(&app, id, None);
         return Ok(());
@@ -266,7 +273,7 @@ pub fn pin_set_annotations(app: AppHandle, window: tauri::WebviewWindow, request
     let header = |n: &str| request.headers().get(n).and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u32>().ok());
     let (w, h) = (header("x-width").unwrap_or(0), header("x-height").unwrap_or(0));
     if (w as usize) * (h as usize) * 4 != bytes.len() {
-        return Err("标注层尺寸与数据长度不符".into());
+        return Err(tr("标注层尺寸与数据长度不符"));
     }
     let at = (header("x-x").unwrap_or(0), header("x-y").unwrap_or(0));
     let layer = snapmind_core::export::RgbaImage { width: w, height: h, data: bytes.clone() };
@@ -281,7 +288,7 @@ pub fn history_pins(
     query: Option<String>,
     limit: Option<usize>,
 ) -> Result<Vec<snapmind_core::history::PinRecord>, String> {
-    let history = state.history.as_ref().ok_or("历史记录不可用")?;
+    let history = state.history.as_ref().ok_or_else(|| tr("历史记录不可用"))?;
     history.list_pins(query.as_deref(), limit.unwrap_or(200)).map_err(|e| e.to_string())
 }
 
@@ -307,13 +314,13 @@ pub fn history_translations(
     query: Option<String>,
     limit: Option<usize>,
 ) -> Result<Vec<snapmind_core::history::TransRecord>, String> {
-    let history = state.history.as_ref().ok_or("历史记录不可用")?;
+    let history = state.history.as_ref().ok_or_else(|| tr("历史记录不可用"))?;
     history.list_translations(query.as_deref(), limit.unwrap_or(200)).map_err(|e| e.to_string())
 }
 
 /// 删除一条翻译历史。
 #[tauri::command]
 pub fn history_delete_translation(state: State<'_, AppState>, id: i64) -> Result<bool, String> {
-    let history = state.history.as_ref().ok_or("历史记录不可用")?;
+    let history = state.history.as_ref().ok_or_else(|| tr("历史记录不可用"))?;
     history.delete_translation(id).map_err(|e| e.to_string())
 }

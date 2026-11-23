@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 贴图工具条（需求第 6 节）：所有贴图共用的一个窗口，由 Rust 摆到当前悬停的贴图下方（放不下时在上方）。
   // 顶部（或底部）留 8px 透明连接区，鼠标从贴图移过来不会丢；悬停 / 菜单打开 / 标注期间一直显示。
   // 普通模式：按钮的顺序、隐藏、收进「更多」读配置（config.toolbar.pin，设置 → 工具栏）；
@@ -28,7 +29,7 @@
   import Icon from '$lib/ui/Icon.svelte';
 
   const bar = $derived(visibleBar(config.value.toolbar.pin, PIN_ITEMS));
-  const tip = (i: BarItem) => (i.key ? `${i.label}  ${i.key}` : i.label);
+  const tip = (i: BarItem) => (i.key ? `${t(i.label)}  ${t(i.key)}` : t(i.label));
 
   let target = $state<ToolsTarget | null>(null);
   /** 各贴图的标注状态（贴图主动推送） */
@@ -88,7 +89,7 @@
   style:padding-bottom="{up ? TOOLS_BRIDGE : 0}px"
   role="toolbar"
   tabindex="-1"
-  aria-label="贴图工具条"
+  aria-label={t('贴图工具条')}
   onpointerenter={() => toolsHover(true)}
   onpointerleave={() => toolsHover(false)}
 >
@@ -103,8 +104,8 @@
           onundo={() => send({ action: 'undo' })}
         />
         <span class="sep" aria-hidden="true"></span>
-        <IconButton icon="copy" label="复制  Ctrl+C" onclick={() => act('copy')} />
-        <button type="button" class="done" title="完成  空格" onclick={() => act('done')}>完成</button>
+        <IconButton icon="copy" label={t('复制 Ctrl+C')} onclick={() => act('copy')} />
+        <button type="button" class="done" title={t('完成 空格')} onclick={() => act('done')}>{t('完成')}</button>
       </div>
       {#if propsOpen && annot.tool && TOOL_INFO[annot.tool].props}
         <div class="panel" in:popIn out:popOut>
@@ -120,14 +121,14 @@
         {#each bar.main as it (it.id)}
           <IconButton icon={it.icon} label={tip(it)} onclick={() => act(it.id as PinActionMsg['action'])} />
         {/each}
-        <IconButton icon="more" label="更多" on={menuOpen} onclick={() => setMenu(!menuOpen)} />
+        <IconButton icon="more" label={t('更多')} on={menuOpen} onclick={() => setMenu(!menuOpen)} />
         <span class="sep" aria-hidden="true"></span>
-        <IconButton icon="close" label="关闭  Esc" onclick={() => act('close')} />
+        <IconButton icon="close" label={t('关闭 Esc')} onclick={() => act('close')} />
       </div>
       {#if menuOpen}
         <div class="menu" role="menu" in:popIn out:popOut>
           <label class="row slider">
-            <span>不透明度</span>
+            <span>{t('不透明度')}</span>
             <input
               type="range"
               min="10"
@@ -135,13 +136,13 @@
               step="10"
               bind:value={opacity}
               oninput={() => act('opacity', opacity / 100)}
-              aria-label="不透明度"
+              aria-label={t('不透明度')}
             />
             <span class="num">{opacity}%</span>
           </label>
           {#each bar.more as it (it.id)}
             <button type="button" class="row" role="menuitem" onclick={() => act(it.id as PinActionMsg['action'])}>
-              <Icon name={it.icon} size={15} /><span class="ml">{it.label}</span>{#if it.key}<kbd>{it.key}</kbd>{/if}
+              <Icon name={it.icon} size={15} /><span class="ml">{t(it.label)}</span>{#if it.key}<kbd>{t(it.key)}</kbd>{/if}
             </button>
           {/each}
           <span class="msep" aria-hidden="true"></span>
@@ -154,7 +155,7 @@
               openSettings('bar');
             }}
           >
-            <span class="ml">自定义工具条…</span>
+            <span class="ml">{t('自定义工具条…')}</span>
           </button>
         </div>
       {/if}

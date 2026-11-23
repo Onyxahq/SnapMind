@@ -1,5 +1,6 @@
 //! 模型服务（需求 1.4）：服务商目录、API Key（只进系统凭据库，绝不回传前端）、获取模型列表。
 
+use snapmind_core::i18n::tr;
 use std::collections::HashMap;
 
 use serde::Serialize;
@@ -49,7 +50,7 @@ pub async fn provider_fetch_models(id: String, kind: ProviderKind, base_url: Str
 /// 测试机器翻译：用已保存的 Key 把一句英文翻成简体中文，返回译文。
 #[tauri::command]
 pub async fn mt_test(state: tauri::State<'_, crate::state::AppState>, kind: snapmind_core::config::MtKind) -> Result<String, String> {
-    let key = secrets::get(kind.secret_account()).map_err(|e| e.to_string())?.ok_or("请先填写 API Key")?;
+    let key = secrets::get(kind.secret_account()).map_err(|e| e.to_string())?.ok_or_else(|| tr("请先填写 API Key"))?;
     let region = state.config.get().mt.microsoft_region;
     let ep = snapmind_providers::MtEndpoint { kind, key: &key, region: Some(&region), base_url: None };
     snapmind_providers::translate(&ep, "Hello, world!", Some("en"), "zh-Hans", std::time::Duration::from_secs(15))

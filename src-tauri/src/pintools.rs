@@ -6,6 +6,7 @@
 //! 防丢失：工具条窗口顶部带 8px 透明连接区；贴图和工具条任意一个处于悬停、或「更多」菜单打开时
 //! 一直显示；都离开后延迟约 0.45 秒才隐藏。工具条窗口不抢焦点，贴图里的快捷键照常可用。
 
+use snapmind_core::i18n::{tr};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -54,7 +55,7 @@ struct Target {
 /// 启动时预先建好（隐藏）。
 pub fn prewarm<R: Runtime>(app: &AppHandle<R>) {
     let built = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("pintools/index.html".into()))
-        .title("SnapMind 贴图工具条")
+        .title(tr("SnapMind 贴图工具条"))
         .decorations(false)
         .transparent(true)
         .shadow(false)

@@ -11,6 +11,7 @@ pub mod chain;
 pub mod chat;
 pub mod error;
 pub mod models;
+pub mod net;
 pub mod mt;
 pub mod sse;
 

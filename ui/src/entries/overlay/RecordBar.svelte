@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 录屏工具条（需求 3.10、M9.2）：放在选区上方居中（上方放不下就放在选区里靠上，遮罩不会被录进去）。
   // 录制前：MP4 / GIF、帧率、是否录系统声音、开始录制；录制中：计时、暂停 / 继续、停止；
   // 停止后显示「正在保存」「已保存」，随后结束截图。
@@ -72,7 +73,7 @@
   class:live={phase !== 'setup'}
   role="toolbar"
   tabindex="-1"
-  aria-label="录屏工具条"
+  aria-label={t('录屏工具条')}
   style:left="{pos.x}px"
   style:top="{pos.y}px"
   bind:clientWidth={width}
@@ -80,45 +81,45 @@
   onpointerdown={(e) => e.stopPropagation()}
 >
   {#if phase === 'setup'}
-    <b class="title">录屏</b>
+    <b class="title">{t('录屏')}</b>
     <Seg
-      label="格式"
+      label={t('格式')}
       options={[
-        { value: 'mp4', label: 'MP4 视频' },
-        { value: 'gif', label: 'GIF 动图' },
+        { value: 'mp4', label: t('MP4 视频') },
+        { value: 'gif', label: t('GIF 动图') },
       ]}
       value={options.format}
       onchange={(v) => onoptions({ format: v, fps: v === 'gif' ? Math.min(options.fps, 30) : options.fps })}
     />
-    <span class="fps" title="帧率（fps）">
-      <Seg label="帧率" options={fpsOptions} value={String(options.fps)} onchange={(v) => onoptions({ fps: Number(v) })} />
+    <span class="fps" title={t('帧率（fps）')}>
+      <Seg label={t('帧率')} options={fpsOptions} value={String(options.fps)} onchange={(v) => onoptions({ fps: Number(v) })} />
       <span class="unit">fps</span>
     </span>
     <IconButton
       icon={options.audio && !gif ? 'volume' : 'mute'}
-      label={gif ? 'GIF 不含声音' : options.audio ? '录制系统声音（点击关闭）' : '不录声音（点击开启）'}
+      label={gif ? t('GIF 不含声音') : options.audio ? t('录制系统声音（点击关闭）') : t('不录声音（点击开启）')}
       on={options.audio && !gif}
       disabled={gif}
       onclick={() => onoptions({ audio: !options.audio })}
     />
-    <button type="button" class="red" title="开始录制  R" onclick={onstart}><span class="dot"></span>开始录制</button>
+    <button type="button" class="red" title={t('开始录制 R')} onclick={onstart}><span class="dot"></span>{t('开始录制')}</button>
   {:else if phase === 'rec' || phase === 'paused'}
     <span class="recdot" class:paused={phase === 'paused'} aria-hidden="true"></span>
     <b class="time" aria-live="off">{time}</b>
-    <span class="meta">{gif ? 'GIF' : 'MP4'} · {options.fps} fps{!gif && options.audio ? ' · 声音' : ''}</span>
+    <span class="meta">{gif ? 'GIF' : 'MP4'} · {options.fps} fps{!gif && options.audio ? t(' · 声音') : ''}</span>
     <IconButton
       icon={phase === 'paused' ? 'play' : 'pause'}
-      label={phase === 'paused' ? '继续  空格' : '暂停  空格'}
+      label={phase === 'paused' ? t('继续  空格') : t('暂停  空格')}
       onclick={() => onpause(phase !== 'paused')}
     />
-    <IconButton icon="close" label="放弃录屏  Esc" onclick={oncancel} />
-    <button type="button" class="red" title="停止并保存  R" onclick={onstop}><span class="sq"></span>停止</button>
+    <IconButton icon="close" label={t('放弃录屏 Esc')} onclick={oncancel} />
+    <button type="button" class="red" title={t('停止并保存 R')} onclick={onstop}><span class="sq"></span>{t('停止')}</button>
   {:else if phase === 'saving'}
     <span class="spin" aria-hidden="true"></span>
-    <span class="msg">正在保存{gif ? ' GIF' : ''}…</span>
+    <span class="msg">{t('正在保存{v}…', { v: gif ? ' GIF' : '' })}</span>
   {:else}
     <svg class="ok" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-    <span class="msg" title={savedName}>已保存 · 文件已复制，可直接粘贴</span>
+    <span class="msg" title={savedName}>{t('已保存 · 文件已复制，可直接粘贴')}</span>
   {/if}
 </div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 设置 → 工具栏（需求 3.6、第 9 节、M10.2）：截图工具条和贴图工具条各一份布局。
   // 拖动左边的把手排序（指针跟手，其他行让位有动画），取消勾选即隐藏，「更多」分隔线以下的按钮收进「⋯」菜单。
   // 每次改动立即保存，已经打开的工具条同时刷新。退出 / 复制（截图）和关闭、不透明度（贴图）固定，不在列表里。
@@ -68,7 +69,7 @@
   async function reset() {
     try {
       await updateConfig({ toolbar: { [which]: structuredClone(DEFAULT_CONFIG.toolbar[which]) } });
-      toast(which === 'capture' ? '截图工具条已恢复默认' : '贴图工具条已恢复默认');
+      toast(which === 'capture' ? t('截图工具条已恢复默认') : t('贴图工具条已恢复默认'));
     } catch (e) {
       toast(String(e), { kind: 'error' });
     }
@@ -110,16 +111,16 @@
   }
 </script>
 
-<Head title="工具栏" desc="拖动排序，取消勾选即隐藏。「更多」分隔线以下的按钮会收进「⋯」菜单。改动立即生效。">
-  <Button variant="ghost" onclick={reset}>恢复默认</Button>
+<Head title={t('工具栏')} desc={t('拖动排序，取消勾选即隐藏。「更多」分隔线以下的按钮会收进「⋯」菜单。改动立即生效。')}>
+  <Button variant="ghost" onclick={reset}>{t('恢复默认')}</Button>
 </Head>
 
 <div class="seg">
   <Seg
-    label="工具条"
+    label={t('工具条')}
     options={[
-      { value: 'capture', label: '截图工具条' },
-      { value: 'pin', label: '贴图工具条' },
+      { value: 'capture', label: t('截图工具条') },
+      { value: 'pin', label: t('贴图工具条') },
     ]}
     value={which}
     onchange={(v) => (which = v)}
@@ -127,24 +128,24 @@
 </div>
 
 <div class="prev-wrap">
-  <span class="cap">预览</span>
-  <div class="prev" aria-label="工具条预览">
+  <span class="cap">{t('预览')}</span>
+  <div class="prev" aria-label={t('工具条预览')}>
     {#each bar.main as it, i (it.id)}
       {#if which === 'capture' && i > 0 && group(bar.main[i - 1]) !== group(it)}<span class="sep"></span>{/if}
-      <span class="i" title={it.label}><Icon name={it.icon} size={16} /></span>
+      <span class="i" title={t(it.label)}><Icon name={it.icon} size={16} /></span>
     {/each}
     {#if which === 'capture' && bar.main.length}<span class="sep"></span>{/if}
-    <span class="i" title="更多"><Icon name="more" size={16} /></span>
+    <span class="i" title={t('更多')}><Icon name="more" size={16} /></span>
     <span class="sep"></span>
-    <span class="i" title={which === 'capture' ? '退出' : '关闭'}><Icon name="close" size={16} /></span>
-    {#if which === 'capture'}<span class="i ok" title="复制"><Icon name="check" size={16} /></span>{/if}
+    <span class="i" title={which === 'capture' ? t('退出') : t('关闭')}><Icon name="close" size={16} /></span>
+    {#if which === 'capture'}<span class="i ok" title={t('复制')}><Icon name="check" size={16} /></span>{/if}
   </div>
   <span class="cap">
-    「⋯」里：{[...bar.more.map((m) => m.label), ...(which === 'pin' ? ['不透明度'] : []), '自定义工具条…'].join('、')}
+    {t('「⋯」里：{names}', { names: [...bar.more.map((m) => t(m.label)), ...(which === 'pin' ? [t('不透明度')] : []), t('自定义工具条…')].join(t('、')) })}
   </span>
 </div>
 
-<div class="card" role="list" aria-label="按钮列表">
+<div class="card" role="list" aria-label={t('按钮列表')}>
   {#each rows as r, i (keyOf(r))}
     {@const dragging = drag?.key === keyOf(r)}
     <div
@@ -159,7 +160,7 @@
       <button
         type="button"
         class="grip"
-        aria-label="拖动排序"
+        aria-label={t('拖动排序')}
         onpointerdown={(e) => down(e, r)}
         onpointermove={moveDrag}
         onpointerup={up}
@@ -168,15 +169,15 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" /></svg>
       </button>
       {#if 'divider' in r}
-        <span class="dl">—— 以下收进「⋯ 更多」——</span>
+        <span class="dl">{t('—— 以下收进「⋯ 更多」——')}</span>
       {:else}
-        <input type="checkbox" checked={!r.hidden} aria-label="显示 {r.item.label}" onchange={() => toggle(i)} />
+        <input type="checkbox" checked={!r.hidden} aria-label={t('显示 {label}', { label: t(r.item.label) })} onchange={() => toggle(i)} />
         <span class="ic"><Icon name={r.item.icon} size={15} /></span>
-        <span class="lbl">{r.item.label}</span>
+        <span class="lbl">{t(r.item.label)}</span>
         {#if r.item.key}<span class="k">{r.item.key}</span>{/if}
       {/if}
-      <IconButton icon="chevronUp" label="上移" size={26} disabled={i === 0} onclick={() => step(i, -1)} />
-      <IconButton icon="chevronDown" label="下移" size={26} disabled={i === rows.length - 1} onclick={() => step(i, 1)} />
+      <IconButton icon="chevronUp" label={t('上移')} size={26} disabled={i === 0} onclick={() => step(i, -1)} />
+      <IconButton icon="chevronDown" label={t('下移')} size={26} disabled={i === rows.length - 1} onclick={() => step(i, 1)} />
     </div>
   {/each}
 </div>

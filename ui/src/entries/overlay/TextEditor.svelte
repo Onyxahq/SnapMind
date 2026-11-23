@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 文字标注的编辑框：放在文字所在位置，字号颜色与最终效果一致，随内容自动变宽变高。
   // 回车换行；Esc、Ctrl+Enter 或点别处（失去焦点）提交。
   import { onMount } from 'svelte';
@@ -48,7 +49,7 @@
   value={shape.text}
   spellcheck="false"
   rows="1"
-  aria-label="文字标注"
+  aria-label={t('文字标注')}
   oninput={(e) => oninput(e.currentTarget.value)}
   onkeydown={onKey}
   onblur={oncommit}

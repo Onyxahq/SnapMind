@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 公式结果卡片（需求 3.8、M8.3）：上面是 KaTeX 预览，下面是可以直接改的 LaTeX 源码，改动实时渲染。
   // 「复制 LaTeX」「复制 $$…$$」会结束截图；关闭卡片不会。
   import type { Rect } from '$lib/geometry';
@@ -38,30 +39,30 @@
   class="card"
   role="dialog"
   tabindex="-1"
-  aria-label="公式"
+  aria-label={t('公式')}
   use:floatCard={{ sel, width: WIDTH }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
   <header>
     <span class="chip">
-      {#if busy}<span class="dot" aria-hidden="true"></span>识别公式中{card.backend ? ` · ${card.backend}` : ''}
-      {:else if card.stage === 'error'}出错了
-      {:else}公式{/if}
+      {#if busy}<span class="dot" aria-hidden="true"></span>{t('识别公式中{v}', { v: card.backend ? ` · ${card.backend}` : '' })}
+      {:else if card.stage === 'error'}{t('出错了')}
+      {:else}{t('公式')}{/if}
     </span>
     <span class="grow"></span>
-    <IconButton icon="close" label="关闭  Esc" size={28} onclick={onclose} />
+    <IconButton icon="close" label={t('关闭 Esc')} size={28} onclick={onclose} />
   </header>
 
   {#if card.stage === 'error'}
     <p class="err" role="alert">{card.error}</p>
   {:else if !items.length && (busy || !card.src.trim())}
-    <div class="sk" aria-label={busy ? '正在识别' : '没有公式'}>
+    <div class="sk" aria-label={busy ? t('正在识别') : t('没有公式')}>
       {#if busy}<span style:width="62%"></span><span style:width="38%"></span>
-      {:else}<p class="empty">在下面输入 LaTeX</p>{/if}
+      {:else}<p class="empty">{t('在下面输入 LaTeX')}</p>{/if}
     </div>
   {:else}
-    <div class="preview" aria-label="公式预览" aria-live="polite">
+    <div class="preview" aria-label={t('公式预览')} aria-live="polite">
       {#each items as f, i (i)}
         {#if f.html}
           <!-- KaTeX 生成的 HTML（trust 关闭，内容已转义） -->
@@ -79,7 +80,7 @@
   {#if card.stage !== 'error' && (card.src || !busy)}
     <textarea
       class="field"
-      aria-label="LaTeX 源码"
+      aria-label={t('LaTeX 源码')}
       spellcheck="false"
       readonly={busy}
       value={card.src}
@@ -89,10 +90,10 @@
 
   <footer>
     <span class="meta" class:warn={bad > 0 && !busy} title={card.meta}>
-      {bad > 0 && !busy ? `${bad} 个公式写法有误` : card.meta}
+      {bad > 0 && !busy ? t('{bad} 个公式写法有误', { bad }) : card.meta}
     </span>
-    <Button disabled={!canAct} onclick={() => oncopy(true)} title="每个公式包一对 $$，可直接粘进 Markdown / Obsidian">复制 $$</Button>
-    <Button variant="primary" disabled={!canAct} onclick={() => oncopy(false)} title="复制 LaTeX 源码">复制 LaTeX</Button>
+    <Button disabled={!canAct} onclick={() => oncopy(true)} title={t('每个公式包一对 $$，可直接粘进 Markdown / Obsidian')}>{t('复制 $$')}</Button>
+    <Button variant="primary" disabled={!canAct} onclick={() => oncopy(false)} title={t('复制 LaTeX 源码')}>{t('复制 LaTeX')}</Button>
   </footer>
 </div>
 

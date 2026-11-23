@@ -1,10 +1,9 @@
 <script lang="ts">
-  // 设置 → 关于：版本、检查更新（M11.3）、开机自动启动（和托盘菜单里的勾选同步）、新手引导、日志。
+  import { t } from '$lib/i18n.svelte';
+  // 设置 → 关于：版本、检查更新（M11.3）、新手引导、日志。
   import { onMount } from 'svelte';
   import {
     appInfo,
-    autostartGet,
-    autostartSet,
     logOpen,
     onUpdate,
     updateCheck,
@@ -24,11 +23,9 @@
   let { go }: { go: (page: 'welcome') => void } = $props();
 
   let info = $state<AppInfo | null>(null);
-  let autostart = $state(false);
   let up = $state<UpdateStatus | null>(null);
   onMount(() => {
     appInfo().then((i) => (info = i));
-    autostartGet().then((a) => (autostart = a));
     updateStatus().then((s) => (up = s));
     const off = onUpdate((s) => (up = s));
     return () => {
@@ -41,20 +38,20 @@
   const hhmm = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const upDesc = $derived.by(() => {
     if (!up) return '';
-    if (!up.configured) return '这个版本没有配置更新源，新版本请到发布页下载';
+    if (!up.configured) return t('这个版本没有配置更新源，新版本请到发布页下载');
     switch (up.phase) {
       case 'checking':
-        return '正在检查…';
+        return t('正在检查…');
       case 'latest':
-        return `已是最新版本${up.checkedAt ? `（${hhmm(up.checkedAt)} 检查）` : ''}`;
+        return up.checkedAt ? t('已是最新版本（{time} 检查）', { time: hhmm(up.checkedAt) }) : t('已是最新版本');
       case 'error':
-        return `检查失败：${up.error ?? '未知原因'}`;
+        return t('检查失败：{error}', { error: up.error ?? t('未知原因') });
       case 'downloading':
-        return '正在下载新版本…';
+        return t('正在下载新版本…');
       case 'installing':
-        return '正在打开安装程序，装好后 SnapMind 会自动重新打开';
+        return t('正在打开安装程序，装好后 SnapMind 会自动重新打开');
       default:
-        return `当前版本 ${up.current}`;
+        return t('当前版本 {current}', { current: up.current });
     }
   });
 
@@ -67,27 +64,27 @@
   }
 </script>
 
-<Head title="关于" />
+<Head title={t('关于')} />
 
 <Card>
-  <Row title="SnapMind {info?.version ?? ''}" desc="截图 · 识别 · 翻译。本地 OCR 基于 PaddleOCR（PP-OCRv5），界面基于 Tauri 2 和 Svelte 5。" />
+  <Row title="SnapMind {info?.version ?? ''}" desc={t('截图 · 识别 · 翻译。本地 OCR 基于 PaddleOCR（PP-OCRv5），界面基于 Tauri 2 和 Svelte 5。')} />
   <Row
-    title="开源组件与许可"
-    desc="本地识别模型 PP-OCRv5 和 SLANet_plus 由 PaddlePaddle 以 Apache-2.0 发布（可商用），首次使用时从官方仓库下载；推理引擎 ONNX Runtime（MIT）；Tauri、Svelte、KaTeX（MIT / Apache-2.0）；模型能力目录数据来自 models.dev（MIT）。"
+    title={t('开源组件与许可')}
+    desc={t('本地识别模型 PP-OCRv5 和 SLANet_plus 由 PaddlePaddle 以 Apache-2.0 发布（可商用），首次使用时从官方仓库下载；推理引擎 ONNX Runtime（MIT）；Tauri、Svelte、KaTeX（MIT / Apache-2.0）；模型能力目录数据来自 models.dev（MIT）。')}
   />
 </Card>
 
-<Card title="更新">
+<Card title={t('更新')}>
   {#if up?.phase === 'available' || up?.phase === 'downloading' || up?.phase === 'installing'}
     <div class="new">
       <div class="nt">
-        <b>新版本 {up.version}</b>
-        <span>{up.phase === 'available' ? `当前 ${up.current}。点「下载并安装」后会退出 SnapMind，装好自动重新打开（开着的贴图会先存进历史）` : upDesc}</span>
+        <b>{t('新版本 {version}', { version: up.version })}</b>
+        <span>{up.phase === 'available' ? t('当前 {current}。点「下载并安装」后会退出 SnapMind，装好自动重新打开（开着的贴图会先存进历史）', { current: up.current }) : upDesc}</span>
       </div>
       {#if up.phase === 'available'}
-        <Button variant="primary" icon="download" onclick={install}>下载并安装</Button>
+        <Button variant="primary" icon="download" onclick={install}>{t('下载并安装')}</Button>
       {:else if up.phase === 'downloading'}
-        <div class="dl" role="progressbar" aria-label="下载进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+        <div class="dl" role="progressbar" aria-label={t('下载进度')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
           <div class="bar"><i style:width="{pct}%"></i></div>
           <span>{up.total ? `${mb(up.received)} / ${mb(up.total)} MB` : `${mb(up.received)} MB`}</span>
         </div>
@@ -95,15 +92,15 @@
     </div>
     {#if up.notes}<p class="notes">{up.notes}</p>{/if}
   {:else}
-    <Row title="检查更新" desc={upDesc}>
+    <Row title={t('检查更新')} desc={upDesc}>
       {#if up?.configured}
-        <Button icon="refresh" disabled={up.phase === 'checking'} onclick={check}>{up.phase === 'checking' ? '检查中…' : '检查更新'}</Button>
+        <Button icon="refresh" disabled={up.phase === 'checking'} onclick={check}>{up.phase === 'checking' ? t('检查中…') : t('检查更新')}</Button>
       {/if}
     </Row>
   {/if}
-  <Row title="自动检查更新" desc="启动后和之后每天在后台检查一次；有新版本时托盘菜单会提示，不会自动安装">
+  <Row title={t('自动检查更新')} desc={t('启动后和之后每天在后台检查一次；有新版本时托盘菜单会提示，不会自动安装')}>
     <Switch
-      label="自动检查更新"
+      label={t('自动检查更新')}
       checked={config.value.update.autoCheck}
       onchange={(autoCheck) => updateConfig({ update: { autoCheck } }).catch((e) => toast(String(e), { kind: 'error' }))}
     />
@@ -111,14 +108,11 @@
 </Card>
 
 <Card>
-  <Row title="开机自动启动" desc="开机后在托盘里待命，按快捷键就能截图；托盘菜单里也有同一个开关">
-    <Switch label="开机自动启动" checked={autostart} onchange={async (on) => (autostart = await autostartSet(on))} />
+  <Row title={t('新手引导')} desc={t('常用快捷键和本地识别模型下载')}>
+    <Button onclick={() => go('welcome')}>{t('打开')}</Button>
   </Row>
-  <Row title="新手引导" desc="常用快捷键和本地识别模型下载">
-    <Button onclick={() => go('welcome')}>打开</Button>
-  </Row>
-  <Row title="日志" desc="出错和崩溃的记录。遇到问题时可以把日志文件夹里的 snapmind.log 发给开发者（不含截图和识别出的文字）">
-    <Button icon="folder" onclick={() => logOpen().catch((e) => toast(String(e), { kind: 'error' }))}>打开日志文件夹</Button>
+  <Row title={t('日志')} desc={t('出错和崩溃的记录。遇到问题时可以把日志文件夹里的 snapmind.log 发给开发者（不含截图和识别出的文字）')}>
+    <Button icon="folder" onclick={() => logOpen().catch((e) => toast(String(e), { kind: 'error' }))}>{t('打开日志文件夹')}</Button>
   </Row>
 </Card>
 

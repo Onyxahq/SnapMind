@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 翻译结果卡片（需求 3.8）：原文和译文都可编辑；改了原文点 ↻ 重新翻译；
   // 复制译文 / 贴图会结束截图，关闭卡片不会。
   import type { Rect } from '$lib/geometry';
@@ -59,7 +60,7 @@
   class="card"
   role="dialog"
   tabindex="-1"
-  aria-label="翻译结果"
+  aria-label={t('翻译结果')}
   use:floatCard={{ sel, width: WIDTH }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
@@ -71,36 +72,36 @@
     </span>
     <span class="grow"></span>
     <Seg
-      label="结果呈现"
+      label={t('结果呈现')}
       options={[
-        { value: 'card', label: '卡片' },
-        { value: 'overlay', label: '覆盖' },
+        { value: 'card', label: t('卡片') },
+        { value: 'overlay', label: t('覆盖') },
       ]}
       bind:value={mode}
       onchange={(v) => onmode(v === 'overlay')}
     />
-    <IconButton icon="close" label="关闭  Esc" size={28} onclick={onclose} />
+    <IconButton icon="close" label={t('关闭 Esc')} size={28} onclick={onclose} />
   </header>
 
   <label class="blk">
-    <span class="cap">原文 · 可编辑</span>
+    <span class="cap">{t('原文 · 可编辑')}</span>
     <textarea
       class="field src"
-      aria-label="原文"
+      aria-label={t('原文')}
       spellcheck="false"
       readonly={streamingSrc}
-      placeholder={streamingSrc ? '正在识别…' : ''}
+      placeholder={streamingSrc ? t('正在识别…') : ''}
       value={card.src}
       oninput={(e) => onsrc(e.currentTarget.value)}
     ></textarea>
   </label>
 
   <div class="blk">
-    <span class="cap">译文 · 可编辑</span>
+    <span class="cap">{t('译文 · 可编辑')}</span>
     {#if card.stage === 'error'}
       <p class="err" role="alert">{card.error}</p>
     {:else if waitingDst || streamingSrc}
-      <div class="sk" aria-label="等待译文">
+      <div class="sk" aria-label={t('等待译文')}>
         <span style:width="92%"></span>
         <span style:width="70%"></span>
         <span style:width="48%"></span>
@@ -109,7 +110,7 @@
       <textarea
         bind:this={dstEl}
         class="field dst"
-        aria-label="译文"
+        aria-label={t('译文')}
         spellcheck="false"
         readonly={busy}
         value={card.dst}
@@ -122,17 +123,17 @@
     <span class="meta" title={card.meta}>{card.meta}</span>
     <IconButton
       icon="refresh"
-      label="按当前原文重新翻译"
+      label={t('按当前原文重新翻译')}
       size={30}
       disabled={busy || !card.src.trim()}
       onclick={onretranslate}
     />
     {#if overlay}
-      <Button disabled={!canAct} onclick={onpin} title="把画上译文的截图贴到屏幕上">贴图</Button>
-      <Button variant="primary" disabled={!canAct} onclick={oncopy} title="复制画上译文的截图">复制图片</Button>
+      <Button disabled={!canAct} onclick={onpin} title={t('把画上译文的截图贴到屏幕上')}>{t('贴图')}</Button>
+      <Button variant="primary" disabled={!canAct} onclick={oncopy} title={t('复制画上译文的截图')}>{t('复制图片')}</Button>
     {:else}
-      <Button disabled={!canAct} onclick={onpin} title={bilingual ? '把原文和译文对照贴到屏幕上' : '把译文贴到屏幕上'}>贴图</Button>
-      <Button variant="primary" disabled={!canAct} onclick={oncopy}>{bilingual ? '复制双语' : '复制译文'}</Button>
+      <Button disabled={!canAct} onclick={onpin} title={bilingual ? t('把原文和译文对照贴到屏幕上') : t('把译文贴到屏幕上')}>{t('贴图')}</Button>
+      <Button variant="primary" disabled={!canAct} onclick={oncopy}>{bilingual ? t('复制双语') : t('复制译文')}</Button>
     {/if}
   </footer>
 </div>

@@ -29,6 +29,15 @@ pub fn on_config_changed<R: Runtime>(app: &AppHandle<R>, config: &Config) {
     apply_native_theme(app, config);
 }
 
+/// 应用界面语言：后端文案、托盘菜单、设置窗口标题。启动时和语言设置变了都调用。
+pub fn apply_language<R: Runtime>(app: &AppHandle<R>, config: &Config) {
+    snapmind_core::i18n::set_language(config.general.language, &snapmind_platform::locale::system_ui_language());
+    crate::tray::relabel(app, &config.hotkeys);
+    if let Some(w) = app.get_webview_window(crate::wm::SETTINGS) {
+        let _ = w.set_title(&snapmind_core::i18n::tr("SnapMind 设置"));
+    }
+}
+
 /// 让窗口标题栏、滚动条等系统绘制的部分也跟随设置的明暗。
 pub fn apply_native_theme<R: Runtime>(app: &AppHandle<R>, config: &Config) {
     let theme = match config.appearance.theme {

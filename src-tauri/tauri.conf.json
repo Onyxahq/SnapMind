@@ -28,7 +28,7 @@
     "windows": {
       "nsis": {
         "installMode": "both",
-        "languages": ["SimpChinese", "English"],
+        "languages": ["SimpChinese", "TradChinese", "English", "Japanese", "Korean", "Spanish", "French", "German", "Russian", "PortugueseBR"],
         "displayLanguageSelector": false
       }
     }

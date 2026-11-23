@@ -1,3 +1,4 @@
+import { msg } from './i18n.svelte';
 // 明暗模式与强调色。把结果写到 <html data-theme / data-accent>，tokens.css 据此切换变量。
 
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -5,10 +6,10 @@ export type Accent = 'blue' | 'sky' | 'violet' | 'green';
 export type Resolved = 'light' | 'dark';
 
 export const ACCENTS: { id: Accent; label: string; light: string; dark: string }[] = [
-  { id: 'blue', label: '蓝', light: '#2563EB', dark: '#60A5FA' },
-  { id: 'sky', label: '天蓝', light: '#0284C7', dark: '#38BDF8' },
-  { id: 'violet', label: '紫', light: '#7C3AED', dark: '#A78BFA' },
-  { id: 'green', label: '绿', light: '#059669', dark: '#34D399' },
+  { id: 'blue', label: msg('蓝'), light: '#2563EB', dark: '#60A5FA' },
+  { id: 'sky', label: msg('天蓝'), light: '#0284C7', dark: '#38BDF8' },
+  { id: 'violet', label: msg('紫'), light: '#7C3AED', dark: '#A78BFA' },
+  { id: 'green', label: msg('绿'), light: '#059669', dark: '#34D399' },
 ];
 
 /** 把「跟随系统」解析成具体的明暗。 */

@@ -1,6 +1,7 @@
 //! 历史记录（需求第 7 节、M10.3）：保留方式、占用统计、重新贴出、复制、删除、清空，
 //! 以及给设置页显示缩略图的 `snapthumb` 协议。数据本身在 `snapmind_core::history`。
 
+use snapmind_core::i18n::{tr, trf};
 use std::borrow::Cow;
 
 use serde::Serialize;
@@ -35,7 +36,7 @@ pub fn prune<R: Runtime>(app: &AppHandle<R>) {
 }
 
 fn history<'a>(state: &'a State<'_, AppState>) -> Result<&'a History, String> {
-    state.history.as_ref().ok_or_else(|| "历史记录不可用".to_string())
+    state.history.as_ref().ok_or_else(|| tr("历史记录不可用"))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,7 +70,7 @@ pub fn history_clear(state: State<'_, AppState>, kind: String) -> Result<u64, St
     match kind.as_str() {
         "pins" => h.clear_pins(),
         "translations" => h.clear_translations(),
-        _ => return Err(format!("不认识的历史类型：{kind}")),
+        _ => return Err(trf("不认识的历史类型：{kind}", &[("kind", &kind)])),
     }
     .map_err(|e| e.to_string())
 }
@@ -99,7 +100,7 @@ fn cursor_monitor<R: Runtime>(app: &AppHandle<R>) -> ((i32, i32), (u32, u32), f6
 pub async fn history_repin(app: AppHandle, id: i64) -> Result<u32, String> {
     let rec = {
         let state = app.state::<AppState>();
-        history(&state)?.get_pin(id).map_err(|e| e.to_string())?.ok_or("这条记录已经不在了")?
+        history(&state)?.get_pin(id).map_err(|e| e.to_string())?.ok_or_else(|| tr("这条记录已经不在了"))?
     };
     let (origin, size, scale) = cursor_monitor(&app);
     let new_id = if rec.source == PinSource::Text && !rec.text.trim().is_empty() {
@@ -108,7 +109,7 @@ pub async fn history_repin(app: AppHandle, id: i64) -> Result<u32, String> {
     } else {
         let path = rec.image_path.clone();
         let img = tauri::async_runtime::spawn_blocking(move || {
-            let bytes = std::fs::read(&path).map_err(|e| format!("读不到原图：{e}"))?;
+            let bytes = std::fs::read(&path).map_err(|e| trf("读不到原图：{e}", &[("e", &e.to_string())]))?;
             export::decode_png(&bytes).map_err(|e| e.to_string())
         })
         .await
@@ -131,11 +132,11 @@ pub async fn history_repin(app: AppHandle, id: i64) -> Result<u32, String> {
 pub async fn history_copy_pin(app: AppHandle, id: i64) -> Result<(), String> {
     let (path, template) = {
         let state = app.state::<AppState>();
-        let rec = history(&state)?.get_pin(id).map_err(|e| e.to_string())?.ok_or("这条记录已经不在了")?;
+        let rec = history(&state)?.get_pin(id).map_err(|e| e.to_string())?.ok_or_else(|| tr("这条记录已经不在了"))?;
         (rec.image_path, state.config.get().save.filename_template)
     };
     tauri::async_runtime::spawn_blocking(move || {
-        let bytes = std::fs::read(&path).map_err(|e| format!("读不到原图：{e}"))?;
+        let bytes = std::fs::read(&path).map_err(|e| trf("读不到原图：{e}", &[("e", &e.to_string())]))?;
         let img = export::decode_png(&bytes).map_err(|e| e.to_string())?;
         crate::export::copy_image(&img, &template).map(|_| ())
     })

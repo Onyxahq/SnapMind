@@ -4,6 +4,7 @@
 //! 所有对配置的修改都走 [`update`] / [`replace`]：重新注册快捷键、按新的保留方式清理历史、
 //! 广播 config-changed，以及「修改重要设置前」的自动备份。
 
+use snapmind_core::i18n::{tr, trf};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -51,6 +52,15 @@ pub fn weekly_backup<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// 把代理设置交给网络层（启动时和设置改了都调用）。
+pub fn apply_proxy(p: &snapmind_core::config::ProxyConfig) {
+    let on = p.enabled && !p.address.trim().is_empty();
+    snapmind_providers::net::set_proxy(on.then(|| snapmind_providers::net::ProxySetting {
+        address: p.address.clone(),
+        fallback_direct: p.fallback_direct,
+    }));
+}
+
 /// 配置改了之后的连带动作。
 fn after_change<R: Runtime>(app: &AppHandle<R>, prev: &Config, next: &Config) {
     if next.hotkeys != prev.hotkeys {
@@ -61,9 +71,15 @@ fn after_change<R: Runtime>(app: &AppHandle<R>, prev: &Config, next: &Config) {
         let (app, cfg) = (app.clone(), next.ball.clone());
         std::thread::spawn(move || crate::ball::sync(&app, &cfg));
     }
+    if next.proxy != prev.proxy {
+        apply_proxy(&next.proxy);
+    }
     if next.history != prev.history {
         let app = app.clone();
         std::thread::spawn(move || crate::history::prune(&app));
+    }
+    if next.general != prev.general {
+        state::apply_language(app, next);
     }
     state::on_config_changed(app, next);
 }
@@ -125,7 +141,7 @@ pub async fn config_export(
     password: Option<String>,
 ) -> Result<Option<String>, String> {
     if sections.is_empty() {
-        return Err("至少选一项内容".into());
+        return Err(tr("至少选一项内容"));
     }
     let config = app.state::<AppState>().config.get();
     let keys = match password.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
@@ -139,14 +155,14 @@ pub async fn config_export(
     })
     .await
     .map_err(|e| e.to_string())??;
-    let name = format!("SnapMind-配置-{}.json", now_local().format("%Y%m%d"));
+    let name = format!("SnapMind-{}-{}.json", tr("配置"), now_local().format("%Y%m%d"));
     let picked = tauri::async_runtime::spawn_blocking(move || {
         window
             .dialog()
             .file()
             .set_parent(&window)
             .set_file_name(name)
-            .add_filter("SnapMind 配置", &["json"])
+            .add_filter(tr("SnapMind 配置"), &["json"])
             .blocking_save_file()
             .and_then(|p| p.into_path().ok())
     })
@@ -154,7 +170,7 @@ pub async fn config_export(
     .map_err(|e| e.to_string())?;
     let Some(path) = picked else { return Ok(None) };
     let text = serde_json::to_string_pretty(&file).map_err(|e| e.to_string())?;
-    std::fs::write(&path, text + "\n").map_err(|e| format!("保存失败：{e}"))?;
+    std::fs::write(&path, text + "\n").map_err(|e| trf("保存失败：{e}", &[("e", &e.to_string())]))?;
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
@@ -170,7 +186,7 @@ pub struct ImportPreview {
 }
 
 fn read_file(path: &str) -> Result<cf::ExportFile, String> {
-    let text = std::fs::read_to_string(path).map_err(|e| format!("读不了这个文件：{e}"))?;
+    let text = std::fs::read_to_string(path).map_err(|e| trf("读不了这个文件：{e}", &[("e", &e.to_string())]))?;
     cf::read_export(&text).map_err(|e| e.to_string())
 }
 
@@ -189,7 +205,7 @@ pub async fn config_import_pick(window: WebviewWindow) -> Result<Option<ImportPr
             .dialog()
             .file()
             .set_parent(&window)
-            .add_filter("SnapMind 配置", &["json"])
+            .add_filter(tr("SnapMind 配置"), &["json"])
             .blocking_pick_file()
             .and_then(|p| p.into_path().ok())
     })
@@ -215,7 +231,7 @@ pub struct ImportResult {
 #[tauri::command]
 pub async fn config_import(app: AppHandle, path: String, sections: Vec<Section>, password: Option<String>) -> Result<ImportResult, String> {
     if sections.is_empty() {
-        return Err("至少选一项内容".into());
+        return Err(tr("至少选一项内容"));
     }
     let file = read_file(&path)?;
     let keys = match (&file.secrets, password.as_deref().map(str::trim).filter(|p| !p.is_empty())) {
@@ -233,7 +249,7 @@ pub async fn config_import(app: AppHandle, path: String, sections: Vec<Section>,
     let patch = cf::import_patch(&file, &sections);
     let current = app.state::<AppState>().config.get();
     // 先校验补丁能用，再备份、再改
-    snapmind_core::config::apply_patch(&current, &patch).map_err(|e| format!("文件里的设置不合法：{e}"))?;
+    snapmind_core::config::apply_patch(&current, &patch).map_err(|e| trf("文件里的设置不合法：{e}", &[("e", &e.to_string())]))?;
     let backup = backup_now(&app, &current, BackupReason::Import)?;
     apply(&app, &patch, false)?;
     let mut n = 0;

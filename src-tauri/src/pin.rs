@@ -10,6 +10,7 @@
 //! - 崩溃恢复（M11.2）：开着的贴图在 `配置目录/session` 里留一份（图片 + 位置），关闭时删掉；
 //!   托盘退出时全部写进历史再清空。下次启动时还留着的，说明上次没正常退出，按原位置贴回来。
 
+use snapmind_core::i18n::{tr};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
@@ -170,7 +171,7 @@ fn create_with<R: Runtime>(
 
     let margin = (MARGIN_CSS * scale).round() as i32;
     let win = WebviewWindowBuilder::new(app, label(id), WebviewUrl::App("pin/index.html".into()))
-        .title("SnapMind 贴图")
+        .title(tr("SnapMind 贴图"))
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -318,13 +319,13 @@ pub fn copy<R: Runtime>(app: &AppHandle<R>, id: u32, template: &str) -> Result<(
     let (text, has_annotations) = {
         let state = app.state::<PinState>();
         let pins = state.pins.lock().expect("贴图锁");
-        let p = pins.get(&id).ok_or("贴图已关闭")?;
+        let p = pins.get(&id).ok_or_else(|| tr("贴图已关闭"))?;
         (p.text.clone(), p.annotations.is_some())
     };
     match text {
         Some(t) if !has_annotations => snapmind_platform::clipboard::set_text(&t).map_err(|e| e.to_string()),
         _ => {
-            let img = image(app, id).ok_or("贴图已关闭")?;
+            let img = image(app, id).ok_or_else(|| tr("贴图已关闭"))?;
             crate::export::copy_image(&img, template).map(|_| ())
         }
     }

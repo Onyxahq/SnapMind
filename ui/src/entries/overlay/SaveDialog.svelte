@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, msg } from '$lib/i18n.svelte';
   // 保存窗口（需求 3.7）：左边预览，右边位置、文件名、格式、尺寸、质量与预计大小。
   // Enter 保存并结束截图；Esc 只关闭本窗口（逐级退出）。
   import { onMount, untrack } from 'svelte';
@@ -45,9 +46,9 @@
     { value: 'webp', label: '.webp' },
   ];
   const FORMAT_NOTE: Record<ImageFormat, string> = {
-    png: '无损，文字和界面最清晰，体积较大',
-    jpg: '有损压缩，体积小，适合照片；不支持透明',
-    webp: '同等清晰度下比 JPG 更小，新版软件都能打开',
+    png: msg('无损，文字和界面最清晰，体积较大'),
+    jpg: msg('有损压缩，体积小，适合照片；不支持透明'),
+    webp: msg('同等清晰度下比 JPG 更小，新版软件都能打开'),
   };
 
   let info = $state<SaveInfo | null>(null);
@@ -158,63 +159,63 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="backdrop" onpointerdown={(e) => e.stopPropagation()} onkeydown={onKey}>
-  <div class="dlg" role="dialog" aria-modal="true" aria-label="保存截图" in:popIn out:popOut>
+  <div class="dlg" role="dialog" aria-modal="true" aria-label={t('保存截图')} in:popIn out:popOut>
     <header>
-      <b>保存截图</b>
-      <IconButton icon="close" label="取消  Esc" size={28} onclick={oncancel} />
+      <b>{t('保存截图')}</b>
+      <IconButton icon="close" label={t('取消 Esc')} size={28} onclick={oncancel} />
     </header>
     <div class="body">
       <div class="preview"><canvas bind:this={preview}></canvas></div>
       <div class="form">
         <div class="group">
-          <span class="lbl">保存位置</span>
+          <span class="lbl">{t('保存位置')}</span>
           <div class="line">
-            <Field mono bind:value={dir} width="100%" aria-label="保存目录" />
-            <IconButton icon="folder" label="打开目录" size={30} onclick={() => openFolder(dir)} />
+            <Field mono bind:value={dir} width="100%" aria-label={t('保存目录')} />
+            <IconButton icon="folder" label={t('打开目录')} size={30} onclick={() => openFolder(dir)} />
           </div>
           <div class="chips">
             {#each info?.quick ?? [] as q (q.path)}
               <button type="button" class="qchip" class:on={q.path === dir} title={q.path} onclick={() => (dir = q.path)}>{q.label}</button>
             {/each}
-            <button type="button" class="qchip add" title="添加常用位置" onclick={addLocation}><Icon name="plus" size={13} stroke={2} />添加</button>
+            <button type="button" class="qchip add" title={t('添加常用位置')} onclick={addLocation}><Icon name="plus" size={13} stroke={2} />{t('添加')}</button>
           </div>
         </div>
 
         <div class="group">
-          <span class="lbl">文件名</span>
+          <span class="lbl">{t('文件名')}</span>
           <div class="line">
-            <input class="name" bind:this={nameInput} bind:value={name} aria-label="文件名" spellcheck="false" />
-            <Seg label="格式" options={FORMATS} bind:value={format} />
+            <input class="name" bind:this={nameInput} bind:value={name} aria-label={t('文件名')} spellcheck="false" />
+            <Seg label={t('格式')} options={FORMATS} bind:value={format} />
           </div>
-          <span class="note">{FORMAT_NOTE[format]}</span>
+          <span class="note">{t(FORMAT_NOTE[format])}</span>
         </div>
 
         <div class="group">
-          <span class="lbl">尺寸</span>
+          <span class="lbl">{t('尺寸')}</span>
           <div class="line">
-            <input class="num" type="number" min="1" value={width} aria-label="宽" onchange={(e) => setW(+e.currentTarget.value)} />
-            <IconButton icon={lock ? 'lock' : 'unlock'} label={lock ? '已锁定比例' : '未锁定比例'} on={lock} size={30} onclick={() => (lock = !lock)} />
-            <input class="num" type="number" min="1" value={height} aria-label="高" onchange={(e) => setH(+e.currentTarget.value)} />
-            <span class="note">原始 {sel.width} × {sel.height}</span>
+            <input class="num" type="number" min="1" value={width} aria-label={t('宽')} onchange={(e) => setW(+e.currentTarget.value)} />
+            <IconButton icon={lock ? 'lock' : 'unlock'} label={lock ? t('已锁定比例') : t('未锁定比例')} on={lock} size={30} onclick={() => (lock = !lock)} />
+            <input class="num" type="number" min="1" value={height} aria-label={t('高')} onchange={(e) => setH(+e.currentTarget.value)} />
+            <span class="note">{t('原始 {width} × {height}', { width: sel.width, height: sel.height })}</span>
           </div>
         </div>
 
         <div class="group" class:dim={!lossy}>
-          <span class="lbl">质量 <span class="note">{lossy ? quality : '仅 JPG / WebP'}</span></span>
-          <input type="range" min="1" max="100" bind:value={quality} disabled={!lossy} aria-label="质量" />
+          <span class="lbl">{t('质量')} <span class="note">{lossy ? quality : t('仅 JPG / WebP')}</span></span>
+          <input type="range" min="1" max="100" bind:value={quality} disabled={!lossy} aria-label={t('质量')} />
         </div>
 
         <div class="est">
-          预计大小 <b>{bytes === null ? '…' : formatBytes(bytes)}</b>
+          {t('预计大小')} <b>{bytes === null ? '…' : formatBytes(bytes)}</b>
           <span class="path" title={fullPath}>{fullPath}</span>
         </div>
       </div>
     </div>
     <footer>
-      <Button onclick={system}>系统另存为…</Button>
+      <Button onclick={system}>{t('系统另存为…')}</Button>
       <span class="grow"></span>
-      <Button onclick={oncancel}>取消</Button>
-      <Button variant="primary" icon="download" onclick={save}>保存　Enter</Button>
+      <Button onclick={oncancel}>{t('取消')}</Button>
+      <Button variant="primary" icon="download" onclick={save}>{t('保存 Enter')}</Button>
     </footer>
   </div>
 </div>

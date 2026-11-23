@@ -3,6 +3,7 @@
 
 use std::time::Duration;
 
+use snapmind_core::i18n::{tr, trf};
 use snapmind_core::config::{BackendRef, MtConfig, MtKind, ProviderConfig, ProviderKind};
 
 use crate::chat::{stream_chat, ChatRequest, Endpoint, Message};
@@ -16,11 +17,11 @@ pub enum Backend {
     Mt { kind: MtKind, key: String, region: Option<String>, base_url: Option<String> },
 }
 
-pub fn mt_name(kind: MtKind) -> &'static str {
+pub fn mt_name(kind: MtKind) -> String {
     match kind {
-        MtKind::Deepl => "DeepL",
-        MtKind::Google => "Google 翻译",
-        MtKind::Microsoft => "微软翻译",
+        MtKind::Deepl => "DeepL".to_string(),
+        MtKind::Google => tr("Google 翻译"),
+        MtKind::Microsoft => tr("微软翻译"),
     }
 }
 
@@ -126,16 +127,16 @@ impl<T> ChainSuccess<T> {
             return self.label.clone();
         }
         let why: Vec<String> = self.failures.iter().map(|f| format!("{} {}", f.label, f.error.short())).collect();
-        format!("{}，已切换到 {}", why.join("，"), self.label)
+        trf("{why}，已切换到 {label}", &[("why", &why.join(&tr("，"))), ("label", &self.label)])
     }
 }
 
 /// 全部失败时的说明：「deepseek-chat 超时；DeepL 出错（HTTP 500）」。
 pub fn describe_failures(failures: &[Failure]) -> String {
     if failures.is_empty() {
-        return "还没有设置可用的后端".into();
+        return tr("还没有设置可用的后端");
     }
-    failures.iter().map(|f| format!("{} {}", f.label, f.error.short())).collect::<Vec<_>>().join("；")
+    failures.iter().map(|f| format!("{} {}", f.label, f.error.short())).collect::<Vec<_>>().join(&tr("；"))
 }
 
 /// 一次链式执行的记录。调用方自己写循环（`for i in 0..run.len()`），每项成功就 `succeed`、

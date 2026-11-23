@@ -8,6 +8,7 @@
 //!
 //! 状态统一放在 [`UpdateState`]，变化时广播 `update:state`，页面据此显示。
 
+use snapmind_core::i18n::tr;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -102,7 +103,17 @@ pub async fn check<R: Runtime>(app: &AppHandle<R>) -> UpdateStatus {
         s.error = None;
     }
     let _ = app.emit(EVENT, status(app));
-    let result = async { app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string()) }.await;
+    let result = async {
+        let mut builder = app.updater_builder();
+        // 更新检查和下载同样遵守代理设置
+        builder = match snapmind_providers::net::route().await {
+            snapmind_providers::net::Route::System => builder,
+            snapmind_providers::net::Route::Direct => builder.no_proxy(),
+            snapmind_providers::net::Route::Proxy(url) => builder.proxy(url),
+        };
+        builder.build().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())
+    }
+    .await;
     match result {
         Ok(Some(update)) => {
             crate::log_info!("发现新版本 {}", update.version);
@@ -133,7 +144,7 @@ pub async fn check<R: Runtime>(app: &AppHandle<R>) -> UpdateStatus {
 
 /// 下载并安装检查到的新版本。成功时安装程序接手、本进程退出，不会返回。
 pub async fn install<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let update = app.state::<UpdateState>().pending.lock().expect("更新状态锁").clone().ok_or("还没有检查到新版本")?;
+    let update = app.state::<UpdateState>().pending.lock().expect("更新状态锁").clone().ok_or_else(|| tr("还没有检查到新版本"))?;
     set(app, |s| {
         s.phase = Phase::Downloading;
         s.received = 0;

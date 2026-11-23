@@ -5,6 +5,7 @@
 //! 设置窗口按需创建、关掉即销毁（M11.1）：它很少打开，常驻一个隐藏的 WebView 要多占三四十 MB 内存；
 //! 打开时多等几百毫秒可以接受（截图遮罩、划词卡片这些要求秒开的仍然预热）。
 
+use snapmind_core::i18n::{tr};
 use snapmind_core::config::ThemeMode;
 use tauri::window::Color;
 use tauri::{AppHandle, Emitter, Manager, Runtime, Theme, WebviewUrl, WebviewWindowBuilder};
@@ -51,7 +52,7 @@ fn build_settings<R: Runtime>(app: &AppHandle<R>, page: Option<&str>) -> tauri::
     // 页面名只能是这几个字母，拼进脚本不会出问题
     let page = page.filter(|p| p.chars().all(|c| c.is_ascii_alphabetic())).unwrap_or("");
     let w = WebviewWindowBuilder::new(app, SETTINGS, WebviewUrl::App("settings/index.html".into()))
-        .title("SnapMind 设置")
+        .title(tr("SnapMind 设置"))
         .inner_size(1040.0, 720.0)
         .min_inner_size(860.0, 560.0)
         .center()

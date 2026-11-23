@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, msg } from '$lib/i18n.svelte';
   // 设置页「提示词」（需求 1.3）：四套任务各一套，空表示用默认值；可插入变量、恢复默认。
   import { onMount, tick } from 'svelte';
   import { promptDefaults, type PromptKind } from '$lib/ipc';
@@ -8,16 +9,16 @@
   import { toast } from '$lib/ui/toast.svelte';
 
   const KINDS: { value: PromptKind; label: string; desc: string }[] = [
-    { value: 'recognize', label: '识别', desc: '识别链用视觉大模型时生效。本地 OCR 不使用提示词。' },
-    { value: 'translate', label: '翻译', desc: '翻译链用大模型时生效，划词翻译也用这一套。机器翻译不使用提示词。' },
-    { value: 'oneshot', label: '一步到位', desc: '打开「一步到位」后生效：一次调用同时完成识别和翻译，要求模型按 JSON 输出。' },
-    { value: 'markdown', label: 'Markdown', desc: '「识别为 Markdown」使用大模型时生效。' },
+    { value: 'recognize', label: msg('识别'), desc: msg('识别链用视觉大模型时生效。本地 OCR 不使用提示词。') },
+    { value: 'translate', label: msg('翻译'), desc: msg('翻译链用大模型时生效，划词翻译也用这一套。机器翻译不使用提示词。') },
+    { value: 'oneshot', label: msg('一步到位'), desc: msg('打开「一步到位」后生效：一次调用同时完成识别和翻译，要求模型按 JSON 输出。') },
+    { value: 'markdown', label: 'Markdown', desc: msg('「识别为 Markdown」使用大模型时生效。') },
   ];
   const VARS = [
-    { v: '{target_lang}', tip: '目标语言，如「简体中文」' },
-    { v: '{source_lang}', tip: '原文语言；自动检测时为空' },
-    { v: '{glossary}', tip: '不翻译列表里的术语，用顿号分隔；为空时为空' },
-    { v: '{text}', tip: '要翻译的原文' },
+    { v: '{target_lang}', tip: msg('目标语言，如「简体中文」') },
+    { v: '{source_lang}', tip: msg('原文语言；自动检测时为空') },
+    { v: '{glossary}', tip: msg('不翻译列表里的术语，用顿号分隔；为空时为空') },
+    { v: '{text}', tip: msg('要翻译的原文') },
   ];
 
   let kind = $state<PromptKind>('translate');
@@ -70,7 +71,7 @@
     try {
       await updateConfig({ prompts: { [kind]: '' } });
       load();
-      toast('已恢复默认提示词', { kind: 'ok' });
+      toast(t('已恢复默认提示词'), { kind: 'ok' });
     } catch (e) {
       toast(String(e), { kind: 'error' });
     }
@@ -91,31 +92,31 @@
 </script>
 
 <div class="bar">
-  <Seg label="提示词" options={KINDS} value={kind} onchange={switchTo} />
-  <span class="state" class:mod={!isDefault}>{isDefault ? '默认' : '已修改'}</span>
+  <Seg label={t('提示词')} options={KINDS} value={kind} onchange={switchTo} />
+  <span class="state" class:mod={!isDefault}>{isDefault ? t('默认') : t('已修改')}</span>
   <span class="grow"></span>
-  <Button disabled={isDefault} onclick={reset}>恢复默认</Button>
+  <Button disabled={isDefault} onclick={reset}>{t('恢复默认')}</Button>
 </div>
 
 <div class="card">
-  <span class="desc">{meta.desc}</span>
+  <span class="desc">{t(meta.desc)}</span>
   <textarea
     bind:this={area}
     class="field"
     rows="10"
-    aria-label="提示词"
+    aria-label={t('提示词')}
     spellcheck="false"
     bind:value={draft}
     {oninput}
     onblur={flush}
   ></textarea>
   <div class="vars">
-    <span class="lbl">插入变量</span>
+    <span class="lbl">{t('插入变量')}</span>
     {#each VARS as x (x.v)}
-      <button type="button" class="chip" title={x.tip} onclick={() => insert(x.v)}>{x.v}</button>
+      <button type="button" class="chip" title={t(x.tip)} onclick={() => insert(x.v)}>{x.v}</button>
     {/each}
   </div>
-  <span class="hint">某个变量为空时（例如没有不翻译的术语），含这个变量的整行会被去掉；翻译提示词里删掉了 {'{text}'} 时，原文会接在最后。</span>
+  <span class="hint">{t('某个变量为空时（例如没有不翻译的术语），含这个变量的整行会被去掉；翻译提示词里删掉了 {v} 时，原文会接在最后。', { v: '{text}' })}</span>
 </div>
 
 <style>

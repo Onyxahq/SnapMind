@@ -5,6 +5,7 @@
 //! - 引擎第一次识别时加载，之后常驻（加载一次约 0.3 s，常驻约 100 MB 内存）。
 //! - 识别结果按任务 id 留几份在 Rust 这边，右键划选只传行号回来，由 `layout::compose` 按段落规则重新拼。
 
+use snapmind_core::i18n::{tr, trf};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -71,7 +72,9 @@ pub fn status<R: Runtime>(app: &AppHandle<R>) -> OcrStatus {
     st.installed = models::installed(&dir);
     st.table_installed = models::table_installed(&dir);
     if !st.downloading {
-        st.total = models::total_size();
+        // 还差多少没下：设置页的「一键下载」按这个显示大小
+        st.total = if st.installed { 0 } else { models::total_size() }
+            + if st.table_installed { 0 } else { models::TABLE_FILES.iter().map(|f| f.size).sum() };
     }
     st
 }
@@ -85,7 +88,7 @@ fn engine<R: Runtime>(app: &AppHandle<R>) -> Result<Arc<Ocr>, String> {
     }
     let dir = models_dir(app);
     if !models::installed(&dir) {
-        return Err("本地 OCR 模型还没有下载".into());
+        return Err(tr("本地 OCR 模型还没有下载"));
     }
     let t = Instant::now();
     let e = Arc::new(Ocr::load(&dir).map_err(|e| e.to_string())?);
@@ -124,7 +127,7 @@ fn table_model<R: Runtime>(app: &AppHandle<R>) -> Result<Arc<TableModel>, String
     }
     let dir = models_dir(app);
     if !models::table_installed(&dir) {
-        return Err("表格模型还没有下载".into());
+        return Err(tr("表格模型还没有下载"));
     }
     let m = Arc::new(TableModel::load(&dir.join("table.onnx")).map_err(|e| e.to_string())?);
     *slot = Some(m.clone());
@@ -213,7 +216,7 @@ pub fn ocr_compose(app: AppHandle, id: String, pick: Option<Vec<usize>>, by_line
         .iter()
         .find(|(k, _)| *k == id)
         .map(|(_, l)| l.clone())
-        .ok_or("识别结果已过期")?;
+        .ok_or_else(|| tr("识别结果已过期"))?;
     let pick = pick.unwrap_or_else(|| (0..lines.len()).collect());
     Ok(layout::compose(&lines, &pick, by_line))
 }
@@ -263,11 +266,11 @@ pub async fn pin_ocr(app: AppHandle, window: tauri::WebviewWindow) -> Result<Opt
 /// 按段落规则拼接后写进剪贴板，返回拼好的文字。
 #[tauri::command]
 pub fn pin_copy_text(app: AppHandle, window: tauri::WebviewWindow, pieces: Vec<(usize, String)>) -> Result<String, String> {
-    let id = crate::pin::id_of(window.label()).ok_or("不是贴图窗口")?;
-    let lines = crate::pin::ocr(&app, id).ok_or("贴图还没有识别结果")?;
+    let id = crate::pin::id_of(window.label()).ok_or_else(|| tr("不是贴图窗口"))?;
+    let lines = crate::pin::ocr(&app, id).ok_or_else(|| tr("贴图还没有识别结果"))?;
     let text = compose_pieces(&lines, &pieces);
     if text.is_empty() {
-        return Err("没有选中文字".into());
+        return Err(tr("没有选中文字"));
     }
     snapmind_platform::clipboard::set_text(&text).map_err(|e| e.to_string())?;
     Ok(text)
@@ -335,15 +338,17 @@ fn set_received<R: Runtime>(app: &AppHandle<R>, received: u64) {
 
 async fn download<R: Runtime>(app: &AppHandle<R>, files: &[&models::ModelFile]) -> Result<(), String> {
     let dir = user_models_dir(app);
-    std::fs::create_dir_all(&dir).map_err(|e| format!("建立模型目录失败：{e}"))?;
-    let client = reqwest::Client::builder()
-        // 魔搭对不带 User-Agent 的请求回 403
-        .user_agent(concat!("SnapMind/", env!("CARGO_PKG_VERSION")))
-        .connect_timeout(std::time::Duration::from_secs(10))
-        // 连上了但半天不来数据（被墙时常见）也算失败，好换下一个源
-        .read_timeout(std::time::Duration::from_secs(20))
-        .build()
-        .map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| trf("建立模型目录失败：{e}", &[("e", &e.to_string())]))?;
+    let client = snapmind_providers::net::client(
+        reqwest::Client::builder()
+            // 魔搭对不带 User-Agent 的请求回 403
+            .user_agent(concat!("SnapMind/", env!("CARGO_PKG_VERSION")))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            // 连上了但半天不来数据（被墙时常见）也算失败，好换下一个源
+            .read_timeout(std::time::Duration::from_secs(20)),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
     // 按地区排先后；某个源成功过就一直先用它
     let mut order = models::sources(snapmind_platform::region::mainland_china()).to_vec();
     let mut received = 0u64;
@@ -374,15 +379,15 @@ async fn download<R: Runtime>(app: &AppHandle<R>, files: &[&models::ModelFile]) 
             }
         }
         if !errors.is_empty() {
-            return Err(format!("下载 {} 失败（{}）", f.name, errors.join("；")));
+            return Err(trf("下载 {name} 失败（{errors}）", &[("name", &f.name), ("errors", &errors.join("；"))]));
         }
-        std::fs::rename(&part, &path).map_err(|e| format!("保存 {} 失败：{e}", f.name))?;
+        std::fs::rename(&part, &path).map_err(|e| trf("保存 {name} 失败：{e}", &[("name", &f.name), ("e", &e.to_string())]))?;
         received += f.size;
         set_received(app, received);
     }
     let yml = std::fs::read_to_string(dir.join("rec.yml")).map_err(|e| e.to_string())?;
     let keys = models::extract_keys(&yml)?;
-    std::fs::write(dir.join("keys.txt"), keys.join("\n")).map_err(|e| format!("写字符表失败：{e}"))?;
+    std::fs::write(dir.join("keys.txt"), keys.join("\n")).map_err(|e| trf("写字符表失败：{e}", &[("e", &e.to_string())]))?;
     Ok(())
 }
 
@@ -401,7 +406,7 @@ async fn fetch<R: Runtime>(
     base: u64,
 ) -> Result<(), String> {
     use std::io::Write;
-    let net = |e: reqwest::Error| if e.is_timeout() { "连接超时".to_string() } else { e.to_string() };
+    let net = |e: reqwest::Error| if e.is_timeout() { tr("连接超时") } else { e.to_string() };
     let mut resp = client.get(f.url(src)).send().await.map_err(net)?;
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status().as_u16()));
@@ -422,7 +427,7 @@ async fn fetch<R: Runtime>(
     file.flush().map_err(|e| e.to_string())?;
     let sum = hex(&hasher.finalize());
     if sum != f.sha256 {
-        return Err("校验失败（SHA-256 不符），可能下载被篡改或不完整".into());
+        return Err(tr("校验失败（SHA-256 不符），可能下载被篡改或不完整"));
     }
     Ok(())
 }

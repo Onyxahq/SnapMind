@@ -7,6 +7,7 @@ pub mod config;
 pub mod configfile;
 pub mod export;
 pub mod gifenc;
+pub mod i18n;
 pub mod history;
 pub mod lang;
 pub mod prompts;

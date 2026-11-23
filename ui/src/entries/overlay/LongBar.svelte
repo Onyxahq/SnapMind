@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 长截图（需求 3.9、M9.1）：选区下方的工具条 + 选区旁边的实时拼接预览。
   // 选区里透出真实页面，滚轮直接滚页面；只有这条工具条接收鼠标（位置报给 Rust 切换穿透）。
   import type { Rect } from '$lib/geometry';
@@ -46,11 +47,11 @@
   const size = $derived(progress ? `${progress.width} × ${progress.height}` : '…');
   const notice = $derived(
     progress?.state === 'lost'
-      ? '对不上了：滚慢一点，或往回滚一点再继续'
+      ? t('对不上了：滚慢一点，或往回滚一点再继续')
       : progress?.state === 'full'
-        ? '已到长度上限（30000 像素）'
+        ? t('已到长度上限（30000 像素）')
         : progress?.state === 'end'
-          ? '已经滚到底了'
+          ? t('已经滚到底了')
           : '',
   );
 
@@ -90,7 +91,7 @@
   style:height="{prevBox.h}px"
   aria-hidden="true"
 >
-  <span class="cap">拼接预览</span>
+  <span class="cap">{t('拼接预览')}</span>
   <div class="win">
     <div class="doc" style:width="{shown.w}px" style:height="{shown.h}px">
       {#if preview}<img src={preview} alt="" />{:else}<span class="ph"></span>{/if}
@@ -102,7 +103,7 @@
   class="bar"
   role="toolbar"
   tabindex="-1"
-  aria-label="长截图工具条"
+  aria-label={t('长截图工具条')}
   style:left="{pos.x}px"
   style:top="{pos.y}px"
   bind:clientWidth={width}
@@ -112,12 +113,12 @@
   {#if notice}
     <span class="notice" class:warn={progress?.state === 'lost'} role="status">{notice}</span>
   {/if}
-  <span class="size" title="宽 × 已拼接的高（像素）">{size}</span>
+  <span class="size" title={t('宽 × 已拼接的高（像素）')}>{size}</span>
   <Seg
-    label="方向"
+    label={t('方向')}
     options={[
-      { value: 'vertical', label: '纵向' },
-      { value: 'horizontal', label: '横向' },
+      { value: 'vertical', label: t('纵向') },
+      { value: 'horizontal', label: t('横向') },
     ]}
     value={axis}
     onchange={onaxis}
@@ -125,17 +126,17 @@
   <span class="sep" aria-hidden="true"></span>
   <IconButton
     icon={auto ? 'pause' : 'play'}
-    label={auto ? '停止自动滚动' : '自动滚动（也可以自己用滚轮滚）'}
+    label={auto ? t('停止自动滚动') : t('自动滚动（也可以自己用滚轮滚）')}
     on={auto}
     disabled={busy}
     onclick={() => onauto(!auto)}
   />
-  <IconButton icon="scan" label="识别文字  Shift+C" disabled={busy} onclick={() => onfinish('ocr')} />
-  <IconButton icon="pin" label="贴图  Ctrl+T" disabled={busy} onclick={() => onfinish('pin')} />
-  <IconButton icon="download" label="保存  Ctrl+S" disabled={busy} onclick={() => onfinish('save')} />
-  <IconButton icon="close" label="取消长截图  Esc" disabled={busy} onclick={oncancel} />
-  <button type="button" class="done" disabled={busy} title="完成并复制  Enter" onclick={() => onfinish('copy')}>
-    {busy ? '处理中…' : '完成并复制'}
+  <IconButton icon="scan" label={t('识别文字 Shift+C')} disabled={busy} onclick={() => onfinish('ocr')} />
+  <IconButton icon="pin" label={t('贴图 Ctrl+T')} disabled={busy} onclick={() => onfinish('pin')} />
+  <IconButton icon="download" label={t('保存 Ctrl+S')} disabled={busy} onclick={() => onfinish('save')} />
+  <IconButton icon="close" label={t('取消长截图 Esc')} disabled={busy} onclick={oncancel} />
+  <button type="button" class="done" disabled={busy} title={t('完成并复制 Enter')} onclick={() => onfinish('copy')}>
+    {busy ? t('处理中…') : t('完成并复制')}
   </button>
 </div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // Markdown 结果卡片（需求 3.8、M8.1）：「编辑」视图改源码，「预览」视图实时渲染（Obsidian 方言）。
   // 复制、存为 .md 会结束截图；关闭卡片不会。
   import type { Rect } from '$lib/geometry';
@@ -54,33 +55,33 @@
 >
   <header>
     <span class="chip">
-      {#if busy}<span class="dot" aria-hidden="true"></span>识别中{card.backend ? ` · ${card.backend}` : ''}
-      {:else if card.stage === 'error'}出错了
+      {#if busy}<span class="dot" aria-hidden="true"></span>{t('识别中{v}', { v: card.backend ? ` · ${card.backend}` : '' })}
+      {:else if card.stage === 'error'}{t('出错了')}
       {:else}Markdown{/if}
     </span>
     <span class="grow"></span>
     <Seg
-      label="视图"
+      label={t('视图')}
       options={[
-        { value: 'edit', label: '编辑' },
-        { value: 'preview', label: '预览' },
+        { value: 'edit', label: t('编辑') },
+        { value: 'preview', label: t('预览') },
       ]}
       bind:value={view}
     />
-    <IconButton icon="close" label="关闭  Esc" size={28} onclick={onclose} />
+    <IconButton icon="close" label={t('关闭 Esc')} size={28} onclick={onclose} />
   </header>
 
   {#if card.stage === 'error'}
     <p class="err" role="alert">{card.error}</p>
   {:else if busy && !card.src}
-    <div class="sk" aria-label="正在识别">
+    <div class="sk" aria-label={t('正在识别')}>
       <span style:width="40%"></span><span style:width="92%"></span><span style:width="84%"></span><span style:width="60%"></span>
     </div>
   {:else if view === 'edit'}
     <textarea
       bind:this={srcEl}
       class="field"
-      aria-label="Markdown 源码"
+      aria-label={t('Markdown 源码')}
       spellcheck="false"
       readonly={busy}
       value={card.src}
@@ -93,8 +94,8 @@
 
   <footer>
     <span class="meta" title={card.meta}>{card.meta}</span>
-    <Button disabled={!canAct} onclick={onsave} title="存为 .md 文件">保存 .md</Button>
-    <Button variant="primary" disabled={!canAct} onclick={oncopy} title="复制 Markdown 源码">复制</Button>
+    <Button disabled={!canAct} onclick={onsave} title={t('存为 .md 文件')}>{t('保存 .md')}</Button>
+    <Button variant="primary" disabled={!canAct} onclick={oncopy} title={t('复制 Markdown 源码')}>{t('复制')}</Button>
   </footer>
 </div>
 

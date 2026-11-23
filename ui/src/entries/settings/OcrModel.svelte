@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 本地 OCR 模型的状态和下载（识别与翻译页、新手引导共用）。进度由 Rust 广播，
   // 截图里提示下载时这里也同步。
   import { onMount } from 'svelte';
@@ -22,27 +23,27 @@
   function download() {
     if (st) st = { ...st, downloading: true, received: 0, error: null };
     // 失败原因随状态广播回来，显示在说明里
-    ocrDownload().catch(() => {});
+    ocrDownload(true).catch(() => {});
   }
 </script>
 
 <Row
-  title="本地文字识别模型"
+  title={t('本地识别模型')}
   desc={st?.error
-    ? `下载失败：${st.error}`
-    : '离线识别截图里的文字，原位翻译要靠它给出每行的位置。PP-OCRv5，下载一次即可；按地区自动选 Hugging Face 或魔搭，一个连不上会换另一个'}
+    ? t('下载失败：{error}', { error: st.error })
+    : t('文字识别（PP-OCRv5，原位翻译靠它给出每行的位置）和表格识别（SLANet_plus）一口气下好，之后离线可用；按地区自动选 Hugging Face 或魔搭，一个连不上会换另一个')}
 >
   {#if !st}
     <span></span>
-  {:else if st.installed}
-    <span class="ok"><Icon name="check" />已安装</span>
+  {:else if st.installed && st.tableInstalled}
+    <span class="ok"><Icon name="check" />{t('已安装')}</span>
   {:else if st.downloading}
-    <div class="dl" role="progressbar" aria-label="下载进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+    <div class="dl" role="progressbar" aria-label={t('下载进度')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
       <div class="bar"><i style:width="{pct}%"></i></div>
       <span>{mb(st.received)} / {mb(st.total)} MB{st.source ? ` · ${st.source}` : ''}</span>
     </div>
   {:else}
-    <Button variant="primary" icon="download" onclick={download}>{st.error ? '重试' : `下载（${mb(st.total)} MB）`}</Button>
+    <Button variant="primary" icon="download" onclick={download}>{st.error ? t('重试') : t('下载（{mb} MB）', { mb: mb(st.total) })}</Button>
   {/if}
 </Row>
 

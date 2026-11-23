@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, msg } from '$lib/i18n.svelte';
   // 设置页「备用链」（需求 1.2）：翻译 / 识别 / 一步到位三条有序链，第 1 个是首选。
   import { flip } from '$lib/motion';
   import { fade } from 'svelte/transition';
@@ -15,7 +16,7 @@
 
   /** 不需要 Key 的服务商种类 */
   const NO_KEY = ['ollama'];
-  const TIMEOUTS = [5, 8, 15, 30].map((s) => ({ value: String(s), label: `${s} 秒` }));
+  const TIMEOUTS = [5, 8, 15, 30].map((s) => ({ value: String(s), label: t('{s} 秒', { s }) }));
 
   let task = $state<ChainTask>('translate');
   let addSel = $state('');
@@ -43,25 +44,25 @@
     }
   }
 
-  const STATE_NOTE = { stale: '已失效', nokey: '没有 Key' } as const;
+  const STATE_NOTE = { stale: msg('已失效'), nokey: msg('没有 Key') } as const;
   const STATE_TIP = {
-    stale: '服务商已移除、模型已取消勾选或不是视觉模型，执行时会跳过',
-    nokey: '还没填 Key，执行到这里会报错并换下一个',
+    stale: msg('服务商已移除、模型已取消勾选或不是视觉模型，执行时会跳过'),
+    nokey: msg('还没填 Key，执行到这里会报错并换下一个'),
   } as const;
 </script>
 
 <div class="head">
-  <h3 class="sec">备用链 · 失败时按顺序自动切换</h3>
-  <Switch label="自动切换备用" checked={chains.fallback} onchange={(fallback) => patch({ fallback })} />
+  <h3 class="sec">{t('备用链 · 失败时按顺序自动切换')}</h3>
+  <Switch label={t('自动切换备用')} checked={chains.fallback} onchange={(fallback) => patch({ fallback })} />
 </div>
 
 <div class="card" class:off={!chains.fallback}>
   <div class="bar">
-    <Seg label="备用链" options={TASKS} value={task} onchange={(v) => ((task = v), (addSel = ''))} />
+    <Seg label={t('备用链')} options={TASKS} value={task} onchange={(v) => ((task = v), (addSel = ''))} />
     <span class="grow"></span>
-    <span class="lbl">超时</span>
+    <span class="lbl">{t('超时')}</span>
     <Select
-      aria-label="超时"
+      aria-label={t('超时')}
       width="96px"
       options={TIMEOUTS}
       value={String(chains.timeoutSecs)}
@@ -74,42 +75,42 @@
     <div class="crow" class:dim={!chains.fallback && i > 0} animate:flip={{ duration: 200 }} in:fade={{ duration: 120 }}>
       <span class="num" class:first={i === 0}>{i + 1}</span>
       <span class="name" class:stale={st === 'stale'}>{refLabel(r, providers)}</span>
-      {#if st !== 'ok'}<span class="warn" title={STATE_TIP[st]}>{STATE_NOTE[st]}</span>{/if}
+      {#if st !== 'ok'}<span class="warn" title={t(STATE_TIP[st])}>{t(STATE_NOTE[st])}</span>{/if}
       <span class="chip">{refTag(r, task)}</span>
-      <IconButton icon="chevronUp" label="上移" size={28} disabled={i === 0 || r.type === 'degrade'} onclick={() => save(move(chain, i, i - 1))} />
+      <IconButton icon="chevronUp" label={t('上移')} size={28} disabled={i === 0 || r.type === 'degrade'} onclick={() => save(move(chain, i, i - 1))} />
       <IconButton
         icon="chevronDown"
-        label="下移"
+        label={t('下移')}
         size={28}
         disabled={i === chain.length - 1 || chain[i + 1]?.type === 'degrade' || r.type === 'degrade'}
         onclick={() => save(move(chain, i, i + 1))}
       />
-      <IconButton icon="close" label="移除" size={28} onclick={() => save(chain.filter((_, j) => j !== i))} />
+      <IconButton icon="close" label={t('移除')} size={28} onclick={() => save(chain.filter((_, j) => j !== i))} />
     </div>
   {:else}
     <div class="none">
-      {#if task === 'translate'}还没有翻译后端。先在上面的「模型服务」里勾选模型或填好机器翻译的 Key，再加进来。
-      {:else if task === 'recognize'}还没有识别后端，加一个本地 OCR 或视觉模型。
-      {:else}还没有一步到位后端。需要勾选带「视觉」标签的模型。{/if}
+      {#if task === 'translate'}{t('还没有翻译后端。先在上面的「模型服务」里勾选模型或填好机器翻译的 Key，再加进来。')}
+      {:else if task === 'recognize'}{t('还没有识别后端，加一个本地 OCR 或视觉模型。')}
+      {:else}{t('还没有一步到位后端。需要勾选带「视觉」标签的模型。')}{/if}
     </div>
   {/each}
 
   <div class="add">
     {#if cands.length}
       <Select
-        aria-label="添加备用"
+        aria-label={t('添加备用')}
         width="100%"
         options={cands.map((c) => ({ value: refKey(c), label: `${refLabel(c, providers)}（${refTag(c, task)}）` }))}
         value={pick ? refKey(pick) : ''}
         onchange={(e) => (addSel = e.currentTarget.value)}
       />
-      <Button icon="plus" onclick={() => pick && save([...chain, pick])}>加入链尾</Button>
+      <Button icon="plus" onclick={() => pick && save([...chain, pick])}>{t('加入链尾')}</Button>
     {:else}
-      <span class="t-note">没有可添加的项{task === 'translate' ? '' : '（识别和一步到位只能用带「视觉」标签的模型）'}</span>
+      <span class="t-note">{task === 'translate' ? t('没有可添加的项') : t('没有可添加的项（识别和一步到位只能用带「视觉」标签的模型）')}</span>
     {/if}
   </div>
 </div>
-<p class="t-note tip">第 1 个是首选。请求失败、超时或返回空结果时，自动换下一个，结果卡片会标出实际用的是哪个。关掉自动切换时只用第 1 个。</p>
+<p class="t-note tip">{t('第 1 个是首选。请求失败、超时或返回空结果时，自动换下一个，结果卡片会标出实际用的是哪个。关掉自动切换时只用第 1 个。')}</p>
 
 <style>
   .head {

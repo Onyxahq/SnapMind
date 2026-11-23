@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 标注工具的样式面板内容：子类型、颜色（马赛克没有）、粗细 / 字号 / 强度。
   // 外层的玻璃卡片和摆放位置由宿主决定（截图工具条是浮动弹层，贴图工具条是排在工具条下方）。
   import { COLORS, SIZES, TOOL_INFO, type Tool, type ToolOpts } from '$lib/annotate';
@@ -16,8 +17,8 @@
 <div class="props-body">
   {#if info.subs}
     <Seg
-      label="子类型"
-      options={info.subs.map((s, i) => ({ value: String(i), label: s }))}
+      label={t('子类型')}
+      options={info.subs.map((s, i) => ({ value: String(i), label: t(s) }))}
       value={String(opts.sub)}
       onchange={(v) => onopts(tool, { sub: Number(v) })}
     />
@@ -31,14 +32,14 @@
           class:on={opts.color === i}
           style:background={c.value}
           aria-label={c.label}
-          title={c.label}
+          title={t(c.label)}
           onclick={() => onopts(tool, { color: i })}
         ></button>
       {/each}
     </div>
   {/if}
   <div class="sizes">
-    <span class="lbl">{tool === 'text' ? '字号' : tool === 'mosaic' ? '强度' : '粗细'}</span>
+    <span class="lbl">{tool === 'text' ? t('字号') : tool === 'mosaic' ? t('强度') : t('粗细')}</span>
     {#each SIZES as s, i (s)}
       <button
         type="button"

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 有未保存的标注时退出前确认（需求 3.1），可以勾选「不再询问」。
   // Enter 放弃并退出，Esc 取消（回到截图）。
   import { onMount } from 'svelte';
@@ -30,13 +31,13 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="backdrop" onpointerdown={(e) => e.stopPropagation()} onkeydown={onKey}>
-  <div class="box" role="alertdialog" aria-modal="true" aria-label="放弃标注" tabindex="-1" bind:this={box} in:popIn out:popOut>
-    <b>放弃这次截图的标注？</b>
-    <p>{count} 处标注还没有复制或保存，退出后会丢失。</p>
-    <label class="ask"><input type="checkbox" bind:checked={dontAsk} />不再询问</label>
+  <div class="box" role="alertdialog" aria-modal="true" aria-label={t('放弃标注')} tabindex="-1" bind:this={box} in:popIn out:popOut>
+    <b>{t('放弃这次截图的标注？')}</b>
+    <p>{t('{count} 处标注还没有复制或保存，退出后会丢失。', { count })}</p>
+    <label class="ask"><input type="checkbox" bind:checked={dontAsk} />{t('不再询问')}</label>
     <div class="actions">
-      <Button onclick={oncancel}>取消</Button>
-      <Button variant="danger" onclick={() => onconfirm(dontAsk)}>放弃并退出　Enter</Button>
+      <Button onclick={oncancel}>{t('取消')}</Button>
+      <Button variant="danger" onclick={() => onconfirm(dontAsk)}>{t('放弃并退出 Enter')}</Button>
     </div>
   </div>
 </div>

@@ -1,11 +1,12 @@
 // 备用链的纯逻辑：每一项的显示名 / 标签 / 状态，可添加的候选，移动与一步到位链的「降级」置底。
 import type { BackendRef, ChainTask, MtKind, ProviderConfig } from './ipc';
 import { MT_SERVICES, mtAccount } from './providers';
+import { t, msg } from './i18n.svelte';
 
 export const TASKS: { value: ChainTask; label: string }[] = [
-  { value: 'translate', label: '翻译' },
-  { value: 'recognize', label: '识别' },
-  { value: 'oneshot', label: '一步到位' },
+  { value: 'translate', label: msg('翻译') },
+  { value: 'recognize', label: msg('识别') },
+  { value: 'oneshot', label: msg('一步到位') },
 ];
 
 export function refKey(r: BackendRef): string {
@@ -30,22 +31,22 @@ export function refLabel(r: BackendRef, providers: ProviderConfig[]): string {
     case 'mt':
       return mtName(r.kind);
     case 'localOcr':
-      return '本地 OCR · PaddleOCR';
+      return t('本地 OCR · PaddleOCR');
     case 'degrade':
-      return '降级为：本地 OCR → 翻译链';
+      return t('降级为：本地 OCR → 翻译链');
   }
 }
 
 export function refTag(r: BackendRef, task: ChainTask): string {
   switch (r.type) {
     case 'llm':
-      return task === 'translate' ? '大模型' : '视觉大模型';
+      return task === 'translate' ? t('大模型') : t('视觉大模型');
     case 'mt':
-      return '机器翻译';
+      return t('机器翻译');
     case 'localOcr':
-      return '本地';
+      return t('本地');
     case 'degrade':
-      return '降级';
+      return t('降级');
   }
 }
 

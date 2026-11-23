@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 标注工具按钮 + 撤销（截图工具条和贴图工具条共用）。
   // 带样式的工具右侧有小箭头打开样式面板；再点一次当前工具也能开关面板。
   // onanchor 告诉宿主面板应对齐到哪个按钮（截图工具条用它摆放浮动面板）。
@@ -54,29 +55,29 @@
   }
 </script>
 
-{#each tools as t (t)}
-  {@const info = TOOL_INFO[t]}
-  {@const key = TOOLS.indexOf(t) + 1}
-  <span class="tool" class:on={tool === t}>
+{#each tools as tl (tl)}
+  {@const info = TOOL_INFO[tl]}
+  {@const key = TOOLS.indexOf(tl) + 1}
+  <span class="tool" class:on={tool === tl}>
     <IconButton
-      icon={ICON[t]}
-      label="{info.label}  {key}"
-      on={tool === t}
-      onclick={(e) => pick(t, e.currentTarget.parentElement as HTMLElement)}
+      icon={ICON[tl]}
+      label="{t(info.label)}  {key}"
+      on={tool === tl}
+      onclick={(e) => pick(tl, e.currentTarget.parentElement as HTMLElement)}
     />
     {#if info.props}
       <button
         type="button"
         class="chev"
-        aria-label="{info.label}样式"
-        title="{info.label}样式"
-        onclick={(e) => chevron(t, e.currentTarget)}
+        aria-label={t('{label}样式', { label: t(info.label) })}
+        title={t('{label}样式', { label: t(info.label) })}
+        onclick={(e) => chevron(tl, e.currentTarget)}
       ><Icon name="chevronDown" size={10} stroke={2.2} /></button>
     {/if}
   </span>
 {/each}
 {#if undo}
-  <IconButton icon="undo" label="撤销  Ctrl+Z" disabled={!canUndo} onclick={onundo} />
+  <IconButton icon="undo" label={t('撤销 Ctrl+Z')} disabled={!canUndo} onclick={onundo} />
 {/if}
 
 <style>

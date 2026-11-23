@@ -1,13 +1,14 @@
 // 快捷键的录制与显示（设置 → 快捷键）。存储用 Tauri 的写法：修饰键 + 主键，用 + 连接，如 Ctrl+Shift+O。
 import type { HotkeyAction } from './ipc';
+import { t, msg } from './i18n.svelte';
 
 /** 全局快捷键（设置 → 快捷键、新手引导共用）。 */
 export const GLOBAL_HOTKEYS: { action: HotkeyAction; name: string; desc: string }[] = [
-  { action: 'capture', name: '截图', desc: '进入截图编辑态' },
-  { action: 'pinClipboard', name: '贴图', desc: '把剪贴板里的图片或文字贴到屏幕上' },
-  { action: 'selection', name: '划词翻译', desc: '翻译当前选中的文字' },
-  { action: 'captureTranslate', name: '截图 OCR 后翻译', desc: '框选后直接出翻译卡片' },
-  { action: 'captureRecognize', name: '直接截图 OCR', desc: '框选后复制识别出的文字' },
+  { action: 'capture', name: msg('截图'), desc: msg('进入截图编辑态') },
+  { action: 'pinClipboard', name: msg('贴图'), desc: msg('把剪贴板里的图片或文字贴到屏幕上') },
+  { action: 'selection', name: msg('划词翻译'), desc: msg('翻译当前选中的文字') },
+  { action: 'captureTranslate', name: msg('截图 OCR 后翻译'), desc: msg('框选后直接出翻译卡片') },
+  { action: 'captureRecognize', name: msg('直接截图 OCR'), desc: msg('框选后复制识别出的文字') },
 ];
 
 const MODS: ['ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey', string][] = [
@@ -51,9 +52,9 @@ export function record(e: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'altKey' | 's
   if (!mods.length && e.code === 'Escape') return { kind: 'cancel' };
   if (!mods.length && (e.code === 'Backspace' || e.code === 'Delete')) return { kind: 'clear' };
   const key = keyName(e.code);
-  if (!key) return { kind: 'pending', hint: '这个键不能用作快捷键' };
+  if (!key) return { kind: 'pending', hint: t('这个键不能用作快捷键') };
   const standalone = /^F\d+$/.test(key) || key === 'PrintScreen' || key === 'Pause';
-  if (!mods.length && !standalone) return { kind: 'pending', hint: '要配合 Ctrl、Alt、Shift 或 Win 键' };
+  if (!mods.length && !standalone) return { kind: 'pending', hint: t('要配合 Ctrl、Alt、Shift 或 Win 键') };
   return { kind: 'keys', keys: [...mods, key].join('+') };
 }
 
@@ -61,12 +62,12 @@ const SHOW: Record<string, string> = {
   Super: 'Win', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\',
   Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', ArrowUp: '↑', ArrowDown: '↓',
   ArrowLeft: '←', ArrowRight: '→', PageUp: 'PgUp', PageDown: 'PgDn', PrintScreen: 'PrtSc', Delete: 'Del',
-  Insert: 'Ins', Space: '空格',
+  Insert: 'Ins',
 };
 
 /** 显示用：Ctrl+Shift+O → Ctrl + Shift + O；空字符串 → 未设置。 */
 export function displayKeys(keys: string): string {
-  if (!keys.trim()) return '未设置';
+  if (!keys.trim()) return t('未设置');
   return keys
     .split('+')
     .map((p) => p.trim())
@@ -74,7 +75,7 @@ export function displayKeys(keys: string): string {
     .map((p) => {
       const cap = p.length === 1 ? p.toUpperCase() : p;
       const norm = /^(ctrl|control)$/i.test(p) ? 'Ctrl' : /^(super|meta|win)$/i.test(p) ? 'Super' : cap;
-      return SHOW[norm] ?? norm;
+      return norm === 'Space' ? t('空格') : (SHOW[norm] ?? norm);
     })
     .join(' + ');
 }

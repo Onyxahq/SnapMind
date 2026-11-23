@@ -6,6 +6,7 @@
 // Obsidian 扩展：==高亮==、[[双链|别名]]、$行内公式$ / $$公式块$$（KaTeX 渲染，写错的按源码显示）、> [!note] 提示块。
 import { Marked, type TokenizerAndRendererExtension, type Tokens } from 'marked';
 import { renderLatex } from './formula';
+import { t } from './i18n.svelte';
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -78,8 +79,8 @@ marked.use({
     link(t: Tokens.Link) {
       return `<a class="link" title="${esc(t.href)}">${this.parser.parseInline(t.tokens)}</a>`;
     },
-    image(t: Tokens.Image) {
-      return `<span class="img" title="${esc(t.href)}">［图片${t.text ? `：${esc(t.text)}` : ''}］</span>`;
+    image(img: Tokens.Image) {
+      return t('<span class="img" title="{href}">［图片{alt}］</span>', { href: esc(img.href), alt: img.text ? `：${esc(img.text)}` : '' });
     },
   },
 });

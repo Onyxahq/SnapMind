@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 设置页「模型服务」里的机器翻译服务：填 Key（存系统凭据库）、微软的区域、测试连接。
   import { fade } from 'svelte/transition';
   import { mtTest, providerSetKey } from '$lib/ipc';
@@ -46,10 +47,10 @@
   }
 
   async function test() {
-    st = { kind: 'busy', text: '正在连接…' };
+    st = { kind: 'busy', text: t('正在连接…') };
     try {
       const out = await mtTest(svc.kind);
-      st = { kind: 'ok', text: `连接成功 · Hello, world! → ${out}` };
+      st = { kind: 'ok', text: t('连接成功 · Hello, world! → {out}', { out }) };
     } catch (e) {
       st = { kind: 'err', text: String(e) };
     }
@@ -67,16 +68,16 @@
 <header>
   <span class="logo big" style:background={svc.color}>{svc.mono}</span>
   <div class="ht">
-    <b>{svc.name}</b>
-    <span>{svc.desc}</span>
+    <b>{t(svc.name)}</b>
+    <span>{t(svc.desc)}</span>
   </div>
   {#if hasKey}
-    <Button variant={armClear ? 'danger' : 'ghost'} onclick={clearKey}>{armClear ? '确认删除 Key' : '删除 Key'}</Button>
+    <Button variant={armClear ? 'danger' : 'ghost'} onclick={clearKey}>{armClear ? t('确认删除 Key') : t('删除 Key')}</Button>
   {/if}
 </header>
 
 <Card>
-  <Row title="API Key" desc={svc.keyHint}>
+  <Row title="API Key" desc={t(svc.keyHint)}>
     <form
       class="key"
       onsubmit={(e) => {
@@ -89,19 +90,19 @@
         width="300px"
         aria-label="API Key"
         autocomplete="off"
-        placeholder={hasKey ? '已保存 · 输入新的 Key 可替换' : '粘贴你的 API Key，回车保存'}
+        placeholder={hasKey ? t('已保存 · 输入新的 Key 可替换') : t('粘贴你的 API Key，回车保存')}
         bind:value={draft}
         onblur={() => void saveKey()}
       />
-      {#if hasKey}<span class="saved" title="已保存在系统凭据库"><Icon name="lock" /></span>{/if}
+      {#if hasKey}<span class="saved" title={t('已保存在系统凭据库')}><Icon name="lock" /></span>{/if}
     </form>
   </Row>
   {#if svc.kind === 'microsoft'}
-    <Row title="区域" desc="Azure 里翻译资源的「位置/区域」，如 eastasia；全局资源留空">
+    <Row title={t('区域')} desc={t('Azure 里翻译资源的「位置/区域」，如 eastasia；全局资源留空')}>
       <Field
         mono
         width="300px"
-        aria-label="区域"
+        aria-label={t('区域')}
         placeholder="global"
         spellcheck="false"
         value={config.value.mt.microsoftRegion}
@@ -109,14 +110,14 @@
       />
     </Row>
   {/if}
-  <Row title="连接测试">
+  <Row title={t('连接测试')}>
     {#if st}
       <span class="st {st.kind}" transition:fade={{ duration: 120 }}>{st.text}</span>
     {/if}
-    <Button disabled={!hasKey || st?.kind === 'busy'} onclick={test}>测试连接</Button>
+    <Button disabled={!hasKey || st?.kind === 'busy'} onclick={test}>{t('测试连接')}</Button>
   </Row>
 </Card>
-<p class="t-note">机器翻译不需要选模型。加到「备用链」里就能用来翻译；只有填了 Key 的服务才会出现在可选列表里。</p>
+<p class="t-note">{t('机器翻译不需要选模型。加到「备用链」里就能用来翻译；只有填了 Key 的服务才会出现在可选列表里。')}</p>
 
 <style>
   header {

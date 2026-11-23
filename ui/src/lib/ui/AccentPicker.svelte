@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 强调色色点。显示的颜色跟随当前明暗（深夜下是提亮版本）。
   import { ACCENTS, type Accent } from '$lib/theme';
 
@@ -14,14 +15,14 @@
   }
 </script>
 
-<div class="dots" role="radiogroup" aria-label="强调色">
+<div class="dots" role="radiogroup" aria-label={t('强调色')}>
   {#each ACCENTS as a (a.id)}
     <button
       type="button"
       role="radio"
       aria-checked={value === a.id}
       aria-label={a.label}
-      title={a.label}
+      title={t(a.label)}
       class="dot"
       class:on={value === a.id}
       style:--c-light={a.light}

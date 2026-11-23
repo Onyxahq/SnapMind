@@ -5,6 +5,7 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { Accent, ThemeMode } from './theme';
 import type { ColorFormat } from './color';
+import type { LanguageSetting } from './i18n.svelte';
 
 export interface AppInfo {
   name: string;
@@ -15,6 +16,7 @@ export interface AppInfo {
 /** 与 snapmind-core::config::Config 一一对应（camelCase）。 */
 export interface Config {
   version: number;
+  general: { language: LanguageSetting };
   appearance: { theme: ThemeMode; accent: Accent; motion: 'full' | 'reduced' };
   capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean; tableMode: 'preview' | 'edit' };
   save: SaveConfig;
@@ -34,6 +36,8 @@ export interface Config {
   ball: { enabled: boolean; pos: [number, number] | null };
   /** 自动更新（M11.3）：后台每天检查一次 */
   update: { autoCheck: boolean };
+  /** 网络代理：开着时对外请求都走 address（本机地址除外）；fallbackDirect 是代理连不上时改为直连 */
+  proxy: { enabled: boolean; address: string; fallbackDirect: boolean };
 }
 
 /** 历史记录保留方式：不限制 / 每类最多 maxCount 条 / 合计最多 maxMb MB（贴图优先清理）。 */
@@ -139,6 +143,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartia
 
 export const DEFAULT_CONFIG: Config = {
   version: 1,
+  general: { language: 'system' },
   appearance: { theme: 'system', accent: 'blue', motion: 'full' },
   capture: { colorFormat: 'hex', showHints: true, confirmDiscard: true, tableMode: 'preview' },
   save: {
@@ -183,6 +188,7 @@ export const DEFAULT_CONFIG: Config = {
   backup: { auto: true },
   ball: { enabled: false, pos: null },
   update: { autoCheck: true },
+  proxy: { enabled: false, address: '', fallbackDirect: false },
 };
 
 export const CONFIG_CHANGED = 'config-changed';
@@ -1036,6 +1042,12 @@ export async function configPath(): Promise<string> {
 }
 
 let fakeAutostart = true;
+/** 系统首选的界面语言标签（如 zh-CN）；「界面语言：跟随系统」用它。 */
+export async function systemLanguage(): Promise<string> {
+  if (!inTauri()) return typeof navigator === 'undefined' ? '' : navigator.language;
+  return invoke('system_language');
+}
+
 export async function autostartGet(): Promise<boolean> {
   if (!inTauri()) return fakeAutostart;
   return invoke('autostart_get');

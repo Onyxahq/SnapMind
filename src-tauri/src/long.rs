@@ -9,6 +9,7 @@
 //!
 //! 完成（复制 / 贴图 / 保存 / 识别文字）时停掉线程、生成长图、结束截图。
 
+use snapmind_core::i18n::tr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -78,9 +79,9 @@ pub fn stop<R: Runtime>(app: &AppHandle<R>) {
 
 #[tauri::command]
 pub fn long_start(app: AppHandle, window: WebviewWindow, index: usize, region: Region, axis: Axis) -> Result<(), String> {
-    let mon = overlay::monitor(&app, index).ok_or("截图已结束")?;
+    let mon = overlay::monitor(&app, index).ok_or_else(|| tr("截图已结束"))?;
     if region.width < 16 || region.height < 16 {
-        return Err("选区太小".into());
+        return Err(tr("选区太小"));
     }
     let _ = take(&app, false); // 切换方向 = 从当前画面重新开始
     let span = match axis {
@@ -241,7 +242,7 @@ pub async fn long_preview(app: AppHandle, thickness: u32) -> Result<tauri::ipc::
     let shared = {
         let st = app.state::<LongState>();
         let g = st.inner.lock().expect("长截图锁");
-        g.as_ref().ok_or("长截图已结束")?.shared.clone()
+        g.as_ref().ok_or_else(|| tr("长截图已结束"))?.shared.clone()
     };
     tauri::async_runtime::spawn_blocking(move || {
         let img = {
@@ -253,7 +254,7 @@ pub async fn long_preview(app: AppHandle, thickness: u32) -> Result<tauri::ipc::
             s.image(thickness as f64 / span.max(1) as f64)
         };
         if img.width == 0 {
-            return Err("还没有画面".to_string());
+            return Err(tr("还没有画面"));
         }
         export::encode(&img, ImageFormat::Png, 0, true).map(tauri::ipc::Response::new).map_err(|e| e.to_string())
     })
@@ -287,12 +288,12 @@ pub async fn long_finish(
     path: Option<String>,
 ) -> Result<String, String> {
     if action == Finish::Ocr && !crate::ocr::installed(&app) {
-        return Err("识别文字要用本地 OCR 模型：先退出长截图，按 Shift+C 下载模型".into());
+        return Err(tr("识别文字要用本地 OCR 模型：先退出长截图，按 Shift+C 下载模型"));
     }
-    let run = take(&app, false).ok_or("长截图已结束")?;
+    let run = take(&app, false).ok_or_else(|| tr("长截图已结束"))?;
     let img = run.shared.stitcher.lock().expect("拼接锁").image(1.0);
     if img.width == 0 || img.height == 0 {
-        return Err("还没有拼接到内容".into());
+        return Err(tr("还没有拼接到内容"));
     }
     let config = state.config.get();
     let mon = run.mon;
@@ -344,7 +345,7 @@ pub async fn long_finish(
                 .await
                 .map_err(|e| e.to_string())??;
             if text.trim().is_empty() {
-                return Err("没有识别出文字".into());
+                return Err(tr("没有识别出文字"));
             }
             snapmind_platform::clipboard::set_text(&text).map_err(|e| e.to_string())?;
             crate::pin::create_text(&app, text.clone(), origin, mon.scale).map_err(|e| e.to_string())?;

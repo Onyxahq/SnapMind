@@ -79,6 +79,8 @@ pub fn run() {
                 crate::log_warn!("配置文件损坏，已备份到 {} 并恢复默认", backup.display());
             }
             state::apply_native_theme(handle, &config.get());
+            // 托盘菜单等原生文字在创建时就要用对语言
+            snapmind_core::i18n::set_language(config.get().general.language, &snapmind_platform::locale::system_ui_language());
             let history = match snapmind_core::history::History::open(&state::history_dir(handle)?) {
                 Ok(h) => Some(h),
                 Err(e) => {
@@ -86,6 +88,7 @@ pub fn run() {
                     None
                 }
             };
+            configfile::apply_proxy(&config.get().proxy);
             app.manage(state::AppState { config, history });
 
             tray::create(handle)?;
@@ -161,6 +164,7 @@ pub fn run() {
             configfile::config_backups,
             configfile::config_restore,
             configfile::config_reset,
+            commands::system_language,
             commands::autostart_get,
             commands::settings_open,
             commands::autostart_set,

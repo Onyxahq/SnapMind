@@ -3,6 +3,7 @@
 //! 都从当前截图会话的冻结帧里裁剪（本屏物理像素），所以必须在结束截图前调用；
 //! 复制和保存成功后会结束截图（需求 3.1：把结果交出去的动作都会结束截图）。
 
+use snapmind_core::i18n::{tr, trf};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -39,7 +40,7 @@ fn err(e: impl std::fmt::Display) -> String {
 
 /// 从会话里的冻结帧裁出选区原图（不带标注），识别和翻译用。
 pub fn crop_base<R: Runtime>(app: &AppHandle<R>, index: usize, r: Region) -> Result<RgbaImage, String> {
-    let frame = overlay::frame(app, index).ok_or("截图已结束")?;
+    let frame = overlay::frame(app, index).ok_or_else(|| tr("截图已结束"))?;
     export::crop_bgra(frame.pixels(), frame.width, frame.height, r.x, r.y, r.width, r.height).map_err(err)
 }
 
@@ -47,7 +48,7 @@ pub fn crop_base<R: Runtime>(app: &AppHandle<R>, index: usize, r: Region) -> Res
 /// 必须是 async 命令：同步命令跑在主线程上，在里面建窗口会卡死。
 #[tauri::command]
 pub async fn capture_pin_text(app: AppHandle, index: usize, region: Region, text: String) -> Result<u32, String> {
-    let mon = overlay::monitor(&app, index).ok_or("截图已结束")?;
+    let mon = overlay::monitor(&app, index).ok_or_else(|| tr("截图已结束"))?;
     overlay::end(&app);
     let at = (mon.x + region.x as i32, mon.y + region.y as i32);
     crate::pin::create_text(&app, text, at, mon.scale).map_err(err)
@@ -55,12 +56,12 @@ pub async fn capture_pin_text(app: AppHandle, index: usize, region: Region, text
 
 /// 从会话里的冻结帧裁出选区，有标注时按原始分辨率叠上标注层。
 fn crop<R: Runtime>(app: &AppHandle<R>, index: usize, r: Region) -> Result<RgbaImage, String> {
-    let frame = overlay::frame(app, index).ok_or("截图已结束")?;
+    let frame = overlay::frame(app, index).ok_or_else(|| tr("截图已结束"))?;
     let mut img =
         export::crop_bgra(frame.pixels(), frame.width, frame.height, r.x, r.y, r.width, r.height).map_err(err)?;
     if let Some(((dx, dy), layer)) = overlay::annotations(app, index) {
         // 超出选区说明上传的标注层已过时（选区又变了），不能错位叠加
-        export::composite_over(&mut img, &layer, dx, dy).map_err(|_| "标注层超出选区".to_string())?;
+        export::composite_over(&mut img, &layer, dx, dy).map_err(|_| tr("标注层超出选区"))?;
     }
     Ok(img)
 }
@@ -70,19 +71,19 @@ fn crop<R: Runtime>(app: &AppHandle<R>, index: usize, r: Region) -> Result<RgbaI
 #[tauri::command]
 pub fn capture_set_annotations(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<(), String> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
-        return Err("标注层需要以二进制上传".into());
+        return Err(tr("标注层需要以二进制上传"));
     };
     let header = |name: &str| {
         request.headers().get(name).and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<u32>().ok())
     };
-    let index = header("x-index").ok_or("缺少 x-index")? as usize;
+    let index = header("x-index").ok_or_else(|| tr("缺少 x-index"))? as usize;
     if bytes.is_empty() {
         overlay::set_annotations(&app, index, None);
         return Ok(());
     }
     let (width, height) = (header("x-width").unwrap_or(0), header("x-height").unwrap_or(0));
     if width as usize * height as usize * 4 != bytes.len() {
-        return Err("标注层尺寸与数据长度不符".into());
+        return Err(tr("标注层尺寸与数据长度不符"));
     }
     let at = (header("x-x").unwrap_or(0), header("x-y").unwrap_or(0));
     overlay::set_annotations(&app, index, Some((at, RgbaImage { width, height, data: bytes.clone() })));
@@ -151,7 +152,7 @@ pub fn copy_image(img: &RgbaImage, template: &str) -> Result<String, String> {
 #[tauri::command]
 pub async fn capture_pin(app: AppHandle, index: usize, region: Region) -> Result<u32, String> {
     let img = crop(&app, index, region)?;
-    let mon = overlay::monitor(&app, index).ok_or("截图已结束")?;
+    let mon = overlay::monitor(&app, index).ok_or_else(|| tr("截图已结束"))?;
     overlay::end(&app);
     let at = (mon.x + region.x as i32, mon.y + region.y as i32);
     crate::pin::create(&app, img, snapmind_core::history::PinSource::Capture, at, mon.scale).map_err(err)
@@ -241,8 +242,8 @@ pub fn save_info(app: AppHandle, state: State<'_, AppState>) -> SaveInfo {
             quick.push(Location { label: label.into(), path: path.to_string_lossy().into_owned() });
         }
     };
-    add("桌面", p.desktop_dir().ok());
-    add("图片", p.picture_dir().ok());
+    add(&tr("桌面"), p.desktop_dir().ok());
+    add(&tr("图片"), p.picture_dir().ok());
     add("SnapMind", p.picture_dir().ok().map(|d| d.join(snapmind_core::APP_NAME)));
     for d in &config.save.extra_dirs {
         let label = Path::new(d).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| d.clone());
@@ -298,7 +299,7 @@ pub async fn save_markdown(app: AppHandle, window: tauri::WebviewWindow, text: S
     .await
     .map_err(|e| e.to_string())?;
     let Some(path) = picked else { return Ok(None) };
-    std::fs::write(&path, text.as_bytes()).map_err(|e| format!("保存失败：{e}"))?;
+    std::fs::write(&path, text.as_bytes()).map_err(|e| trf("保存失败：{e}", &[("e", &e.to_string())]))?;
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 

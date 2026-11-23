@@ -5,6 +5,7 @@ import type { Rect } from './geometry';
 import type { IconName } from './ui/Icon.svelte';
 import type { ToolbarLayout } from './ipc';
 import type { Tool } from './annotate';
+import { msg } from './i18n.svelte';
 
 /** 布局里的分隔线：它后面的按钮收进「⋯ 更多」。 */
 export const MORE = 'more';
@@ -20,32 +21,32 @@ export interface BarItem {
 
 /** 截图工具条的全部按钮（退出、复制固定在最右边，不在这里）。 */
 export const CAPTURE_ITEMS: BarItem[] = [
-  { id: 'rect', label: '矩形 / 椭圆', icon: 'rect', key: '1', kind: 'tool' },
-  { id: 'pen', label: '画笔 / 荧光笔', icon: 'pen', key: '2', kind: 'tool' },
-  { id: 'arrow', label: '箭头 / 直线', icon: 'arrow', key: '3', kind: 'tool' },
-  { id: 'text', label: '文字', icon: 'textT', key: '4', kind: 'tool' },
-  { id: 'number', label: '序号', icon: 'number', key: '5', kind: 'tool' },
-  { id: 'mosaic', label: '马赛克 / 模糊', icon: 'mosaic', key: '6', kind: 'tool' },
-  { id: 'eraser', label: '橡皮擦', icon: 'eraser', key: '7', kind: 'tool' },
-  { id: 'undo', label: '撤销', icon: 'undo', key: 'Ctrl+Z', kind: 'undo' },
-  { id: 'long', label: '长截图', icon: 'long', key: 'L', kind: 'action' },
-  { id: 'record', label: '录屏', icon: 'video', key: 'R', kind: 'action' },
-  { id: 'ocr', label: '识别文字', icon: 'scan', key: 'Shift+C', kind: 'action' },
-  { id: 'markdown', label: '识别为 Markdown', icon: 'markdown', key: 'Shift+Alt+R', kind: 'action' },
-  { id: 'translate', label: '翻译', icon: 'translate', key: 'Ctrl+Q', kind: 'action' },
-  { id: 'formula', label: '公式识别', icon: 'formula', kind: 'action' },
-  { id: 'table', label: '表格识别', icon: 'table', kind: 'action' },
-  { id: 'pin', label: '贴图', icon: 'pin', key: 'Ctrl+T', kind: 'action' },
-  { id: 'save', label: '保存…', icon: 'download', key: 'Ctrl+S', kind: 'action' },
+  { id: 'rect', label: msg('矩形 / 椭圆'), icon: 'rect', key: '1', kind: 'tool' },
+  { id: 'pen', label: msg('画笔 / 荧光笔'), icon: 'pen', key: '2', kind: 'tool' },
+  { id: 'arrow', label: msg('箭头 / 直线'), icon: 'arrow', key: '3', kind: 'tool' },
+  { id: 'text', label: msg('文字'), icon: 'textT', key: '4', kind: 'tool' },
+  { id: 'number', label: msg('序号'), icon: 'number', key: '5', kind: 'tool' },
+  { id: 'mosaic', label: msg('马赛克 / 模糊'), icon: 'mosaic', key: '6', kind: 'tool' },
+  { id: 'eraser', label: msg('橡皮擦'), icon: 'eraser', key: '7', kind: 'tool' },
+  { id: 'undo', label: msg('撤销'), icon: 'undo', key: 'Ctrl+Z', kind: 'undo' },
+  { id: 'long', label: msg('长截图'), icon: 'long', key: 'L', kind: 'action' },
+  { id: 'record', label: msg('录屏'), icon: 'video', key: 'R', kind: 'action' },
+  { id: 'ocr', label: msg('识别文字'), icon: 'scan', key: 'Shift+C', kind: 'action' },
+  { id: 'markdown', label: msg('识别为 Markdown'), icon: 'markdown', key: 'Shift+Alt+R', kind: 'action' },
+  { id: 'translate', label: msg('翻译'), icon: 'translate', key: 'Ctrl+Q', kind: 'action' },
+  { id: 'formula', label: msg('公式识别'), icon: 'formula', kind: 'action' },
+  { id: 'table', label: msg('表格识别'), icon: 'table', kind: 'action' },
+  { id: 'pin', label: msg('贴图'), icon: 'pin', key: 'Ctrl+T', kind: 'action' },
+  { id: 'save', label: msg('保存…'), icon: 'download', key: 'Ctrl+S', kind: 'action' },
 ];
 
 /** 贴图工具条的按钮（关闭固定在最右边；不透明度滑块固定在「更多」里）。 */
 export const PIN_ITEMS: BarItem[] = [
-  { id: 'annotate', label: '标注', icon: 'pen', key: '空格', kind: 'action' },
-  { id: 'save', label: '保存…', icon: 'download', key: 'Ctrl+S', kind: 'action' },
-  { id: 'copy', label: '复制', icon: 'copy', key: 'Ctrl+C', kind: 'action' },
-  { id: 'through', label: '鼠标穿透', icon: 'through', key: 'Ctrl+Shift+X', kind: 'action' },
-  { id: 'zoom100', label: '缩放到 100%', icon: 'zoom100', key: 'Ctrl+0', kind: 'action' },
+  { id: 'annotate', label: msg('标注'), icon: 'pen', key: msg('空格'), kind: 'action' },
+  { id: 'save', label: msg('保存…'), icon: 'download', key: 'Ctrl+S', kind: 'action' },
+  { id: 'copy', label: msg('复制'), icon: 'copy', key: 'Ctrl+C', kind: 'action' },
+  { id: 'through', label: msg('鼠标穿透'), icon: 'through', key: 'Ctrl+Shift+X', kind: 'action' },
+  { id: 'zoom100', label: msg('缩放到 100%'), icon: 'zoom100', key: 'Ctrl+0', kind: 'action' },
 ];
 
 /** 布局里的一行：按钮，或「更多」分隔线。 */

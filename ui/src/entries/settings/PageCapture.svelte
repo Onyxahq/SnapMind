@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 设置 → 截图与贴图：图片格式与质量、文件名模板（实时预览）、保存目录、Ctrl+S 的行为、退出确认；录屏的默认选择。
   import { onMount } from 'svelte';
   import { openFolder, pickFolder, saveInfo, type ImageFormat, type RecordConfig, type SaveConfig } from '$lib/ipc';
@@ -60,7 +61,7 @@
 
   const preview = $derived(`${renderFilename(tpl || DEFAULT_TEMPLATE, now)}.${s.format}`);
   const fpsOptions = $derived(
-    (r.format === 'gif' ? [10, 15, 30] : [15, 30, 60]).map((v) => ({ value: String(v), label: `${v} fps${v === 15 && r.format === 'gif' ? '（推荐）' : ''}` })),
+    (r.format === 'gif' ? [10, 15, 30] : [15, 30, 60]).map((v) => ({ value: String(v), label: `${v} fps${v === 15 && r.format === 'gif' ? t('（推荐）') : ''}` })),
   );
 
   function setRecord(p: Partial<RecordConfig>) {
@@ -70,12 +71,12 @@
   }
 </script>
 
-<Head title="截图与贴图" desc="复制、保存、录屏和贴图的默认行为。" />
+<Head title={t('截图与贴图')} desc={t('复制、保存、录屏和贴图的默认行为。')} />
 
-<Card title="截图">
-  <Row title="图片格式" desc="保存截图时使用；复制到剪贴板时始终是 PNG（无损）">
+<Card title={t('截图')}>
+  <Row title={t('图片格式')} desc={t('保存截图时使用；复制到剪贴板时始终是 PNG（无损）')}>
     <Seg
-      label="图片格式"
+      label={t('图片格式')}
       options={[
         { value: 'png', label: 'PNG' },
         { value: 'jpg', label: 'JPG' },
@@ -85,7 +86,7 @@
       onchange={(format: ImageFormat) => save({ save: { format } })}
     />
   </Row>
-  <Row title="图片质量" desc={lossy ? '越高越清晰，文件也越大' : 'PNG 是无损格式，不需要设置质量'}>
+  <Row title={t('图片质量')} desc={lossy ? t('越高越清晰，文件也越大') : t('PNG 是无损格式，不需要设置质量')}>
     <div class="slider">
       <input
         type="range"
@@ -93,76 +94,76 @@
         max="100"
         bind:value={quality}
         disabled={!lossy}
-        aria-label="图片质量"
+        aria-label={t('图片质量')}
         onchange={() => save({ save: { quality: Number(quality) } })}
       />
       <span class="val">{lossy ? quality : '—'}</span>
     </div>
   </Row>
-  <Row title="文件名模板" desc="花括号里写时间格式：yyyy MM dd HH mm ss SSS">
+  <Row title={t('文件名模板')} desc={t('花括号里写时间格式：yyyy MM dd HH mm ss SSS')}>
     <div class="tpl">
       <Field
         mono
         width="280px"
-        aria-label="文件名模板"
+        aria-label={t('文件名模板')}
         value={tpl}
         oninput={(e) => (tpl = e.currentTarget.value)}
         onchange={(e) => save({ save: { filenameTemplate: e.currentTarget.value.trim() || DEFAULT_TEMPLATE } })}
       />
-      <span class="pv" title={preview}>预览：{preview}</span>
+      <span class="pv" title={preview}>{t('预览：{preview}', { preview })}</span>
     </div>
   </Row>
-  <Row title="保存目录" desc={dir || '…'}>
+  <Row title={t('保存目录')} desc={dir || '…'}>
     <div class="btns">
-      <Button variant="ghost" icon="folder" onclick={() => dir && openFolder(dir)}>打开目录</Button>
-      <Button variant="ghost" onclick={changeDir}>更改</Button>
-      {#if s.dir}<Button variant="ghost" onclick={resetDir} title="改回「图片\SnapMind」">默认</Button>{/if}
+      <Button variant="ghost" icon="folder" onclick={() => dir && openFolder(dir)}>{t('打开目录')}</Button>
+      <Button variant="ghost" onclick={changeDir}>{t('更改')}</Button>
+      {#if s.dir}<Button variant="ghost" onclick={resetDir} title={t('改回「图片\\SnapMind」')}>{t('默认')}</Button>{/if}
     </div>
   </Row>
-  <Row title="Ctrl+S 保存方式" desc="保存窗口可以改名、换格式和尺寸；直接保存会存到上面的目录">
+  <Row title={t('Ctrl+S 保存方式')} desc={t('保存窗口可以改名、换格式和尺寸；直接保存会存到上面的目录')}>
     <Seg
-      label="Ctrl+S 保存方式"
+      label={t('Ctrl+S 保存方式')}
       options={[
-        { value: 'window', label: 'SnapMind 保存窗口' },
-        { value: 'system', label: '系统另存为' },
-        { value: 'direct', label: '直接保存' },
+        { value: 'window', label: t('SnapMind 保存窗口') },
+        { value: 'system', label: t('系统另存为') },
+        { value: 'direct', label: t('直接保存') },
       ]}
       value={s.ctrlS}
       onchange={(ctrlS: SaveConfig['ctrlS']) => save({ save: { ctrlS } })}
     />
   </Row>
-  <Row title="有标注时退出前确认" desc="标注还没复制或保存就按 Esc 退出时，先问一下">
+  <Row title={t('有标注时退出前确认')} desc={t('标注还没复制或保存就按 Esc 退出时，先问一下')}>
     <Switch
-      label="有标注时退出前确认"
+      label={t('有标注时退出前确认')}
       checked={config.value.capture.confirmDiscard}
       onchange={(confirmDiscard) => save({ capture: { confirmDiscard } })}
     />
   </Row>
 </Card>
 
-<Card title="录屏">
-  <Row title="默认格式" desc="按 R 时预选的格式，录制前还可以切换">
+<Card title={t('录屏')}>
+  <Row title={t('默认格式')} desc={t('按 R 时预选的格式，录制前还可以切换')}>
     <Seg
-      label="默认格式"
+      label={t('默认格式')}
       options={[
-        { value: 'mp4', label: 'MP4 视频' },
-        { value: 'gif', label: 'GIF 动图' },
+        { value: 'mp4', label: t('MP4 视频') },
+        { value: 'gif', label: t('GIF 动图') },
       ]}
       value={r.format}
       onchange={(format: RecordConfig['format']) => setRecord({ format })}
     />
   </Row>
-  <Row title="帧率">
+  <Row title={t('帧率')}>
     <Select
-      aria-label="帧率"
+      aria-label={t('帧率')}
       width="160px"
       options={fpsOptions}
       value={String(r.fps)}
       onchange={(e) => setRecord({ fps: Number(e.currentTarget.value) })}
     />
   </Row>
-  <Row title="录制系统声音" desc="GIF 不包含声音">
-    <Switch label="录制系统声音" checked={r.audio} disabled={r.format === 'gif'} onchange={(audio) => setRecord({ audio })} />
+  <Row title={t('录制系统声音')} desc={t('GIF 不包含声音')}>
+    <Switch label={t('录制系统声音')} checked={r.audio} disabled={r.format === 'gif'} onchange={(audio) => setRecord({ audio })} />
   </Row>
 </Card>
 

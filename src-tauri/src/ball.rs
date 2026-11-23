@@ -6,6 +6,7 @@
 //! - 截屏抓不到它（WDA_EXCLUDEFROMCAPTURE），不会出现在截图和录屏里。
 //! - 位置记在配置里（窗口中心），下次按这个点重新找显示器贴靠。
 
+use snapmind_core::i18n::{tr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -101,7 +102,7 @@ pub fn sync<R: Runtime>(app: &AppHandle<R>, cfg: &BallConfig) {
 
 fn create<R: Runtime>(app: &AppHandle<R>, cfg: &BallConfig) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("ball/index.html".into()))
-        .title("SnapMind 悬浮球")
+        .title(tr("SnapMind 悬浮球"))
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -262,10 +263,10 @@ pub fn ball_menu(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     let hk = app.state::<crate::state::AppState>().config.get().hotkeys;
     let label = |name: &str, keys: &str| if keys.trim().is_empty() { name.to_string() } else { format!("{name}\t{}", keys.trim()) };
     let items = (|| -> tauri::Result<Menu<_>> {
-        let capture = MenuItem::with_id(&app, "ball-capture", label("截图", &hk.capture), true, None::<&str>)?;
-        let pin = MenuItem::with_id(&app, "ball-pin", label("贴图", &hk.pin_clipboard), true, None::<&str>)?;
-        let settings = MenuItem::with_id(&app, "ball-settings", "设置…", true, None::<&str>)?;
-        let hide = MenuItem::with_id(&app, "ball-hide", "隐藏悬浮球", true, None::<&str>)?;
+        let capture = MenuItem::with_id(&app, "ball-capture", label(&tr("截图"), &hk.capture), true, None::<&str>)?;
+        let pin = MenuItem::with_id(&app, "ball-pin", label(&tr("贴图"), &hk.pin_clipboard), true, None::<&str>)?;
+        let settings = MenuItem::with_id(&app, "ball-settings", tr("设置…"), true, None::<&str>)?;
+        let hide = MenuItem::with_id(&app, "ball-hide", tr("隐藏悬浮球"), true, None::<&str>)?;
         Menu::with_items(&app, &[&capture, &pin, &PredefinedMenuItem::separator(&app)?, &settings, &hide])
     })()
     .map_err(|e| e.to_string())?;

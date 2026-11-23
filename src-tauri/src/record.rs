@@ -9,6 +9,7 @@
 //!
 //! 停止时等三条线程收尾、写好文件尾，把文件放进剪贴板（可以直接粘贴成文件）。放弃则删掉文件。
 
+use snapmind_core::i18n::{tr, trf};
 use std::io::BufWriter;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -120,17 +121,17 @@ pub fn record_start(
     region: Region,
     options: Options,
 ) -> Result<String, String> {
-    let mon = overlay::monitor(&app, index).ok_or("截图已结束")?;
+    let mon = overlay::monitor(&app, index).ok_or_else(|| tr("截图已结束"))?;
     let region = even(region);
     if region.width < 16 || region.height < 16 {
-        return Err("选区太小".into());
+        return Err(tr("选区太小"));
     }
     stop_and_keep(&app); // 不会同时有两段录制
     let fps = effective_fps(options.format, options.fps);
     let config = state.config.get();
     let ext = if options.format == RecordFormat::Gif { "gif" } else { "mp4" };
     let dir = crate::export::default_dir(&app, &config);
-    std::fs::create_dir_all(&dir).map_err(|e| format!("建不了保存目录：{e}"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| trf("建不了保存目录：{e}", &[("e", &e.to_string())]))?;
     let stem = export::render_filename(&config.save.filename_template, export::now_local());
     let path = export::unique_path(&dir, &stem, ext);
 
@@ -165,7 +166,7 @@ pub fn record_start(
             Enc::Mp4(Arc::new(Mutex::new(Some(w))))
         }
         RecordFormat::Gif => {
-            let f = std::fs::File::create(&path).map_err(|e| format!("建不了文件：{e}"))?;
+            let f = std::fs::File::create(&path).map_err(|e| trf("建不了文件：{e}", &[("e", &e.to_string())]))?;
             Enc::Gif(GifWriter::new(BufWriter::new(f), region.width, region.height).map_err(|e| e.to_string())?)
         }
     };
@@ -339,7 +340,7 @@ pub fn record_pause(state: State<'_, RecordState>, paused: bool) {
 /// 遮罩回到可以点的状态，由前端显示一下「已保存」后再结束截图。
 #[tauri::command]
 pub async fn record_stop(app: AppHandle, save: bool) -> Result<Option<String>, String> {
-    let rec = take(&app).ok_or("没有在录屏")?;
+    let rec = take(&app).ok_or_else(|| tr("没有在录屏"))?;
     live::exit(&app, !save);
     let (path, err) = tauri::async_runtime::spawn_blocking(move || finish(rec)).await.map_err(|e| e.to_string())?;
     if !save {
@@ -348,7 +349,7 @@ pub async fn record_stop(app: AppHandle, save: bool) -> Result<Option<String>, S
     }
     if let Some(e) = err {
         let _ = std::fs::remove_file(&path);
-        return Err(format!("录屏保存失败：{e}"));
+        return Err(trf("录屏保存失败：{e}", &[("e", &e.to_string())]));
     }
     if let Err(e) = clipboard::set_file(&path) {
         crate::log_warn!("录屏文件放进剪贴板失败：{e}");

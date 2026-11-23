@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 悬浮球（需求第 11 节、M10.5）：单击截图，右键菜单，按住拖动（交给系统窗口拖动，完全跟手），
   // 松手后由 Rust 贴到最近的边、一半藏起来；指针移上来滑出，移开 300 ms 后缩回。
   import { ballClick, ballMenu, ballPeek, inTauri } from '$lib/ipc';
@@ -53,8 +54,8 @@
   type="button"
   class="ball"
   class:pressed
-  aria-label="截图（右键更多）"
-  title="截图（右键更多）"
+  aria-label={t('截图（右键更多）')}
+  title={t('截图（右键更多）')}
   onpointerdown={down}
   onpointermove={move}
   onpointerup={up}

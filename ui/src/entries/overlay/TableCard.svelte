@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 表格结果卡片（需求 3.8、M8.2、F5）：「表格」视图是渲染好的 HTML 表格，默认只看（预览），点笔切到编辑，
   // 单元格直接改（选哪种会记住）；「Markdown」「CSV」视图里改源码，切回表格时解析回来。
   // 表格视图两个复制：「复制纯文本」是制表符分隔的文字；「复制」同时放 HTML 和制表符文本，
@@ -96,24 +97,24 @@
   class="card"
   role="dialog"
   tabindex="-1"
-  aria-label="表格"
+  aria-label={t('表格')}
   use:floatCard={{ sel, width: WIDTH, minWidth: 340 }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
   <header>
     <span class="chip">
-      {#if card.stage === 'run'}<span class="dot" aria-hidden="true"></span>识别表格中
-      {:else if card.stage === 'model'}需要下载表格模型
-      {:else if card.stage === 'error'}出错了
-      {:else}表格{/if}
+      {#if card.stage === 'run'}<span class="dot" aria-hidden="true"></span>{t('识别表格中')}
+      {:else if card.stage === 'model'}{t('需要下载表格模型')}
+      {:else if card.stage === 'error'}{t('出错了')}
+      {:else}{t('表格')}{/if}
     </span>
     <span class="grow"></span>
     {#if card.stage === 'done'}
       <Seg
-        label="视图"
+        label={t('视图')}
         options={[
-          { value: 'grid', label: '表格' },
+          { value: 'grid', label: t('表格') },
           { value: 'markdown', label: 'Markdown' },
           { value: 'csv', label: 'CSV' },
         ]}
@@ -123,29 +124,29 @@
       {#if view === 'grid'}
         <IconButton
           icon="pen"
-          label={mode === 'edit' ? '正在编辑单元格（点一下回到预览）' : '编辑单元格'}
+          label={mode === 'edit' ? t('正在编辑单元格（点一下回到预览）') : t('编辑单元格')}
           size={28}
           on={mode === 'edit'}
           onclick={() => onmode(mode === 'edit' ? 'preview' : 'edit')}
         />
       {/if}
     {/if}
-    <IconButton icon="close" label="关闭  Esc" size={28} onclick={onclose} />
+    <IconButton icon="close" label={t('关闭 Esc')} size={28} onclick={onclose} />
   </header>
 
   {#if card.stage === 'run'}
-    <div class="sk" aria-label="正在识别"><span></span><span></span><span></span><span></span></div>
+    <div class="sk" aria-label={t('正在识别')}><span></span><span></span><span></span><span></span></div>
   {:else if card.stage === 'model'}
     <div class="model">
-      <p>本地表格识别要用 SLANet 表格结构模型（约 7.8 MB，来自 PaddlePaddle 官方仓库），识别模型没下载时一起下载，下载后离线可用。</p>
+      <p>{t('本地表格识别要用 SLANet 表格结构模型（约 7.8 MB，来自 PaddlePaddle 官方仓库），识别模型没下载时一起下载，下载后离线可用。')}</p>
       {#if model?.downloading}
         <div class="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
           <span style:width="{pct}%"></span>
         </div>
-        <span class="cap">正在下载 {progressLabel(model)}</span>
+        <span class="cap">{t('正在下载 {progressLabel}', { progressLabel: progressLabel(model) })}</span>
       {:else}
         {#if model?.error}<p class="err" role="alert">{model.error}</p>{/if}
-        <div><Button variant="primary" onclick={ondownload}>{model?.error ? '重新下载' : '下载模型'}</Button></div>
+        <div><Button variant="primary" onclick={ondownload}>{model?.error ? t('重新下载') : t('下载模型')}</Button></div>
       {/if}
     </div>
   {:else if card.stage === 'error'}
@@ -175,17 +176,17 @@
       {/key}
     </div>
   {:else}
-    <textarea class="field" aria-label="{view === 'markdown' ? 'Markdown' : 'CSV'} 源码" spellcheck="false" bind:value={source}></textarea>
+    <textarea class="field" aria-label={t('{v} 源码', { v: view === 'markdown' ? 'Markdown' : 'CSV' })} spellcheck="false" bind:value={source}></textarea>
   {/if}
 
   <footer>
     <span class="meta" title={card.meta}>{card.meta}</span>
-    <Button disabled={!canAct} onclick={onexport} title="导出为 Excel 文件">导出 .xlsx</Button>
+    <Button disabled={!canAct} onclick={onexport} title={t('导出为 Excel 文件')}>{t('导出 .xlsx')}</Button>
     {#if view === 'grid'}
-      <Button disabled={!canAct} onclick={copyText} title="复制为制表符分隔的纯文本">复制纯文本</Button>
-      <Button variant="primary" disabled={!canAct} onclick={copyExcel} title="复制后在 Excel / Word 里直接粘贴成表格，保留表头和合并单元格">复制</Button>
+      <Button disabled={!canAct} onclick={copyText} title={t('复制为制表符分隔的纯文本')}>{t('复制纯文本')}</Button>
+      <Button variant="primary" disabled={!canAct} onclick={copyExcel} title={t('复制后在 Excel / Word 里直接粘贴成表格，保留表头和合并单元格')}>{t('复制')}</Button>
     {:else}
-      <Button variant="primary" disabled={!canAct} onclick={copyText} title={`复制 ${view === 'csv' ? 'CSV' : 'Markdown'} 源码`}>复制</Button>
+      <Button variant="primary" disabled={!canAct} onclick={copyText} title={t('复制 {v} 源码', { v: view === 'csv' ? 'CSV' : 'Markdown' })}>{t('复制')}</Button>
     {/if}
   </footer>
 </div>

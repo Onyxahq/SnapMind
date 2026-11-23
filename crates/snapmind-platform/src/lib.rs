@@ -9,6 +9,7 @@ pub mod clipboard;
 pub mod record;
 pub mod region;
 pub mod cursor;
+pub mod locale;
 pub mod secrets;
 pub mod selection;
 pub mod snap;

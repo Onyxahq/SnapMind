@@ -3,6 +3,7 @@
 //! 发行版没有控制台，以前的 eprintln 都看不到；现在全部写文件，调试版同时打到 stderr。
 //! 崩溃（panic）时把位置、内容和调用栈写进日志再交给默认处理。
 
+use snapmind_core::i18n::tr;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
@@ -63,6 +64,6 @@ macro_rules! log_info {
 /// 打开日志文件夹。
 #[tauri::command]
 pub fn log_open() -> Result<(), String> {
-    let dir = dir().ok_or("日志文件没有打开")?;
+    let dir = dir().ok_or_else(|| tr("日志文件没有打开"))?;
     crate::export::open_folder(dir.to_string_lossy().into_owned())
 }

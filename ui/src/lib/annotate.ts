@@ -2,6 +2,7 @@
 // 坐标和粗细都用所在显示器截图的物理像素，导出时（M2.3）可以按原始分辨率重新绘制。
 
 import type { Point } from './geometry';
+import { msg } from './i18n.svelte';
 
 /** 工具，顺序即快捷键 1–7。 */
 export type Tool = 'rect' | 'pen' | 'arrow' | 'text' | 'number' | 'mosaic' | 'eraser';
@@ -11,22 +12,22 @@ export const READY_TOOLS: Tool[] = ['rect', 'pen', 'arrow', 'text', 'number', 'm
 
 /** props：有没有样式弹层；colors：弹层里有没有颜色（马赛克 / 模糊没有颜色）。 */
 export const TOOL_INFO: Record<Tool, { label: string; subs: string[] | null; props: boolean; colors: boolean }> = {
-  rect: { label: '矩形', subs: ['矩形', '椭圆'], props: true, colors: true },
-  pen: { label: '画笔', subs: ['画笔', '荧光笔'], props: true, colors: true },
-  arrow: { label: '箭头', subs: ['箭头', '直线'], props: true, colors: true },
-  text: { label: '文字', subs: null, props: true, colors: true },
-  number: { label: '序号', subs: null, props: true, colors: true },
-  mosaic: { label: '马赛克', subs: ['马赛克', '模糊'], props: true, colors: false },
-  eraser: { label: '橡皮擦', subs: null, props: false, colors: false },
+  rect: { label: msg('矩形'), subs: [msg('矩形'), msg('椭圆')], props: true, colors: true },
+  pen: { label: msg('画笔'), subs: [msg('画笔'), msg('荧光笔')], props: true, colors: true },
+  arrow: { label: msg('箭头'), subs: [msg('箭头'), msg('直线')], props: true, colors: true },
+  text: { label: msg('文字'), subs: null, props: true, colors: true },
+  number: { label: msg('序号'), subs: null, props: true, colors: true },
+  mosaic: { label: msg('马赛克'), subs: [msg('马赛克'), msg('模糊')], props: true, colors: false },
+  eraser: { label: msg('橡皮擦'), subs: null, props: false, colors: false },
 };
 
 export const COLORS: { value: string; label: string }[] = [
-  { value: '#EF4444', label: '红' },
-  { value: '#F59E0B', label: '黄' },
-  { value: '#22C55E', label: '绿' },
-  { value: '#2563EB', label: '蓝' },
-  { value: '#FFFFFF', label: '白' },
-  { value: '#0F172A', label: '黑' },
+  { value: '#EF4444', label: msg('红') },
+  { value: '#F59E0B', label: msg('黄') },
+  { value: '#22C55E', label: msg('绿') },
+  { value: '#2563EB', label: msg('蓝') },
+  { value: '#FFFFFF', label: msg('白') },
+  { value: '#0F172A', label: msg('黑') },
 ];
 /** 三档粗细（CSS 像素，存储时乘以显示器缩放）。 */
 export const SIZES = [2, 4, 6];

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 贴图窗口（需求第 6 节）：置顶、拖动移动、滚轮缩放、Ctrl+滚轮调不透明度、Ctrl+0 恢复 100%、
   // Ctrl+Shift+X 鼠标穿透（全局快捷键，在 Rust 里处理）、双击或 Esc 关闭。
   // 窗口比图片大一圈透明边距，用来画阴影；缩放由 Rust 改窗口尺寸。
@@ -106,7 +107,7 @@
 
   /** 当前缩放：图片显示宽度（物理像素）/ 图片原始宽度 */
   const zoom = $derived(((winWidth - 2 * PIN_MARGIN) * devicePixelRatio) / natural.width);
-  const label = $derived(`${Math.round(zoom * 100)}% · 不透明度 ${Math.round(opacity * 100)}%`);
+  const label = $derived(t('{round}% · 不透明度 {round2}%', { round: Math.round(zoom * 100), round2: Math.round(opacity * 100) }));
 
   function showLabel() {
     flash = true;
@@ -176,18 +177,18 @@
     if (pieces.length) {
       try {
         await pinCopyText(pieces);
-        toast('已复制选中的文字');
+        toast(t('已复制选中的文字'));
       } catch (e) {
-        toast(`复制失败：${e}`, { kind: 'error' });
+        toast(t('复制失败：{e}', { e }), { kind: 'error' });
       }
       return;
     }
     try {
       await syncAnnotations();
       await pinCopy(pinId);
-      toast(cardText && !ann.hasShapes ? '已复制文字' : '已复制图片');
+      toast(cardText && !ann.hasShapes ? t('已复制文字') : t('已复制图片'));
     } catch (e) {
-      toast(`复制失败：${e}`, { kind: 'error' });
+      toast(t('复制失败：{e}', { e }), { kind: 'error' });
     }
   }
 
@@ -195,9 +196,9 @@
     try {
       await syncAnnotations();
       const path = await pinSave(pinId);
-      if (path) toast('已保存');
+      if (path) toast(t('已保存'));
     } catch (e) {
-      toast(`保存失败：${e}`, { kind: 'error' });
+      toast(t('保存失败：{e}', { e }), { kind: 'error' });
     }
   }
 
@@ -371,7 +372,7 @@
   style:inset="{PIN_MARGIN}px"
   style:opacity
   role="img"
-  aria-label="贴图"
+  aria-label={t('贴图')}
   onpointerdown={onDown}
   onpointermove={onMove}
   onpointerenter={() => pinHover(true, opacity)}

@@ -25,6 +25,8 @@ pub const FILE_NAME: &str = "config.json";
 #[serde(default, rename_all = "camelCase")]
 pub struct Config {
     pub version: u32,
+    /// 通用：界面语言
+    pub general: GeneralConfig,
     pub appearance: Appearance,
     pub capture: CaptureConfig,
     pub save: SaveConfig,
@@ -52,12 +54,15 @@ pub struct Config {
     pub ball: BallConfig,
     /// 自动更新（M11.3）
     pub update: UpdateConfig,
+    /// 网络代理：软件对外联网（大模型、翻译、模型下载、检查更新）时走哪里
+    pub proxy: ProxyConfig,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             version: CURRENT_VERSION,
+            general: GeneralConfig::default(),
             appearance: Appearance::default(),
             capture: CaptureConfig::default(),
             save: SaveConfig::default(),
@@ -73,6 +78,66 @@ impl Default for Config {
             backup: BackupConfig::default(),
             ball: BallConfig::default(),
             update: UpdateConfig::default(),
+            proxy: ProxyConfig::default(),
+        }
+    }
+}
+
+/// 通用设置（开机启动归系统管，不在配置文件里）。
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct GeneralConfig {
+    pub language: Language,
+}
+
+/// 界面语言：`System` 跟随系统（系统语言不在支持列表里时用英语）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Language {
+    #[default]
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "zh-CN")]
+    ZhCn,
+    #[serde(rename = "zh-TW")]
+    ZhTw,
+    #[serde(rename = "en")]
+    En,
+    #[serde(rename = "ja")]
+    Ja,
+    #[serde(rename = "ko")]
+    Ko,
+    #[serde(rename = "es")]
+    Es,
+    #[serde(rename = "fr")]
+    Fr,
+    #[serde(rename = "de")]
+    De,
+    #[serde(rename = "ru")]
+    Ru,
+    #[serde(rename = "pt-BR")]
+    PtBr,
+}
+
+impl Language {
+    /// 把系统给出的语言标签（`zh-Hans-CN`、`en_US`、`pt-PT`……）对到支持的界面语言；
+    /// 不支持的返回英语。永远不会返回 `System`。
+    pub fn from_tag(tag: &str) -> Language {
+        let t = tag.trim().replace('_', "-").to_ascii_lowercase();
+        let mut parts = t.split('-');
+        match parts.next().unwrap_or("") {
+            "zh" => {
+                let rest: Vec<&str> = parts.collect();
+                let trad = rest.iter().any(|p| matches!(*p, "hant" | "tw" | "hk" | "mo"));
+                if trad { Language::ZhTw } else { Language::ZhCn }
+            }
+            "ja" => Language::Ja,
+            "ko" => Language::Ko,
+            "es" => Language::Es,
+            "fr" => Language::Fr,
+            "de" => Language::De,
+            "ru" => Language::Ru,
+            "pt" => Language::PtBr,
+            _ => Language::En,
         }
     }
 }
@@ -400,6 +465,17 @@ impl Default for UpdateConfig {
     fn default() -> Self {
         Self { auto_check: true }
     }
+}
+
+/// 网络代理：开着时所有对外请求都走 `address`（本机地址除外）；没开就沿用系统设置。
+/// `fallback_direct`：代理连不上时这次改为直接联网，默认关（代理不通就报错，不悄悄绕过它）。
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ProxyConfig {
+    pub enabled: bool,
+    /// `127.0.0.1:7890`，或带协议的 `http://`、`https://`、`socks5://`
+    pub address: String,
+    pub fallback_direct: bool,
 }
 
 /// 历史记录的保留方式。
@@ -734,12 +810,40 @@ mod tests {
     }
 
     #[test]
+    fn language_defaults_to_system_and_round_trips() {
+        assert_eq!(Config::default().general.language, Language::System);
+        let c = apply_patch(&Config::default(), &json!({"general": {"language": "pt-BR"}})).unwrap();
+        assert_eq!(c.general.language, Language::PtBr);
+        assert_eq!(serde_json::to_value(&c).unwrap()["general"]["language"], "pt-BR");
+        // 不认识的语言进不了配置
+        assert!(apply_patch(&Config::default(), &json!({"general": {"language": "tlh"}})).is_err());
+    }
+
+    #[test]
+    fn system_language_tags_map_to_supported_languages() {
+        let f = Language::from_tag;
+        assert_eq!(f("zh-CN"), Language::ZhCn);
+        assert_eq!(f("zh-Hans-CN"), Language::ZhCn);
+        assert_eq!(f("zh"), Language::ZhCn);
+        assert_eq!(f("zh-TW"), Language::ZhTw);
+        assert_eq!(f("zh-Hant-HK"), Language::ZhTw);
+        assert_eq!(f("en_US"), Language::En);
+        assert_eq!(f("ja-JP"), Language::Ja);
+        assert_eq!(f("pt-PT"), Language::PtBr);
+        assert_eq!(f("DE-at"), Language::De);
+        // 不支持的语言、空串都回到英语
+        assert_eq!(f("ar-EG"), Language::En);
+        assert_eq!(f(""), Language::En);
+    }
+
+    #[test]
     fn serializes_as_camel_case_lowercase_enums() {
         let v = serde_json::to_value(Config::default()).unwrap();
         assert_eq!(
             v,
             json!({
                 "version": 1,
+                "general": { "language": "system" },
                 "appearance": { "theme": "system", "accent": "blue", "motion": "full" },
                 "capture": { "colorFormat": "hex", "showHints": true, "confirmDiscard": true, "tableMode": "preview" },
                 "save": {
@@ -790,7 +894,8 @@ mod tests {
                 "history": { "mode": "size", "maxCount": 500, "maxMb": 1024 },
                 "backup": { "auto": true },
                 "ball": { "enabled": false, "pos": null },
-                "update": { "autoCheck": true }
+                "update": { "autoCheck": true },
+                "proxy": { "enabled": false, "address": "", "fallbackDirect": false }
             })
         );
     }

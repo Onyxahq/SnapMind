@@ -2,6 +2,7 @@
 // 坐标都是相对选区左上角的截图物理像素（和 Rust 返回的行框一致）。
 import type { Rect } from './geometry';
 import type { OcrResult, OcrStatus } from './ipc';
+import { t } from './i18n.svelte';
 
 export interface OcrCard {
   id: string;
@@ -78,6 +79,6 @@ export function progressLabel(s: OcrStatus): string {
 export function ocrMeta(c: OcrCard): string {
   const r = c.result;
   if (!r) return '';
-  if (c.pick) return `已选 ${c.pick.length} / ${r.lines.length} 行 · 点框选择或取消 · Ctrl+A 全选 · 右键单击恢复`;
-  return `${r.lines.length} 行 · ${r.paragraphs.length} 段 · 本地 OCR ${(r.ms / 1000).toFixed(2)} s · 点框挑选`;
+  if (c.pick) return t('已选 {length} / {length2} 行 · 点框选择或取消 · Ctrl+A 全选 · 右键单击恢复', { length: c.pick.length, length2: r.lines.length });
+  return t('{length} 行 · {length2} 段 · 本地 OCR {toFixed} s · 点框挑选', { length: r.lines.length, length2: r.paragraphs.length, toFixed: (r.ms / 1000).toFixed(2) });
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, msg } from '$lib/i18n.svelte';
   // 设置 → 外观：明暗模式（三张预览卡片）、强调色、悬浮球（M10.5）。切换立即生效，已打开的窗口一起刷新。
   import { config, updateConfig } from '$lib/config.svelte';
   import type { ThemeMode } from '$lib/theme';
@@ -14,9 +15,9 @@
   const LIGHT = { bg: '#eef1f6', card: '#ffffff', line: '#cfd5df' };
   const DARK = { bg: '#11141b', card: '#232835', line: '#4a5163' };
   const MODES: { value: ThemeMode; label: string; a: typeof LIGHT; b: typeof LIGHT }[] = [
-    { value: 'system', label: '跟随系统', a: LIGHT, b: DARK },
-    { value: 'light', label: '浅色', a: LIGHT, b: LIGHT },
-    { value: 'dark', label: '深夜', a: DARK, b: DARK },
+    { value: 'system', label: msg('跟随系统'), a: LIGHT, b: DARK },
+    { value: 'light', label: msg('浅色'), a: LIGHT, b: LIGHT },
+    { value: 'dark', label: msg('深夜'), a: DARK, b: DARK },
   ];
 
   async function save(patch: Parameters<typeof updateConfig>[0]) {
@@ -28,9 +29,9 @@
   }
 </script>
 
-<Head title="外观" desc="切换立即生效，已打开的贴图和卡片会一起刷新。" />
+<Head title={t('外观')} desc={t('切换立即生效，已打开的贴图和卡片会一起刷新。')} />
 
-<div class="tiles" role="radiogroup" aria-label="明暗模式">
+<div class="tiles" role="radiogroup" aria-label={t('明暗模式')}>
   {#each MODES as m (m.value)}
     {@const on = config.value.appearance.theme === m.value}
     <button type="button" class="tile" class:on role="radio" aria-checked={on} onclick={() => save({ appearance: { theme: m.value } })}>
@@ -44,28 +45,28 @@
           </span>
         {/each}
       </span>
-      <b>{m.label}</b>
+      <b>{t(m.label)}</b>
     </button>
   {/each}
 </div>
 
 <Card>
-  <Row title="强调色" desc="主按钮、选区边框和选中状态的颜色；深夜模式下自动换成同色相的提亮版本">
+  <Row title={t('强调色')} desc={t('主按钮、选区边框和选中状态的颜色；深夜模式下自动换成同色相的提亮版本')}>
     <AccentPicker value={config.value.appearance.accent} onchange={(accent) => save({ appearance: { accent } })} />
   </Row>
-  <Row title="界面动效" desc="「减弱」只保留淡入淡出，去掉位移、缩放和列表重排；系统关掉了「显示动画」时也会自动减弱">
+  <Row title={t('界面动效')} desc={t('「减弱」只保留淡入淡出，去掉位移、缩放和列表重排；系统关掉了「显示动画」时也会自动减弱')}>
     <Seg
-      label="界面动效"
+      label={t('界面动效')}
       options={[
-        { value: 'full', label: '完整' },
-        { value: 'reduced', label: '减弱' },
+        { value: 'full', label: t('完整') },
+        { value: 'reduced', label: t('减弱') },
       ]}
       value={config.value.appearance.motion}
       onchange={(motion: 'full' | 'reduced') => save({ appearance: { motion } })}
     />
   </Row>
-  <Row title="悬浮球" desc="屏幕边缘的快捷入口：单击截图，右键更多，可拖动，贴边半隐藏；截图和录屏里不会出现">
-    <Switch label="悬浮球" checked={config.value.ball.enabled} onchange={(enabled) => save({ ball: { enabled } })} />
+  <Row title={t('悬浮球')} desc={t('屏幕边缘的快捷入口：单击截图，右键更多，可拖动，贴边半隐藏；截图和录屏里不会出现')}>
+    <Switch label={t('悬浮球')} checked={config.value.ball.enabled} onchange={(enabled) => save({ ball: { enabled } })} />
   </Row>
 </Card>
 

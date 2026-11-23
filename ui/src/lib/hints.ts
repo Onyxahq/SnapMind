@@ -1,6 +1,7 @@
 // 截图编辑态的操作提示：内容随状态变化，位置自动避开选区。
 
 import type { Rect } from './geometry';
+import { t } from './i18n.svelte';
 
 export interface Hint {
   /** 按键或手势 */
@@ -19,71 +20,71 @@ export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
   switch (state) {
     case 'idle':
       return [
-        { k: '拖动', label: '框选区域' },
-        { k: '单击', label: '选中高亮的元素' },
-        { k: '滚轮', label: '选择上级 / 下级元素' },
-        { k: 'Enter', label: '复制高亮区域并结束' },
-        { k: 'W A S D', label: '逐像素移动光标' },
-        { k: 'P', label: '切换颜色格式' },
-        { k: 'C', label: '复制颜色值' },
-        { k: 'Esc', label: '退出' },
+        { k: t('拖动'), label: t('框选区域') },
+        { k: t('单击'), label: t('选中高亮的元素') },
+        { k: t('滚轮'), label: t('选择上级 / 下级元素') },
+        { k: 'Enter', label: t('复制高亮区域并结束') },
+        { k: 'W A S D', label: t('逐像素移动光标') },
+        { k: 'P', label: t('切换颜色格式') },
+        { k: 'C', label: t('复制颜色值') },
+        { k: 'Esc', label: t('退出') },
       ];
     case 'selected':
       return [
-        { k: '拖动边框', label: '调整大小' },
-        { k: '拖动内部', label: '移动选区' },
-        { k: '方向键', label: '微调 1px（Shift 10px）' },
-        { k: '空格', label: '开始标注' },
-        { k: '1 – 7', label: '标注工具' },
-        { k: 'Ctrl+C', label: '复制并结束' },
-        { k: 'Ctrl+S', label: '保存…' },
-        { k: 'Ctrl+T', label: '贴图并结束' },
-        { k: 'Shift+C', label: '识别文字' },
-        { k: 'Shift+Alt+R', label: '识别为 Markdown' },
-        { k: 'Ctrl+Q', label: '翻译' },
-        { k: 'L / R', label: '长截图 / 录屏' },
-        { k: 'P / C', label: '颜色格式 / 复制颜色' },
-        { k: '右键', label: '取消选区' },
-        { k: 'Esc', label: '退出' },
+        { k: t('拖动边框'), label: t('调整大小') },
+        { k: t('拖动内部'), label: t('移动选区') },
+        { k: t('方向键'), label: t('微调 1px（Shift 10px）') },
+        { k: t('空格'), label: t('开始标注') },
+        { k: '1 – 7', label: t('标注工具') },
+        { k: 'Ctrl+C', label: t('复制并结束') },
+        { k: 'Ctrl+S', label: t('保存…') },
+        { k: 'Ctrl+T', label: t('贴图并结束') },
+        { k: 'Shift+C', label: t('识别文字') },
+        { k: 'Shift+Alt+R', label: t('识别为 Markdown') },
+        { k: 'Ctrl+Q', label: t('翻译') },
+        { k: 'L / R', label: t('长截图 / 录屏') },
+        { k: 'P / C', label: t('颜色格式 / 复制颜色') },
+        { k: t('右键'), label: t('取消选区') },
+        { k: 'Esc', label: t('退出') },
       ];
     case 'annotate':
       return [
-        { k: '拖动', label: `绘制${toolLabel}` },
-        { k: 'Shift', label: '正方形 / 正圆 / 45° 直线' },
-        { k: '1 – 7', label: '切换标注工具' },
-        { k: 'Ctrl+Z', label: '撤销' },
-        { k: 'Ctrl+C', label: '复制并结束' },
-        { k: '空格', label: '退出标注' },
-        { k: 'Esc', label: '退出标注' },
+        { k: t('拖动'), label: t('绘制{toolLabel}', { toolLabel }) },
+        { k: 'Shift', label: t('正方形 / 正圆 / 45° 直线') },
+        { k: '1 – 7', label: t('切换标注工具') },
+        { k: 'Ctrl+Z', label: t('撤销') },
+        { k: 'Ctrl+C', label: t('复制并结束') },
+        { k: t('空格'), label: t('退出标注') },
+        { k: 'Esc', label: t('退出标注') },
       ];
     case 'ocr':
       return [
-        { k: '单击框', label: '选择 / 取消这一行' },
-        { k: 'Ctrl+A', label: '选中全部框' },
-        { k: '右键拖动', label: '框选一片行' },
-        { k: '右键单击', label: '恢复全部' },
-        { k: 'Ctrl+C', label: '复制文字并结束' },
-        { k: 'Esc', label: '关闭识别卡片' },
+        { k: t('单击框'), label: t('选择 / 取消这一行') },
+        { k: 'Ctrl+A', label: t('选中全部框') },
+        { k: t('右键拖动'), label: t('框选一片行') },
+        { k: t('右键单击'), label: t('恢复全部') },
+        { k: 'Ctrl+C', label: t('复制文字并结束') },
+        { k: 'Esc', label: t('关闭识别卡片') },
       ];
     case 'long':
       return [
-        { k: '滚轮', label: '滚动页面，自动拼接' },
-        { k: 'Enter', label: '完成并复制' },
-        { k: 'Ctrl+T', label: '贴图' },
-        { k: 'Ctrl+S', label: '保存' },
-        { k: 'Shift+C', label: '识别文字' },
-        { k: 'Esc', label: '取消长截图' },
+        { k: t('滚轮'), label: t('滚动页面，自动拼接') },
+        { k: 'Enter', label: t('完成并复制') },
+        { k: 'Ctrl+T', label: t('贴图') },
+        { k: 'Ctrl+S', label: t('保存') },
+        { k: 'Shift+C', label: t('识别文字') },
+        { k: 'Esc', label: t('取消长截图') },
       ];
     case 'rec-setup':
       return [
-        { k: 'R', label: '开始录制' },
-        { k: 'Esc', label: '返回' },
+        { k: 'R', label: t('开始录制') },
+        { k: 'Esc', label: t('返回') },
       ];
     case 'rec':
       return [
-        { k: 'R', label: '停止并保存' },
-        { k: '空格', label: '暂停 / 继续' },
-        { k: 'Esc', label: '放弃录屏' },
+        { k: 'R', label: t('停止并保存') },
+        { k: t('空格'), label: t('暂停 / 继续') },
+        { k: 'Esc', label: t('放弃录屏') },
       ];
   }
 }

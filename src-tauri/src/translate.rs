@@ -3,6 +3,7 @@
 //! 每个任务有前端给的 id；同一个 id 再次发起或调用 `task_cancel` 都会中止旧任务
 //! （中止就是丢弃 future，连接随之关闭）。事件 `task:event` 只发给发起任务的窗口。
 
+use snapmind_core::i18n::{tr, trf};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -167,7 +168,7 @@ pub fn plan(t: &TranslationConfig, source: &str) -> Plan {
         SameLang::Second if is_same_language(source, &t.second_lang) => Plan::Skip,
         SameLang::Second => Plan::Translate(
             t.second_lang.clone(),
-            Some(format!("原文已是{}，翻译成{}", lang_name(&t.target_lang), lang_name(&t.second_lang))),
+            Some(trf("原文已是{from}，翻译成{to}", &[("from", &tr(&lang_name(&t.target_lang))), ("to", &tr(&lang_name(&t.second_lang)))])),
         ),
     }
 }
@@ -210,12 +211,12 @@ async fn recognize_as<R: Runtime>(
         })
         .collect();
     if steps.is_empty() {
-        return Err("还没有识别后端：在设置的「备用链 · 识别」里添加一个视觉模型".into());
+        return Err(tr("还没有识别后端：在设置的「备用链 · 识别」里添加一个视觉模型"));
     }
     let labels: Vec<String> = steps
         .iter()
         .map(|s| match s {
-            Step::LocalOcr => "本地 OCR".to_string(),
+            Step::LocalOcr => tr("本地 OCR"),
             Step::Llm(b) => b.label(),
         })
         .collect();
@@ -264,7 +265,7 @@ async fn recognize_as<R: Runtime>(
             }
         }
     }
-    Err(format!("识别失败：{}", describe_failures(&run.failures())))
+    Err(trf("识别失败：{reason}", &[("reason", &describe_failures(&run.failures()))]))
 }
 
 /// 公式识别的提示词（固定：输出要能直接交给 KaTeX 渲染）。
@@ -321,7 +322,7 @@ pub fn capture_formula(
             return out.send(
                 "error",
                 "formula",
-                "公式识别要用视觉模型：在设置的「备用链 · 识别」里添加一个视觉模型（本地 OCR 认不了公式）",
+                tr("公式识别要用视觉模型：在设置的「备用链 · 识别」里添加一个视觉模型（本地 OCR 认不了公式）"),
             );
         }
         let png = match tauri::async_runtime::spawn_blocking(move || encode_for_vision(&img)).await {
@@ -350,13 +351,13 @@ pub fn capture_formula(
             Ok(s) => {
                 let latex = clean_latex(&s.value);
                 if latex.is_empty() {
-                    return out.send("error", "formula", "没有识别出公式");
+                    return out.send("error", "formula", tr("没有识别出公式"));
                 }
                 out.send("src-reset", "formula", "");
                 out.send("src", "formula", latex);
                 out.send("done", "formula", format!("{} · {}", s.describe(), secs(t0)))
             }
-            Err(f) => out.send("error", "formula", format!("公式识别失败：{}", describe_failures(&f))),
+            Err(f) => out.send("error", "formula", trf("公式识别失败：{reason}", &[("reason", &describe_failures(&f))])),
         }
     });
     Ok(())
@@ -396,7 +397,7 @@ pub async fn capture_table(app: AppHandle, state: State<'_, AppState>, index: us
         match r {
             BackendRef::LocalOcr => {
                 if !crate::ocr::table_ready(&app) {
-                    failures.push("本地 OCR：表格模型还没有下载".into());
+                    failures.push(tr("本地 OCR：表格模型还没有下载"));
                     continue;
                 }
                 let (h, i) = (app.clone(), img.clone());
@@ -411,11 +412,11 @@ pub async fn capture_table(app: AppHandle, state: State<'_, AppState>, index: us
                                     .collect()
                             })
                             .collect();
-                        return Ok(TableOut { rows: Some(rows), html: None, meta: format!("本地 OCR · {}", secs(t0)) });
+                        return Ok(TableOut { rows: Some(rows), html: None, meta: trf("本地 OCR · {secs}", &[("secs", &secs(t0))]) });
                     }
-                    Ok(Ok(_)) => failures.push("本地 OCR：没有识别出表格".into()),
-                    Ok(Err(e)) => failures.push(format!("本地 OCR：{e}")),
-                    Err(e) => failures.push(format!("本地 OCR：{e}")),
+                    Ok(Ok(_)) => failures.push(tr("本地 OCR：没有识别出表格")),
+                    Ok(Err(e)) => failures.push(trf("本地 OCR：{e}", &[("e", &e.to_string())])),
+                    Err(e) => failures.push(trf("本地 OCR：{e}", &[("e", &e.to_string())])),
                 }
             }
             other => {
@@ -435,7 +436,7 @@ pub async fn capture_table(app: AppHandle, state: State<'_, AppState>, index: us
                     Ok(text) if text.contains("<table") || text.contains("<tr") => {
                         return Ok(TableOut { rows: None, html: Some(text), meta: format!("{} · {}", b.label(), secs(t0)) });
                     }
-                    Ok(_) => failures.push(format!("{}：没有按要求输出 HTML 表格", b.label())),
+                    Ok(_) => failures.push(trf("{label}：没有按要求输出 HTML 表格", &[("label", &b.label())])),
                     Err(e) => failures.push(format!("{}：{e}", b.label())),
                 }
             }
@@ -445,9 +446,9 @@ pub async fn capture_table(app: AppHandle, state: State<'_, AppState>, index: us
         }
     }
     if failures.is_empty() {
-        return Err("还没有识别后端：在设置的「备用链 · 识别」里添加本地 OCR 或视觉模型".into());
+        return Err(tr("还没有识别后端：在设置的「备用链 · 识别」里添加本地 OCR 或视觉模型"));
     }
-    Err(format!("表格识别失败：{}", failures.join("；")))
+    Err(trf("表格识别失败：{reason}", &[("reason", &failures.join(&tr("；")))]))
 }
 
 /// 识别为 Markdown（需求 3.8、M8.1）：按识别链，结果流式推给卡片（src 事件，stage = markdown）。
@@ -474,7 +475,7 @@ pub fn capture_markdown(
         };
         out.send("stage", "markdown", "");
         match recognize_as(&handle, &cfg, img, png, &out, PromptKind::Markdown).await {
-            Ok((md, _)) if md.is_empty() => out.send("error", "markdown", "选区里没有识别到文字"),
+            Ok((md, _)) if md.is_empty() => out.send("error", "markdown", tr("选区里没有识别到文字")),
             Ok((_, desc)) => out.send("done", "markdown", format!("{desc} · {}", secs(t0))),
             Err(e) => out.send("error", "markdown", e),
         }
@@ -487,14 +488,14 @@ async fn translate<R: Runtime>(cfg: &Config, source: &str, out: &Emit<R>) -> Res
     let chains = &cfg.chains;
     let backends = resolve(&chains.translate, &cfg.providers, &cfg.mt, key_of);
     if backends.is_empty() {
-        return Err("还没有翻译后端：在设置的「备用链 · 翻译」里添加大模型或机器翻译".into());
+        return Err(tr("还没有翻译后端：在设置的「备用链 · 翻译」里添加大模型或机器翻译"));
     }
     let (target, note) = match plan(&cfg.translation, source) {
         Plan::Translate(t, n) => (t, n),
         Plan::Skip => {
             out.send("dst-reset", "translate", "");
             out.send("dst", "translate", source);
-            return Ok((source.to_string(), format!("原文已是{}，未翻译", lang_name(&cfg.translation.target_lang)), None));
+            return Ok((source.to_string(), trf("原文已是{lang}，未翻译", &[("lang", &tr(&lang_name(&cfg.translation.target_lang)))]), None));
         }
     };
     let target = target.as_str();
@@ -527,7 +528,7 @@ async fn translate<R: Runtime>(cfg: &Config, source: &str, out: &Emit<R>) -> Res
             };
             Ok((s.value.trim().to_string(), desc, Some(target.to_string())))
         }
-        Err(f) => Err(format!("翻译失败：{}", describe_failures(&f))),
+        Err(f) => Err(trf("翻译失败：{reason}", &[("reason", &describe_failures(&f))])),
     }
 }
 
@@ -553,7 +554,7 @@ async fn oneshot<R: Runtime>(cfg: &Config, png: &[u8], out: &Emit<R>) -> Result<
     let labels: Vec<String> = steps
         .iter()
         .map(|s| match s {
-            Step::Degrade => "降级".to_string(),
+            Step::Degrade => tr("降级"),
             Step::Llm(b) => b.label(),
         })
         .collect();
@@ -573,14 +574,14 @@ async fn oneshot<R: Runtime>(cfg: &Config, png: &[u8], out: &Emit<R>) -> Result<
         out.send("stage", "oneshot", run.label(i));
         // 输出是 JSON，半截没法给人看：收完整再解析
         let r = b.run_text(&job, chains.timeout(), &mut |_| {}).await.and_then(|text| {
-            parse_oneshot(&text).ok_or_else(|| ProviderError::Parse("没有按要求输出 JSON".into()))
+            parse_oneshot(&text).ok_or_else(|| ProviderError::Parse(tr("没有按要求输出 JSON")))
         });
         match r {
             Ok((src, dst)) => {
                 let s = run.succeed(i, (src, dst));
                 out.send("src", "oneshot", s.value.0.clone());
                 out.send("dst", "oneshot", s.value.1.clone());
-                let desc = format!("一步到位 {}", s.describe());
+                let desc = trf("一步到位 {desc}", &[("desc", &s.describe())]);
                 return Ok(Some((s.value, desc)));
             }
             Err(e) => {
@@ -588,7 +589,7 @@ async fn oneshot<R: Runtime>(cfg: &Config, png: &[u8], out: &Emit<R>) -> Result<
             }
         }
     }
-    Err(format!("一步到位失败：{}", describe_failures(&run.failures())))
+    Err(trf("一步到位失败：{reason}", &[("reason", &describe_failures(&run.failures()))]))
 }
 
 fn spawn<R: Runtime>(app: &AppHandle<R>, id: String, fut: impl std::future::Future<Output = ()> + Send + 'static) {
@@ -633,8 +634,8 @@ pub fn capture_translate(
                     }
                     out.send("dst-reset", "translate", "");
                     return match translate(&cfg, &source, &out).await {
-                        Ok((dst, tr, target)) => {
-                            let desc = format!("{desc} → {tr}");
+                        Ok((dst, how, target)) => {
+                            let desc = format!("{desc} → {how}");
                             if let Some(t) = target {
                                 record(&handle, &id, &source, &dst, &t, &desc, TransOrigin::Capture);
                             }
@@ -643,7 +644,7 @@ pub fn capture_translate(
                         Err(e) => out.send("error", "translate", e),
                     };
                 }
-                Ok(None) => prefix = "一步到位已降级 → ".into(),
+                Ok(None) => prefix = tr("一步到位已降级 → "),
                 Err(e) => return out.send("error", "oneshot", e),
             }
         }
@@ -653,11 +654,11 @@ pub fn capture_translate(
             Err(e) => return out.send("error", "recognize", e),
         };
         if source.is_empty() {
-            return out.send("error", "recognize", "选区里没有识别到文字");
+            return out.send("error", "recognize", tr("选区里没有识别到文字"));
         }
         match translate(&cfg, &source, &out).await {
-            Ok((dst, tr, target)) => {
-                let desc = format!("{prefix}{rec} → {tr}");
+            Ok((dst, how, target)) => {
+                let desc = format!("{prefix}{rec} → {how}");
                 if let Some(t) = target {
                     record(&handle, &id, &source, &dst, &t, &desc, TransOrigin::Capture);
                 }
@@ -725,13 +726,13 @@ pub fn capture_translate_overlay(
     let handle = app.clone();
     spawn(&app, id.clone(), async move {
         let t0 = Instant::now();
-        out.send("stage", "recognize", "本地 OCR");
+        out.send("stage", "recognize", tr("本地 OCR"));
         let (w, h) = (img.width, img.height);
         let ocr_app = handle.clone();
         let lines = match tauri::async_runtime::spawn_blocking(move || crate::ocr::recognize(&ocr_app, &img)).await {
             Ok(Ok(l)) => l,
             Ok(Err(e)) if !crate::ocr::installed(&handle) => {
-                return out.send("error", "recognize", format!("{e}。原位覆盖要用本地 OCR：在截图里按 Shift+C 打开「识别文字」下载模型，或者切回卡片"))
+                return out.send("error", "recognize", trf("{e}。原位覆盖要用本地 OCR：在截图里按 Shift+C 打开「识别文字」下载模型，或者切回卡片", &[("e", &e.to_string())]))
             }
             Ok(Err(e)) => return out.send("error", "recognize", e),
             Err(e) => return out.send("error", "recognize", e.to_string()),
@@ -739,12 +740,12 @@ pub fn capture_translate_overlay(
         let blocks = snapmind_ocr::overlay::blocks(&lines, w, h);
         let todo: Vec<usize> = (0..blocks.len()).filter(|&i| !blocks[i].keep).collect();
         if todo.is_empty() {
-            return out.send("error", "recognize", "选区里没有要翻译的文字");
+            return out.send("error", "recognize", tr("选区里没有要翻译的文字"));
         }
         let texts: Vec<String> = todo.iter().map(|&i| blocks[i].text.clone()).collect();
         let source = texts.join("\n\n");
         out.send("src", "recognize", source.clone());
-        let (dst, tr, target) = match translate(&cfg, &source, &out).await {
+        let (dst, how, target) = match translate(&cfg, &source, &out).await {
             Ok(r) => r,
             Err(e) => return out.send("error", "translate", e),
         };
@@ -756,7 +757,7 @@ pub fn capture_translate_overlay(
             },
         };
         if let Some(t) = &target {
-            record(&handle, &id, &source, &dst, t, &tr, TransOrigin::Capture);
+            record(&handle, &id, &source, &dst, t, &how, TransOrigin::Capture);
         }
         let mut dst_of = vec![String::new(); blocks.len()];
         for (k, &i) in todo.iter().enumerate() {
@@ -779,7 +780,7 @@ pub fn capture_translate_overlay(
             })
             .collect();
         out.send("overlay", "translate", serde_json::to_string(&payload).unwrap_or_default());
-        out.send("done", "translate", format!("本地 OCR → {tr} · {}", secs(t0)))
+        out.send("done", "translate", trf("本地 OCR → {how} · {secs}", &[("how", &how), ("secs", &secs(t0))]))
     });
     Ok(())
 }
@@ -807,14 +808,14 @@ pub fn translate_text(
         let t0 = Instant::now();
         let source = text.trim().to_string();
         if source.is_empty() {
-            return out.send("error", "translate", "原文是空的");
+            return out.send("error", "translate", tr("原文是空的"));
         }
         match translate(&cfg, &source, &out).await {
-            Ok((dst, tr, target)) => {
+            Ok((dst, how, target)) => {
                 if let Some(t) = target {
-                    record(&handle, &id, &source, &dst, &t, &tr, origin);
+                    record(&handle, &id, &source, &dst, &t, &how, origin);
                 }
-                out.send("done", "translate", format!("{tr} · {}", secs(t0)))
+                out.send("done", "translate", format!("{how} · {}", secs(t0)))
             }
             Err(e) => out.send("error", "translate", e),
         }

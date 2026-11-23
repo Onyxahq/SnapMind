@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, msg } from '$lib/i18n.svelte';
   // 设置 → 快捷键：点一下快捷键再按新的组合键即可修改（Esc 取消，Backspace 清除）。
   // 录制期间全局快捷键全部停用，免得按下 Shift+F1 直接开始截图；录完恢复。
   // 和另一项重复时当场提示；被别的程序占用时标红（以系统注册结果为准）。
@@ -22,24 +23,24 @@
   const GLOBAL = GLOBAL_HOTKEYS;
 
   const LOCAL: [string, string][] = [
-    ['复制并结束', 'Ctrl+C / Enter'],
-    ['贴图并结束', 'Ctrl+T'],
-    ['保存…', 'Ctrl+S'],
-    ['开始 / 退出标注', '空格'],
-    ['识别文字', 'Shift+C'],
-    ['识别为 Markdown', 'Shift+Alt+R'],
-    ['翻译', 'Ctrl+Q'],
-    ['长截图 / 录屏', 'L / R'],
-    ['切换颜色格式', 'P'],
-    ['复制颜色值', 'C'],
-    ['逐像素移动光标', 'W A S D'],
-    ['选择上级 / 下级元素', '滚轮'],
-    ['标注工具', '1 – 7'],
-    ['撤销', 'Ctrl+Z'],
-    ['显示 / 隐藏提示', 'H'],
-    ['逐级退出', 'Esc'],
-    ['贴图：缩放 / 不透明度', '滚轮 / Ctrl+滚轮'],
-    ['贴图：鼠标穿透', 'Ctrl+Shift+X'],
+    [msg('复制并结束'), 'Ctrl+C / Enter'],
+    [msg('贴图并结束'), 'Ctrl+T'],
+    [msg('保存…'), 'Ctrl+S'],
+    [msg('开始 / 退出标注'), msg('空格')],
+    [msg('识别文字'), 'Shift+C'],
+    [msg('识别为 Markdown'), 'Shift+Alt+R'],
+    [msg('翻译'), 'Ctrl+Q'],
+    [msg('长截图 / 录屏'), 'L / R'],
+    [msg('切换颜色格式'), 'P'],
+    [msg('复制颜色值'), 'C'],
+    [msg('逐像素移动光标'), 'W A S D'],
+    [msg('选择上级 / 下级元素'), msg('滚轮')],
+    [msg('标注工具'), '1 – 7'],
+    [msg('撤销'), 'Ctrl+Z'],
+    [msg('显示 / 隐藏提示'), 'H'],
+    [msg('逐级退出'), 'Esc'],
+    [msg('贴图：缩放 / 不透明度'), msg('滚轮 / Ctrl+滚轮')],
+    [msg('贴图：鼠标穿透'), 'Ctrl+Shift+X'],
   ];
 
   let status = $state<HotkeyStatus[]>([]);
@@ -97,7 +98,7 @@
     }
     const other = GLOBAL.find((g) => g.action !== recording && sameKeys(keysOf(g.action), r.keys));
     if (other) {
-      error = `${displayKeys(r.keys)} 已经用在「${other.name}」上了，换一个`;
+      error = t('{displayKeys} 已经用在「{name}」上了，换一个', { displayKeys: displayKeys(r.keys), name: other.name });
       hint = '';
       return;
     }
@@ -109,7 +110,7 @@
     try {
       await updateConfig({ hotkeys: { ...DEFAULT_CONFIG.hotkeys } });
       status = await hotkeysStatus();
-      toast('已恢复默认快捷键');
+      toast(t('已恢复默认快捷键'));
     } catch (e) {
       toast(String(e), { kind: 'error' });
     }
@@ -118,15 +119,15 @@
 
 <svelte:window onkeydown={onKey} onblur={() => recording && stop()} />
 
-<Head title="快捷键" desc="点击快捷键后按下新的组合键即可修改；Esc 取消，Backspace 清除（不用这个快捷键）。">
-  <Button variant="ghost" onclick={reset}>恢复默认</Button>
+<Head title={t('快捷键')} desc={t('点击快捷键后按下新的组合键即可修改；Esc 取消，Backspace 清除（不用这个快捷键）。')}>
+  <Button variant="ghost" onclick={reset}>{t('恢复默认')}</Button>
 </Head>
 
-<Card title="全局">
+<Card title={t('全局')}>
   {#each GLOBAL as g (g.action)}
     {@const st = statusOf(g.action)}
     {@const rec = recording === g.action}
-    <Row title={g.name} desc={g.desc}>
+    <Row title={t(g.name)} desc={t(g.desc)}>
       <div class="right">
         {#if rec && (error || hint)}
           <span class="msg" class:bad={!!error}>{error || hint}</span>
@@ -139,28 +140,28 @@
           class:rec
           class:bad={!rec && st && !st.ok}
           class:none={!keysOf(g.action)}
-          aria-label="{g.name}的快捷键：{displayKeys(keysOf(g.action))}，点击修改"
+          aria-label={t('{name}的快捷键：{displayKeys}，点击修改', { name: t(g.name), displayKeys: displayKeys(keysOf(g.action)) })}
           onclick={() => start(g.action)}
         >
-          {rec ? '请按下新的组合键…' : displayKeys(keysOf(g.action))}
+          {rec ? t('请按下新的组合键…') : displayKeys(keysOf(g.action))}
         </button>
       </div>
     </Row>
   {/each}
 </Card>
 
-<Card title="截图编辑态与贴图（只在它们打开时生效）">
+<Card title={t('截图编辑态与贴图（只在它们打开时生效）')}>
   <div class="grid">
     {#each LOCAL as [name, keys] (name)}
-      <div class="lk"><span>{name}</span><span class="k">{keys}</span></div>
+      <div class="lk"><span>{t(name)}</span><span class="k">{t(keys)}</span></div>
     {/each}
   </div>
 </Card>
 
 <Card>
-  <Row title="截图时显示操作提示" desc="截图中按 H 也会改变这里，下次截图沿用">
+  <Row title={t('截图时显示操作提示')} desc={t('截图中按 H 也会改变这里，下次截图沿用')}>
     <Switch
-      label="截图时显示操作提示"
+      label={t('截图时显示操作提示')}
       checked={config.value.capture.showHints}
       onchange={(showHints) => updateConfig({ capture: { showHints } }).catch((e) => toast(String(e), { kind: 'error' }))}
     />

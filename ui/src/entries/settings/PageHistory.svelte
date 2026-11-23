@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 设置 → 历史记录（需求第 7 节、M10.3）：保留方式（不限制 / 按条数 / 按空间）、占用统计、
   // 贴图历史（缩略图，重新贴出 / 复制 / 删除）和翻译历史（复制译文 / 贴到屏幕 / 删除），搜索、清空。
   import { onMount } from 'svelte';
@@ -92,10 +93,10 @@
   const scale = $derived(h.mode === 'size' ? Math.max(h.maxMb * MB, total, 1) : Math.max(total, 1));
   const note = $derived(
     h.mode === 'unlimited'
-      ? '全部保留，需要时手动清理'
+      ? t('全部保留，需要时手动清理')
       : h.mode === 'count'
-        ? '贴图和翻译各最多保留这么多条，超出后删除最早的'
-        : '超出后删除最早的记录，贴图优先清理',
+        ? t('贴图和翻译各最多保留这么多条，超出后删除最早的')
+        : t('超出后删除最早的记录，贴图优先清理'),
   );
 
   // ---- 列表 ----
@@ -104,7 +105,7 @@
     const p = (n: number) => String(n).padStart(2, '0');
     return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   };
-  const pinTitle = (p: PinRecord) => (p.text.trim() ? p.text.trim().split('\n')[0] : p.source === 'clipboard' ? '剪贴板图片' : '截图');
+  const pinTitle = (p: PinRecord) => (p.text.trim() ? p.text.trim().split('\n')[0] : p.source === 'clipboard' ? t('剪贴板图片') : t('截图'));
 
   async function repin(p: PinRecord) {
     try {
@@ -119,7 +120,7 @@
   async function copyPin(p: PinRecord) {
     try {
       await historyCopyPin(p.id);
-      toast('已复制图片');
+      toast(t('已复制图片'));
     } catch (e) {
       toast(String(e), { kind: 'error' });
     }
@@ -150,50 +151,50 @@
       if (tab === 'pin') pins = [];
       else trs = [];
       refreshUsage();
-      toast(`已清空 ${n} 条${tab === 'pin' ? '贴图' : '翻译'}历史`);
+      toast(tab === 'pin' ? t('已清空 {n} 条贴图历史', { n }) : t('已清空 {n} 条翻译历史', { n }));
     } catch (e) {
       toast(String(e), { kind: 'error' });
     }
   }
 </script>
 
-<Head title="历史记录" desc="关掉的贴图和翻译结果都能在这里找回。" />
+<Head title={t('历史记录')} desc={t('关掉的贴图和翻译结果都能在这里找回。')} />
 
 <Card>
-  <Row title="保留方式" desc={note}>
+  <Row title={t('保留方式')} desc={note}>
     <Seg
-      label="保留方式"
+      label={t('保留方式')}
       options={[
-        { value: 'unlimited', label: '不限制' },
-        { value: 'count', label: '按条数' },
-        { value: 'size', label: '按空间' },
+        { value: 'unlimited', label: t('不限制') },
+        { value: 'count', label: t('按条数') },
+        { value: 'size', label: t('按空间') },
       ]}
       value={h.mode}
       onchange={(mode: HistoryConfig['mode']) => save({ mode })}
     />
   </Row>
   {#if h.mode === 'count'}
-    <Row title="最多保留" desc="每一类分别计算">
+    <Row title={t('最多保留')} desc={t('每一类分别计算')}>
       <div class="num">
         <Field
           width="96px"
           type="number"
           min="1"
-          aria-label="保留条数"
+          aria-label={t('保留条数')}
           value={String(h.maxCount)}
           onchange={(e) => save({ maxCount: Math.max(1, Math.round(Number(e.currentTarget.value) || 1)) })}
         />
-        <span>条</span>
+        <span>{t('条')}</span>
       </div>
     </Row>
   {:else if h.mode === 'size'}
-    <Row title="最多占用" desc="贴图和翻译合计">
+    <Row title={t('最多占用')} desc={t('贴图和翻译合计')}>
       <div class="num">
         <Field
           width="96px"
           type="number"
           min="10"
-          aria-label="空间上限"
+          aria-label={t('空间上限')}
           value={String(h.maxMb)}
           onchange={(e) => save({ maxMb: Math.max(10, Math.round(Number(e.currentTarget.value) || 10)) })}
         />
@@ -203,7 +204,7 @@
   {/if}
   <div class="usage">
     <div class="ut">
-      <b class="lbl">占用空间</b>
+      <b class="lbl">{t('占用空间')}</b>
       <b class="sum">{fmt(total)}</b>
       {#if h.mode === 'size'}<span class="lim">/ {fmt(h.maxMb * MB)} · {Math.min(100, Math.round((total / (h.maxMb * MB)) * 100))}%</span>{/if}
     </div>
@@ -212,32 +213,32 @@
       <span class="b" style:width="{((usage?.translations.bytes ?? 0) / scale) * 100}%"></span>
     </div>
     <div class="legend">
-      <span><i class="a"></i>贴图 {usage?.pins.count ?? 0} 张 · {fmt(usage?.pins.bytes ?? 0)}</span>
-      <span><i class="b"></i>翻译 {usage?.translations.count ?? 0} 条 · {fmt(usage?.translations.bytes ?? 0)}</span>
+      <span><i class="a"></i>{t('贴图 {v} 张 · {fmt}', { v: usage?.pins.count ?? 0, fmt: fmt(usage?.pins.bytes ?? 0) })}</span>
+      <span><i class="b"></i>{t('翻译 {v} 条 · {fmt}', { v: usage?.translations.count ?? 0, fmt: fmt(usage?.translations.bytes ?? 0) })}</span>
       <span class="grow"></span>
-      <Button variant="ghost" icon="folder" onclick={() => usage && openFolder(usage.dir)}>打开所在文件夹</Button>
+      <Button variant="ghost" icon="folder" onclick={() => usage && openFolder(usage.dir)}>{t('打开所在文件夹')}</Button>
     </div>
   </div>
 </Card>
 
 <div class="bar">
   <Seg
-    label="历史类型"
+    label={t('历史类型')}
     options={[
-      { value: 'pin', label: '贴图历史' },
-      { value: 'tr', label: '翻译历史' },
+      { value: 'pin', label: t('贴图历史') },
+      { value: 'tr', label: t('翻译历史') },
     ]}
     value={tab}
     onchange={(v) => (tab = v)}
   />
   <Field
     width="100%"
-    aria-label="搜索历史"
-    placeholder={tab === 'pin' ? '搜索贴图里的文字' : '搜索原文或译文'}
+    aria-label={t('搜索历史')}
+    placeholder={tab === 'pin' ? t('搜索贴图里的文字') : t('搜索原文或译文')}
     value={query}
     oninput={(e) => (query = e.currentTarget.value)}
   />
-  <Button variant="danger" onclick={clear} onblur={() => (armClear = false)}>{armClear ? '再点一次清空' : '清空'}</Button>
+  <Button variant="danger" onclick={clear} onblur={() => (armClear = false)}>{armClear ? t('再点一次清空') : t('清空')}</Button>
 </div>
 
 {#if tab === 'pin'}
@@ -253,36 +254,36 @@
             <span>{when(p.closedAt || p.createdAt)} · {p.width}×{p.height} · {fmt(p.bytes)}</span>
           </div>
           <div class="acts">
-            <IconButton icon="pin" label="重新贴出" size={28} onclick={() => repin(p)} />
-            <IconButton icon="copy" label="复制图片" size={28} onclick={() => copyPin(p)} />
-            <IconButton icon="close" label="删除" size={28} onclick={() => delPin(p)} />
+            <IconButton icon="pin" label={t('重新贴出')} size={28} onclick={() => repin(p)} />
+            <IconButton icon="copy" label={t('复制图片')} size={28} onclick={() => copyPin(p)} />
+            <IconButton icon="close" label={t('删除')} size={28} onclick={() => delPin(p)} />
           </div>
         </div>
       {/each}
     </div>
   {:else if loaded}
-    <div class="card empty">{query ? '没有找到' : '还没有贴图历史——关掉的贴图会出现在这里'}</div>
+    <div class="card empty">{query ? t('没有找到') : t('还没有贴图历史——关掉的贴图会出现在这里')}</div>
   {/if}
 {:else if trs.length}
   <div class="card">
-    {#each trs as t (t.id)}
+    {#each trs as r (r.id)}
       <div class="hrow" animate:flip={{ duration: 180 }} out:fade={{ duration: 120 }}>
-        <span class="chip">{t.sourceLang || '自动'} → {t.targetLang}</span>
+        <span class="chip">{r.sourceLang || t('自动')} → {r.targetLang}</span>
         <div class="main">
-          <span class="src">{t.source.replace(/\s+/g, ' ')}</span>
-          <span class="dst">{t.translation}</span>
-          <span class="meta">{when(t.updatedAt || t.createdAt)} · {t.origin === 'selection' ? '划词' : '截图'} · {t.backend}</span>
+          <span class="src">{r.source.replace(/\s+/g, ' ')}</span>
+          <span class="dst">{r.translation}</span>
+          <span class="meta">{when(r.updatedAt || r.createdAt)} · {r.origin === 'selection' ? t('划词') : t('截图')} · {r.backend}</span>
         </div>
         <div class="racts">
-          <IconButton icon="copy" label="复制译文" size={28} onclick={async () => (await clipboardWriteText(t.translation), toast('已复制译文'))} />
-          <IconButton icon="pin" label="贴到屏幕" size={28} onclick={() => historyPinText(t.translation).catch((e) => toast(String(e), { kind: 'error' }))} />
-          <IconButton icon="close" label="删除" size={28} onclick={() => delTr(t)} />
+          <IconButton icon="copy" label={t('复制译文')} size={28} onclick={async () => (await clipboardWriteText(r.translation), toast(t('已复制译文')))} />
+          <IconButton icon="pin" label={t('贴到屏幕')} size={28} onclick={() => historyPinText(r.translation).catch((e) => toast(String(e), { kind: 'error' }))} />
+          <IconButton icon="close" label={t('删除')} size={28} onclick={() => delTr(r)} />
         </div>
       </div>
     {/each}
   </div>
 {:else if loaded}
-  <div class="card empty">{query ? '没有找到' : '还没有翻译历史'}</div>
+  <div class="card empty">{query ? t('没有找到') : t('还没有翻译历史')}</div>
 {/if}
 
 <style>

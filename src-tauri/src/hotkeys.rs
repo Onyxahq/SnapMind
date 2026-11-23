@@ -3,6 +3,7 @@
 //!
 //! 在设置页录制新组合键时先全部停用（否则按下 Shift+F1 会直接开始截图），录完再恢复。
 
+use snapmind_core::i18n::{tr, trf};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -38,13 +39,13 @@ impl Action {
         }
     }
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> String {
         match self {
-            Action::Capture => "截图",
-            Action::PinClipboard => "贴图",
-            Action::Selection => "划词翻译",
-            Action::CaptureTranslate => "截图 OCR 后翻译",
-            Action::CaptureRecognize => "直接截图 OCR",
+            Action::Capture => tr("截图"),
+            Action::PinClipboard => tr("贴图"),
+            Action::Selection => tr("划词翻译"),
+            Action::CaptureTranslate => tr("截图 OCR 后翻译"),
+            Action::CaptureRecognize => tr("直接截图 OCR"),
         }
     }
 
@@ -88,10 +89,10 @@ pub fn check(cfg: &HotkeysConfig) -> Vec<(Action, String, Result<Option<Shortcut
                 return (a, keys, Ok(None));
             }
             let r = match keys.parse::<Shortcut>() {
-                Err(_) => Err("无法识别的组合键".to_string()),
-                Ok(s) if reserved.is_some_and(|r| r.id() == s.id()) => Err("和贴图的「鼠标穿透」快捷键重复".to_string()),
+                Err(_) => Err(tr("无法识别的组合键")),
+                Ok(s) if reserved.is_some_and(|r| r.id() == s.id()) => Err(tr("和贴图的「鼠标穿透」快捷键重复")),
                 Ok(s) => match seen.get(&s.id()) {
-                    Some(other) => Err(format!("和「{}」重复", other.label())),
+                    Some(other) => Err(trf("和「{name}」重复", &[("name", &other.label())])),
                     None => {
                         seen.insert(s.id(), a);
                         Ok(Some(s))
@@ -127,7 +128,7 @@ pub fn apply<R: Runtime>(app: &AppHandle<R>, cfg: &HotkeysConfig) -> Vec<Status>
                 }
                 Err(e) => {
                     crate::log_warn!("注册快捷键 {keys} 失败：{e}");
-                    Status { action, keys, ok: false, error: Some("已被其他程序占用".into()) }
+                    Status { action, keys, ok: false, error: Some(tr("已被其他程序占用")) }
                 }
             },
             Err(e) => Status { action, keys, ok: false, error: Some(e) },

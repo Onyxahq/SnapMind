@@ -1,5 +1,6 @@
 <script lang="ts" generics="T extends string">
   // 分段控件。选中块在选项之间滑动（开关曲线，220ms）；首次渲染不做动画。
+  import { t } from '$lib/i18n.svelte';
   type Option = { value: T; label: string };
   let {
     options,
@@ -58,7 +59,7 @@
       tabindex={o.value === value ? 0 : -1}
       class="seg"
       class:on={o.value === value}
-      onclick={() => pick(o.value)}>{o.label}</button
+      onclick={() => pick(o.value)}>{t(o.label)}</button
     >
   {/each}
 </div>

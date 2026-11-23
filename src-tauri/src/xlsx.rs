@@ -1,6 +1,7 @@
 //! 表格导出 .xlsx（需求 3.8「表格」、M8.2）：单元格按 HTML 表格的规则摆放（合并单元格占住的位置跳过），
 //! 合并单元格写成 Excel 的合并区域，表头加粗，列宽按内容估算（中日韩文字算两个字宽）。
 
+use snapmind_core::i18n::{trf};
 use rust_xlsxwriter::{Format, Workbook};
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
@@ -112,7 +113,7 @@ pub async fn save_xlsx(app: AppHandle, window: tauri::WebviewWindow, rows: Vec<V
     .await
     .map_err(|e| e.to_string())?;
     let Some(path) = picked else { return Ok(None) };
-    std::fs::write(&path, bytes).map_err(|e| format!("保存失败：{e}"))?;
+    std::fs::write(&path, bytes).map_err(|e| trf("保存失败：{e}", &[("e", &e.to_string())]))?;
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 

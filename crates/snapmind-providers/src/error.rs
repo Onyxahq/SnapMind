@@ -1,47 +1,61 @@
 //! 所有适配器共用的错误类型，消息直接给用户看（也会写进「已切换到……」的说明）。
 
 use serde_json::Value;
+use snapmind_core::i18n::{tr, trf};
 
-#[derive(Debug, Clone, thiserror::Error, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ProviderError {
-    #[error("请先填写 API Key")]
     MissingKey,
-    #[error("API Key 无效或没有权限（HTTP {0}）")]
     Auth(u16),
-    #[error("服务返回错误（HTTP {status}）：{message}")]
     Http { status: u16, message: String },
     /// 流式响应中途返回的错误
-    #[error("服务返回错误：{0}")]
     Remote(String),
-    #[error("内容被模型拒绝：{0}")]
     Refused(String),
-    #[error("连接失败：{0}")]
     Network(String),
-    #[error("等待响应超时")]
     Timeout,
-    #[error("返回内容无法解析：{0}")]
     Parse(String),
-    #[error("模型返回了空结果")]
     Empty,
     /// 后端暂时用不了（如本地 OCR 还没安装）
-    #[error("{0}")]
     Unavailable(String),
 }
+
+/// 消息直接给用户看，所以按界面语言翻译（词典在 snapmind-core）。
+impl std::fmt::Display for ProviderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            ProviderError::MissingKey => tr("请先填写 API Key"),
+            ProviderError::Auth(code) => trf("API Key 无效或没有权限（HTTP {code}）", &[("code", &code.to_string())]),
+            ProviderError::Http { status, message } => {
+                trf("服务返回错误（HTTP {status}）：{message}", &[("status", &status.to_string()), ("message", message)])
+            }
+            ProviderError::Remote(m) => trf("服务返回错误：{message}", &[("message", m)]),
+            ProviderError::Refused(m) => trf("内容被模型拒绝：{message}", &[("message", m)]),
+            ProviderError::Network(m) => trf("连接失败：{message}", &[("message", m)]),
+            ProviderError::Timeout => tr("等待响应超时"),
+            ProviderError::Parse(m) => trf("返回内容无法解析：{message}", &[("message", m)]),
+            ProviderError::Empty => tr("模型返回了空结果"),
+            ProviderError::Unavailable(m) => m.clone(),
+        };
+        f.write_str(&text)
+    }
+}
+
+impl std::error::Error for ProviderError {}
 
 impl ProviderError {
     /// 写进「deepseek-chat 超时，已切换到 DeepL」里的短说明。
     pub fn short(&self) -> String {
         match self {
-            ProviderError::MissingKey => "没有 Key".into(),
-            ProviderError::Auth(_) => "Key 无效".into(),
-            ProviderError::Http { status, .. } => format!("出错（HTTP {status}）"),
-            ProviderError::Remote(_) => "出错".into(),
-            ProviderError::Refused(_) => "拒绝回答".into(),
-            ProviderError::Network(_) => "连不上".into(),
-            ProviderError::Timeout => "超时".into(),
-            ProviderError::Parse(_) => "返回格式不对".into(),
-            ProviderError::Empty => "返回空结果".into(),
-            ProviderError::Unavailable(_) => "不可用".into(),
+            ProviderError::MissingKey => tr("没有 Key"),
+            ProviderError::Auth(_) => tr("Key 无效"),
+            ProviderError::Http { status, .. } => trf("出错（HTTP {status}）", &[("status", &status.to_string())]),
+            ProviderError::Remote(_) => tr("出错"),
+            ProviderError::Refused(_) => tr("拒绝回答"),
+            ProviderError::Network(_) => tr("连不上"),
+            ProviderError::Timeout => tr("超时"),
+            ProviderError::Parse(_) => tr("返回格式不对"),
+            ProviderError::Empty => tr("返回空结果"),
+            ProviderError::Unavailable(_) => tr("不可用"),
         }
     }
 }

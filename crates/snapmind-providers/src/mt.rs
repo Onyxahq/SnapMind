@@ -105,7 +105,7 @@ pub async fn translate(
     if todo.is_empty() {
         return Err(ProviderError::Empty);
     }
-    let client = reqwest::Client::builder().timeout(timeout).build().map_err(net)?;
+    let client = crate::net::client(reqwest::Client::builder().timeout(timeout)).await.map_err(net)?;
     let base = ep.base_url.unwrap_or_else(|| default_base(ep.kind, key)).trim_end_matches('/');
     let mut out: Vec<String> = lines.iter().map(|_| String::new()).collect();
     let mut detected = None;

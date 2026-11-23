@@ -292,7 +292,7 @@ pub async fn stream_chat(
     if m.needs_key && key.is_none() {
         return Err(ProviderError::MissingKey);
     }
-    let client = reqwest::Client::builder().connect_timeout(CONNECT_TIMEOUT).build().map_err(net)?;
+    let client = crate::net::client(reqwest::Client::builder().connect_timeout(CONNECT_TIMEOUT)).await.map_err(net)?;
     let builder = match m.format {
         ApiFormat::OpenAi => {
             let r = client.post(join(ep.base_url, "chat/completions")).json(&openai_body(req));

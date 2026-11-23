@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 贴图上的透明文字层（需求第 6 节「自动识别」、M4.5）：每一行识别出的文字按笔画范围摆放，
   // 横向拉伸到和图里的字一样宽，文字本身透明，拖选时只看到选区底色。复制时由页面收集选中的部分。
   import type { PinOcr } from '$lib/ipc';
@@ -35,7 +36,7 @@
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
 </script>
 
-<div class="text" class:disabled bind:this={layer} aria-label="识别出的文字">
+<div class="text" class:disabled bind:this={layer} aria-label={t('识别出的文字')}>
   {#each ocr.lines as l, i (i)}
     {@const h = l.height * css}
     <div

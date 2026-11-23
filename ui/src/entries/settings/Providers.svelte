@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 设置页「模型服务」（需求 1.4）：左边服务商列表，右边选中服务商的地址、Key 和模型。
   // Key 只进系统凭据库，前端只知道「有没有」，输入框永远不回显。
   import { onMount } from 'svelte';
@@ -78,7 +79,8 @@
   async function add(m: ProviderMeta) {
     const id = newProviderId(m.kind, providers);
     const n = providers.filter((p) => p.kind === m.kind).length;
-    const name = m.kind === 'custom' && n > 0 ? `${m.name} ${n + 1}` : m.name;
+    const base = t(m.name);
+    const name = m.kind === 'custom' && n > 0 ? `${base} ${n + 1}` : base;
     await commit([...providers, { id, kind: m.kind, name, baseUrl: m.defaultUrl, models: [] }]);
     keys[id] = false;
     pick(id);
@@ -132,7 +134,7 @@
     const p = cur;
     if (!p) return;
     const id = p.id;
-    status[id] = { kind: 'busy', text: merge ? '正在获取模型列表…' : '正在连接…' };
+    status[id] = { kind: 'busy', text: merge ? t('正在获取模型列表…') : t('正在连接…') };
     try {
       const got = await providerFetchModels({ id, kind: p.kind, baseUrl: p.baseUrl });
       if (merge) {
@@ -142,7 +144,7 @@
           await commit(config.value.providers.map((x) => (x.id === id ? { ...x, models } : x)));
         }
       }
-      status[id] = { kind: 'ok', text: `连接成功 · 服务商提供 ${got.length} 个模型` };
+      status[id] = { kind: 'ok', text: t('连接成功 · 服务商提供 {length} 个模型', { length: got.length }) };
     } catch (e) {
       status[id] = { kind: 'err', text: String(e) };
     }
@@ -168,9 +170,9 @@
 </script>
 
 <div class="wrap">
-  <nav class="list" aria-label="服务商">
+  <nav class="list" aria-label={t('服务商')}>
     {#if providers.length}
-      <span class="cap">已添加</span>
+      <span class="cap">{t('已添加')}</span>
       {#each providers as p (p.id)}
         {@const m = metaOf(p.kind)}
         <button type="button" class="prov" class:on={sel === p.id} onclick={() => pick(p.id)}>
@@ -178,29 +180,29 @@
           <span class="pt">
             <b>{p.name}</b>
             <small>
-              {#if m?.needsKey && !keys[p.id]}还没填 Key{:else}{enabledCount(p)} 个模型已显示{/if}
+              {#if m?.needsKey && !keys[p.id]}{t('还没填 Key')}{:else}{t('{enabledCount} 个模型已显示', { enabledCount: enabledCount(p) })}{/if}
             </small>
           </span>
         </button>
       {/each}
     {/if}
     {#if addable.length}
-      <span class="cap">可添加</span>
+      <span class="cap">{t('可添加')}</span>
       {#each addable as m (m.kind)}
         <button type="button" class="prov more" class:on={sel === `add:${m.kind}`} onclick={() => pick(`add:${m.kind}`)}>
           <span class="logo dim" style:background={m.color}>{m.mono}</span>
-          <span class="pt"><span class="nm">{m.name}</span></span>
+          <span class="pt"><span class="nm">{t(m.name)}</span></span>
           <Icon name="plus" />
         </button>
       {/each}
     {/if}
-    <span class="cap">机器翻译</span>
+    <span class="cap">{t('机器翻译')}</span>
     {#each MT_SERVICES as s (s.kind)}
       <button type="button" class="prov" class:on={sel === `mt:${s.kind}`} onclick={() => pick(`mt:${s.kind}`)}>
         <span class="logo" class:dim={!keys[mtAccount(s.kind)]} style:background={s.color}>{s.mono}</span>
         <span class="pt">
-          <b>{s.name}</b>
-          <small>{keys[mtAccount(s.kind)] ? '已填 Key' : '还没填 Key'}</small>
+          <b>{t(s.name)}</b>
+          <small>{keys[mtAccount(s.kind)] ? t('已填 Key') : t('还没填 Key')}</small>
         </span>
       </button>
     {/each}
@@ -212,31 +214,31 @@
         <header>
           <span class="logo big" style:background={curMeta.color}>{curMeta.mono}</span>
           <div class="ht">
-            <b>{cur?.name ?? curMeta.name}</b>
-            <span>{curMeta.desc}</span>
+            <b>{cur?.name ?? t(curMeta.name)}</b>
+            <span>{t(curMeta.desc)}</span>
           </div>
           {#if cur}
-            <Button variant={armRemove ? 'danger' : 'ghost'} onclick={remove}>{armRemove ? '确认移除' : '移除'}</Button>
+            <Button variant={armRemove ? 'danger' : 'ghost'} onclick={remove}>{armRemove ? t('确认移除') : t('移除')}</Button>
           {/if}
         </header>
 
         {#if !cur}
           <Card>
             <div class="empty">
-              <span>添加后填写 API Key，就能获取并选择这个服务商的模型。</span>
-              <Button variant="primary" icon="plus" onclick={() => add(curMeta)}>添加 {curMeta.name}</Button>
+              <span>{t('添加后填写 API Key，就能获取并选择这个服务商的模型。')}</span>
+              <Button variant="primary" icon="plus" onclick={() => add(curMeta)}>{t('添加 {name}', { name: t(curMeta.name) })}</Button>
             </div>
           </Card>
         {:else}
           <Card>
-            <Row title="接口格式">
-              <span class="chip">{FORMAT_LABEL[curMeta.format]}</span>
+            <Row title={t('接口格式')}>
+              <span class="chip">{t(FORMAT_LABEL[curMeta.format])}</span>
             </Row>
             {#if cur.kind === 'custom'}
-              <Row title="名称">
+              <Row title={t('名称')}>
                 <Field
                   width="300px"
-                  aria-label="名称"
+                  aria-label={t('名称')}
                   value={cur.name}
                   onchange={(e) => {
                     const name = e.currentTarget.value.trim() || curMeta.name;
@@ -247,7 +249,7 @@
             {/if}
             <Row
               title="Base URL"
-              desc={cur.kind === 'custom' ? '填到 /v1 为止' : curMeta.altUrl ? '国内站和国际站的 Key 不通用' : undefined}
+              desc={cur.kind === 'custom' ? t('填到 /v1 为止') : curMeta.altUrl ? t('国内站和国际站的 Key 不通用') : undefined}
             >
               <div class="url">
                 <Field
@@ -265,14 +267,14 @@
                   {@const alt = curMeta.altUrl}
                   {@const next = cur.baseUrl === alt ? curMeta.defaultUrl : alt}
                   <button type="button" class="swap" title={next} onclick={() => void patchCur((p) => ({ ...p, baseUrl: next }))}>
-                    改用{regionOf(next)}
+                    {t('改用{region}', { region: t(regionOf(next)) })}
                   </button>
                 {/if}
               </div>
             </Row>
             <Row
               title="API Key"
-              desc={curMeta.needsKey ? '只保存在本机的系统凭据库里' : '本地服务不需要 Key（填了也会带上）'}
+              desc={curMeta.needsKey ? t('只保存在本机的系统凭据库里') : t('本地服务不需要 Key（填了也会带上）')}
             >
               <form
                 class="key"
@@ -286,27 +288,27 @@
                   width="300px"
                   aria-label="API Key"
                   autocomplete="off"
-                  placeholder={keys[cur.id] ? '已保存 · 输入新的 Key 可替换' : curMeta.needsKey ? '粘贴你的 API Key，回车保存' : '不需要'}
+                  placeholder={keys[cur.id] ? t('已保存 · 输入新的 Key 可替换') : curMeta.needsKey ? t('粘贴你的 API Key，回车保存') : t('不需要')}
                   bind:value={keyDraft}
                   onblur={() => void saveKey()}
                 />
-                {#if keys[cur.id]}<span class="saved" title="已保存在系统凭据库"><Icon name="lock" /></span>{/if}
+                {#if keys[cur.id]}<span class="saved" title={t('已保存在系统凭据库')}><Icon name="lock" /></span>{/if}
               </form>
             </Row>
-            <Row title="连接测试">
+            <Row title={t('连接测试')}>
               {#if st}
                 <span class="st {st.kind}" transition:fade={{ duration: 120 }}>{st.text}</span>
               {/if}
-              <Button disabled={st?.kind === 'busy'} onclick={() => fetchModels(false)}>测试连接</Button>
+              <Button disabled={st?.kind === 'busy'} onclick={() => fetchModels(false)}>{t('测试连接')}</Button>
             </Row>
           </Card>
 
           <div class="mhead">
-            <h3 class="sec">模型 · 勾选后显示</h3>
+            <h3 class="sec">{t('模型 · 勾选后显示')}</h3>
             {#if cur.models.length > 8}
-              <Field width="160px" aria-label="筛选模型" placeholder="筛选" bind:value={filter} />
+              <Field width="160px" aria-label={t('筛选模型')} placeholder={t('筛选')} bind:value={filter} />
             {/if}
-            <Button disabled={st?.kind === 'busy'} onclick={() => fetchModels(true)}>获取模型列表</Button>
+            <Button disabled={st?.kind === 'busy'} onclick={() => fetchModels(true)}>{t('获取模型列表')}</Button>
           </div>
 
           <Card>
@@ -325,21 +327,21 @@
                     <span class="mid">{m.id}</span>
                   </label>
                   <span class="tags">
-                    {#each TAGS as t (t.tag)}
+                    {#each TAGS as tg (tg.tag)}
                       <button
                         type="button"
                         class="tag"
-                        class:on={m.tags.includes(t.tag)}
-                        aria-pressed={m.tags.includes(t.tag)}
-                        title={m.tags.includes(t.tag) ? `去掉「${t.label}」` : `标为「${t.label}」`}
-                        onclick={() => setModel(m.id, (x) => ({ ...x, tags: toggleTag(x.tags, t.tag) }))}
-                      >{t.label}</button>
+                        class:on={m.tags.includes(tg.tag)}
+                        aria-pressed={m.tags.includes(tg.tag)}
+                        title={m.tags.includes(tg.tag) ? t('去掉「{label}」', { label: t(tg.label) }) : t('标为「{label}」', { label: t(tg.label) })}
+                        onclick={() => setModel(m.id, (x) => ({ ...x, tags: toggleTag(x.tags, tg.tag) }))}
+                      >{t(tg.label)}</button>
                     {/each}
                   </span>
                 </div>
               {:else}
                 <div class="none">
-                  {#if filter}没有匹配「{filter}」的模型{:else if curMeta.needsKey && !keys[cur.id]}填好 API Key 后会自动获取模型列表{:else}还没有模型，点「获取模型列表」或在下面手动添加{/if}
+                  {#if filter}{t('没有匹配「{filter}」的模型', { filter })}{:else if curMeta.needsKey && !keys[cur.id]}{t('填好 API Key 后会自动获取模型列表')}{:else}{t('还没有模型，点「获取模型列表」或在下面手动添加')}{/if}
                 </div>
               {/each}
             </div>
@@ -350,8 +352,8 @@
                 void addManual();
               }}
             >
-              <Field mono width="100%" aria-label="手动添加模型" placeholder="手动添加：输入模型 ID 后回车" spellcheck="false" bind:value={manual} />
-              <Button type="submit" icon="plus" disabled={!manual.trim()}>添加</Button>
+              <Field mono width="100%" aria-label={t('手动添加模型')} placeholder={t('手动添加：输入模型 ID 后回车')} spellcheck="false" bind:value={manual} />
+              <Button type="submit" icon="plus" disabled={!manual.trim()}>{t('添加')}</Button>
             </form>
           </Card>
         {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 操作提示面板：默认左下角，被选区挡住时换角；光标靠近时淡出。
   import type { Point, Rect } from '$lib/geometry';
   import { nearPanel, placeHints, type Hint } from '$lib/hints';
@@ -27,7 +28,7 @@
   {#each hints as h (h.k)}
     <div class="row"><span class="key"><span class="hk">{h.k}</span></span><span>{h.label}</span></div>
   {/each}
-  <div class="foot">H 隐藏提示（会记住，下次也不显示）</div>
+  <div class="foot">{t('H 隐藏提示（会记住，下次也不显示）')}</div>
 </div>
 
 <style>

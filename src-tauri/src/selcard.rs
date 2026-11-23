@@ -9,6 +9,7 @@
 //! - 要翻译的文字先存在 Rust 这边，页面收到 `selcard:show` 或刚加载完时来取（只取一次）：新建的卡片
 //!   页面还没加载好时发出的事件会丢，靠加载完再取补上。
 
+use snapmind_core::i18n::{tr};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
@@ -70,7 +71,7 @@ fn build<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
         format!("{PREFIX}{}", inner.next)
     };
     let built = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("selcard/index.html".into()))
-        .title("SnapMind 划词翻译")
+        .title(tr("SnapMind 划词翻译"))
         .decorations(false)
         .transparent(true)
         .shadow(false)

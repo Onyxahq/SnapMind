@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n.svelte';
   // 识别文字卡片（需求 3.8、M4.4）：按段落 / 按行切换、可编辑；复制或贴图后结束截图，关闭卡片不会。
   // 本地 OCR 模型第一次用时在这里下载（约 21 MB，PaddlePaddle 官方仓库，逐个校验 SHA-256）。
   import type { Rect } from '$lib/geometry';
@@ -47,35 +48,35 @@
   class="card"
   role="dialog"
   tabindex="-1"
-  aria-label="识别文字"
+  aria-label={t('识别文字')}
   use:floatCard={{ sel, width: WIDTH }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
   <header>
     <span class="chip" class:busy={card.stage === 'run'}>
-      {#if card.stage === 'run'}<span class="dot" aria-hidden="true"></span>识别中 · 本地 OCR
-      {:else if card.stage === 'model'}需要下载识别模型
-      {:else if card.stage === 'error'}出错了
-      {:else}识别文字{/if}
+      {#if card.stage === 'run'}<span class="dot" aria-hidden="true"></span>{t('识别中 · 本地 OCR')}
+      {:else if card.stage === 'model'}{t('需要下载识别模型')}
+      {:else if card.stage === 'error'}{t('出错了')}
+      {:else}{t('识别文字')}{/if}
     </span>
     <span class="grow"></span>
     {#if card.stage === 'done' && !empty}
       <Seg
-        label="排列方式"
+        label={t('排列方式')}
         options={[
-          { value: 'para', label: '按段落' },
-          { value: 'line', label: '按行' },
+          { value: 'para', label: t('按段落') },
+          { value: 'line', label: t('按行') },
         ]}
         bind:value={mode}
         onchange={(v) => onmode(v === 'line')}
       />
     {/if}
-    <IconButton icon="close" label="关闭  Esc" size={28} onclick={onclose} />
+    <IconButton icon="close" label={t('关闭 Esc')} size={28} onclick={onclose} />
   </header>
 
   {#if card.stage === 'run'}
-    <div class="sk" aria-label="正在识别">
+    <div class="sk" aria-label={t('正在识别')}>
       <span style:width="94%"></span>
       <span style:width="82%"></span>
       <span style:width="60%"></span>
@@ -84,39 +85,39 @@
     </div>
   {:else if card.stage === 'model'}
     <div class="model">
-      <p>本地 OCR 第一次使用要先下载识别模型（约 21 MB，来自 PaddlePaddle 官方仓库），下载后离线可用。</p>
+      <p>{t('本地 OCR 第一次使用要先下载识别模型（约 21 MB，来自 PaddlePaddle 官方仓库），下载后离线可用。')}</p>
       {#if model?.downloading}
         <div class="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
           <span style:width="{pct}%"></span>
         </div>
-        <span class="cap">正在下载 {progressLabel(model)}</span>
+        <span class="cap">{t('正在下载 {progressLabel}', { progressLabel: progressLabel(model) })}</span>
       {:else}
         {#if model?.error}<p class="err" role="alert">{model.error}</p>{/if}
-        <div><Button variant="primary" onclick={ondownload}>{model?.error ? '重新下载' : '下载模型'}</Button></div>
+        <div><Button variant="primary" onclick={ondownload}>{model?.error ? t('重新下载') : t('下载模型')}</Button></div>
       {/if}
     </div>
   {:else if card.stage === 'error'}
     <p class="err" role="alert">{card.error}</p>
   {:else if empty}
-    <p class="none">选区里没有识别到文字</p>
+    <p class="none">{t('选区里没有识别到文字')}</p>
   {:else}
     <textarea
       class="field"
       class:mono={card.byLine}
-      aria-label="识别出的文字"
+      aria-label={t('识别出的文字')}
       spellcheck="false"
       value={card.text}
       oninput={(e) => ontext(e.currentTarget.value)}
     ></textarea>
     {#if !card.pick}
-      <span class="cap">单击检测框挑选行，Ctrl+A 全选，右键划过选一片</span>
+      <span class="cap">{t('单击检测框挑选行，Ctrl+A 全选，右键划过选一片')}</span>
     {/if}
   {/if}
 
   <footer>
     <span class="meta" title={ocrMeta(card)}>{ocrMeta(card)}</span>
-    <Button disabled={!canAct} onclick={onpin} title="把文字贴到屏幕上">贴图</Button>
-    <Button variant="primary" disabled={!canAct} onclick={oncopy}>复制</Button>
+    <Button disabled={!canAct} onclick={onpin} title={t('把文字贴到屏幕上')}>{t('贴图')}</Button>
+    <Button variant="primary" disabled={!canAct} onclick={oncopy}>{t('复制')}</Button>
   </footer>
 </div>
 
