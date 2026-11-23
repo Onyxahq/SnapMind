@@ -44,7 +44,7 @@ describe('更新清单 latest.json', () => {
       platforms: {
         'windows-x86_64': {
           signature: 'c2ln',
-          url: 'https://github.com/SheZioTor/SnapMind/releases/download/v1.2.3/SnapMind_1.2.3_x64-setup.exe',
+          url: 'https://github.com/Onyxahq/SnapMind/releases/download/v1.2.3/SnapMind_1.2.3_x64-setup.exe',
         },
       },
     });

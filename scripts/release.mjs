@@ -27,7 +27,7 @@ const PACKAGE_JSON = join(ROOT, 'package.json');
 const SIZE_BUDGET_MB = 25; // 编程计划 §6：安装包 ≤ 25 MB（不含模型）
 const TAURI_CONF = join(ROOT, 'src-tauri', 'tauri.conf.json');
 /** 更新包放在这个仓库的 Releases 上（和 tauri.conf.json 里的 endpoints 一致）。 */
-export const RELEASE_REPO = 'SheZioTor/SnapMind';
+export const RELEASE_REPO = 'Onyxahq/SnapMind';
 export const KEY_FILE = join(homedir(), '.tauri', 'snapmind-updater.key');
 const isWin = process.platform === 'win32';
 
