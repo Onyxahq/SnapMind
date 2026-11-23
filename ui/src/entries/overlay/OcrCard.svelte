@@ -34,6 +34,8 @@
   } = $props();
 
   const WIDTH = 380;
+  let fit = $state(false);
+  let overflow = $state(false);
   const canAct = $derived(card.stage === 'done' && !!card.text.trim());
   const empty = $derived(card.stage === 'done' && !!card.result && card.result.lines.length === 0);
   const pct = $derived(model && model.total ? Math.min(100, (model.received / model.total) * 100) : 0);
@@ -49,7 +51,14 @@
   role="dialog"
   tabindex="-1"
   aria-label={t('识别文字')}
-  use:floatCard={{ sel, width: WIDTH }}
+  use:floatCard={{
+    sel,
+    width: WIDTH,
+    mode: fit ? 'fit' : 'normal',
+    rev: `${card.stage}|${card.byLine}|${card.text}`,
+    onmanual: () => (fit = false),
+    onoverflow: (v) => (overflow = v),
+  }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
@@ -70,6 +79,16 @@
         ]}
         bind:value={mode}
         onchange={(v) => onmode(v === 'line')}
+      />
+    {/if}
+    {#if card.stage === 'done' && !empty}
+      <IconButton
+        icon={fit ? 'shrink' : 'expand'}
+        label={fit ? t('还原大小') : t('放大到显示全部文字')}
+        size={28}
+        on={fit || overflow}
+        disabled={!fit && !overflow}
+        onclick={() => (fit = !fit)}
       />
     {/if}
     <IconButton icon="close" label={t('关闭 Esc')} size={28} onclick={onclose} />
@@ -103,15 +122,15 @@
   {:else}
     <textarea
       class="field"
+      data-fit
+      placeholder={card.pick.length ? '' : t('没有选中任何框')}
       class:mono={card.byLine}
       aria-label={t('识别出的文字')}
       spellcheck="false"
       value={card.text}
       oninput={(e) => ontext(e.currentTarget.value)}
     ></textarea>
-    {#if !card.pick}
-      <span class="cap">{t('单击检测框挑选行，Ctrl+A 全选，右键划过选一片')}</span>
-    {/if}
+    <span class="cap">{t('单击检测框选中或取消，Ctrl+A 全选 / 全不选')}</span>
   {/if}
 
   <footer>
@@ -195,6 +214,7 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
+  .card:global(.fitted) .field.mono { white-space: pre-wrap; }
   .field.mono { white-space: pre; overflow-x: auto; }
   /* 拉伸卡片时文字框填满 */
   .field, .sk { flex: 1 1 auto; min-height: 60px; }

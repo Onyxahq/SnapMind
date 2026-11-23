@@ -5,6 +5,8 @@ export interface ToastItem {
   id: number;
   text: string;
   kind: ToastKind;
+  /** 右边的文字按钮，如「撤销」 */
+  action?: { label: string; run: () => void };
 }
 
 /** 同时最多显示几条；更早的直接移除。 */
@@ -13,8 +15,8 @@ export const MAX_TOASTS = 3;
 export const toasts = $state<ToastItem[]>([]);
 let seq = 0;
 
-export function toast(text: string, opts: { kind?: ToastKind; ms?: number } = {}): number {
-  const item: ToastItem = { id: ++seq, text, kind: opts.kind ?? 'ok' };
+export function toast(text: string, opts: { kind?: ToastKind; ms?: number; action?: ToastItem['action'] } = {}): number {
+  const item: ToastItem = { id: ++seq, text, kind: opts.kind ?? 'ok', action: opts.action };
   toasts.push(item);
   while (toasts.length > MAX_TOASTS) toasts.shift();
   const ms = opts.ms ?? (item.kind === 'error' ? 3200 : 1600);

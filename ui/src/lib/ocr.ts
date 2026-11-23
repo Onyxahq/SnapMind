@@ -1,4 +1,4 @@
-// 识别文字卡片（需求 3.8、M4.4）的纯逻辑：段落框、右键划选挑行、状态文字。
+// 识别文字卡片（需求 3.8、M4.4）的纯逻辑：段落框、点框挑行、状态文字。
 // 坐标都是相对选区左上角的截图物理像素（和 Rust 返回的行框一致）。
 import type { Rect } from './geometry';
 import type { OcrResult, OcrStatus } from './ipc';
@@ -14,13 +14,13 @@ export interface OcrCard {
   /** 卡片里的文字（可编辑） */
   text: string;
   byLine: boolean;
-  /** 右键划选到的行；null 表示全部 */
-  pick: number[] | null;
+  /** 选中的行号（升序）；识别完默认全选 */
+  pick: number[];
   error: string;
 }
 
 export function newOcrCard(id: string, region: Rect): OcrCard {
-  return { id, region, stage: 'run', result: null, text: '', byLine: false, pick: null, error: '' };
+  return { id, region, stage: 'run', result: null, text: '', byLine: false, pick: [], error: '' };
 }
 
 /** 一组矩形的外接矩形。 */
@@ -33,20 +33,11 @@ export function bounds(rects: Rect[]): Rect {
 }
 
 /** 每个段落的框（只算 keep 里的行；段落里一行都没选中就不画）。 */
-export function paragraphBoxes(r: OcrResult, keep?: Set<number> | null): Rect[] {
+export function paragraphBoxes(r: OcrResult, keep?: Set<number>): Rect[] {
   return r.paragraphs
     .map((p) => p.filter((i) => !keep || keep.has(i)))
     .filter((p) => p.length)
     .map((p) => bounds(p.map((i) => r.lines[i])));
-}
-
-export function intersects(a: Rect, b: Rect): boolean {
-  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-}
-
-/** 右键划过的矩形碰到的行（按行号排序）。 */
-export function pickLines(r: OcrResult, area: Rect): number[] {
-  return r.lines.flatMap((l, i) => (intersects(l, area) ? [i] : []));
 }
 
 /** 点（相对识别区域的截图像素）落在哪一行的检测框里；框比文字外扩 pad。没有返回 -1。 */
@@ -54,18 +45,19 @@ export function hitLine(r: OcrResult, p: { x: number; y: number }, pad = 0): num
   return r.lines.findIndex((l) => p.x >= l.x - pad && p.x <= l.x + l.width + pad && p.y >= l.y - pad && p.y <= l.y + l.height + pad);
 }
 
-/**
- * 左键点检测框（F6）：还没挑过（全部）时点一下就是只选这一行；挑过之后点一下切换这一行。
- * Ctrl+A 全选得到的是「列出全部行」，所以之后点一下是取消这一行。
- */
-export function toggleLine(pick: number[] | null, i: number): number[] {
-  if (!pick) return [i];
+/** 左键点检测框：已选的变未选，未选的变已选。 */
+export function toggleLine(pick: number[], i: number): number[] {
   return pick.includes(i) ? pick.filter((x) => x !== i) : [...pick, i].sort((a, b) => a - b);
 }
 
-/** Ctrl+A：明确选中全部行（和「没挑过」不同：之后点框是取消）。 */
+/** 全部行号。 */
 export function allLines(r: OcrResult): number[] {
   return r.lines.map((_, i) => i);
+}
+
+/** Ctrl+A：已经全选就全不选，否则全选。 */
+export function toggleAll(r: OcrResult, pick: number[]): number[] {
+  return pick.length === r.lines.length ? [] : allLines(r);
 }
 
 /** 下载进度：「8.3 / 20.5 MB」。 */
@@ -75,10 +67,10 @@ export function progressLabel(s: OcrStatus): string {
   return `${mb(s.received)} / ${mb(s.total)} MB${from}`;
 }
 
-/** 卡片底部的说明：「12 行 · 4 段 · 0.21 s」，划选时「已选 3 / 12 行」。 */
+/** 卡片底部的说明：「12 行 · 4 段 · 0.21 s」，没全选时「已选 3 / 12 行」。 */
 export function ocrMeta(c: OcrCard): string {
   const r = c.result;
   if (!r) return '';
-  if (c.pick) return t('已选 {length} / {length2} 行 · 点框选择或取消 · Ctrl+A 全选 · 右键单击恢复', { length: c.pick.length, length2: r.lines.length });
-  return t('{length} 行 · {length2} 段 · 本地 OCR {toFixed} s · 点框挑选', { length: r.lines.length, length2: r.paragraphs.length, toFixed: (r.ms / 1000).toFixed(2) });
+  if (c.pick.length < r.lines.length) return t('已选 {length} / {length2} 行', { length: c.pick.length, length2: r.lines.length });
+  return t('{length} 行 · {length2} 段 · 本地 OCR {toFixed} s', { length: r.lines.length, length2: r.paragraphs.length, toFixed: (r.ms / 1000).toFixed(2) });
 }

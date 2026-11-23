@@ -38,6 +38,8 @@
   } = $props();
 
   const WIDTH = 380;
+  let fit = $state(false);
+  let overflow = $state(false);
   const busy = $derived(card.stage === 'recognize' || card.stage === 'oneshot' || card.stage === 'translate');
   const streamingSrc = $derived(card.stage === 'recognize' || card.stage === 'oneshot');
   const waitingDst = $derived(card.stage === 'translate' && !card.dst);
@@ -61,7 +63,14 @@
   role="dialog"
   tabindex="-1"
   aria-label={t('翻译结果')}
-  use:floatCard={{ sel, width: WIDTH }}
+  use:floatCard={{
+    sel,
+    width: WIDTH,
+    mode: fit ? 'fit' : 'normal',
+    rev: `${card.stage}|${card.src}|${card.dst}`,
+    onmanual: () => (fit = false),
+    onoverflow: (v) => (overflow = v),
+  }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
@@ -80,6 +89,14 @@
       bind:value={mode}
       onchange={(v) => onmode(v === 'overlay')}
     />
+    <IconButton
+      icon={fit ? 'shrink' : 'expand'}
+      label={fit ? t('还原大小') : t('放大到显示全部文字')}
+      size={28}
+      on={fit || overflow}
+      disabled={!fit && !overflow}
+      onclick={() => (fit = !fit)}
+    />
     <IconButton icon="close" label={t('关闭 Esc')} size={28} onclick={onclose} />
   </header>
 
@@ -87,6 +104,7 @@
     <span class="cap">{t('原文 · 可编辑')}</span>
     <textarea
       class="field src"
+      data-fit
       aria-label={t('原文')}
       spellcheck="false"
       readonly={streamingSrc}
@@ -110,6 +128,7 @@
       <textarea
         bind:this={dstEl}
         class="field dst"
+        data-fit
         aria-label={t('译文')}
         spellcheck="false"
         readonly={busy}
@@ -206,6 +225,8 @@
   .blk + .blk { flex-grow: 2; }
   .blk > .field, .blk > .sk { flex: 1 1 auto; min-height: 44px; }
   .card:global(.sized) .field { resize: none; }
+  /* 适配时原文、译文按各自内容的高度（--h 由 floatCard 量出）分 */
+  .card:global(.fitted) .field { flex-basis: var(--h, 60px); }
   .cap {
     font-size: 11px;
     color: var(--text3);

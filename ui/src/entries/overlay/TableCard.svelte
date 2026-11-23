@@ -5,8 +5,12 @@
   // 表格视图两个复制：「复制纯文本」是制表符分隔的文字；「复制」同时放 HTML 和制表符文本，
   // 粘贴进 Excel / Word 直接成表格、保留表头和合并单元格。Markdown / CSV 视图只有一个「复制」，复制源码。
   // 复制和导出 .xlsx 会结束截图。卡片可拖动、可拉伸（floatCard）。
+  // 表格框右下角（两条滚动条相交处）的按钮把卡片展开到看得全，再点、Esc、点暗处、双击标题栏还原。
   import type { Rect } from '$lib/geometry';
   import type { OcrStatus } from '$lib/ipc';
+  import { onDestroy, tick } from 'svelte';
+  import Icon from '$lib/ui/Icon.svelte';
+  import { fade } from 'svelte/transition';
   import { floatCard } from '$lib/floatCard';
   import { progressLabel } from '$lib/ocr';
   import { parseCsv, parseMarkdown, toCsv, toMarkdown, toTsv, type TableCardState, type TableView, type TRows } from '$lib/table';
@@ -19,6 +23,8 @@
     card,
     model,
     mode,
+    full = $bindable(false),
+    cellWidth,
     onmode,
     onrows,
     ondownload,
@@ -31,6 +37,10 @@
     model: OcrStatus | null;
     /** 表格视图是只看还是可以改单元格（记在设置里） */
     mode: 'preview' | 'edit';
+    /** 展开到看得全 */
+    full?: boolean;
+    /** 展开时单元格最宽多少像素，超过就换行；0 不限 */
+    cellWidth: number;
     onmode: (mode: 'preview' | 'edit') => void;
     onrows: (rows: TRows) => void;
     ondownload: () => void;
@@ -77,6 +87,57 @@
     onrows(rows);
   }
 
+  /** 双击单元格临时编辑这一格（不改记住的预览 / 编辑） */
+  let single = $state('');
+  async function editOne(e: MouseEvent, r: number, c: number) {
+    if (mode === 'edit') return;
+    const td = e.currentTarget as HTMLElement;
+    single = `${r},${c}`;
+    await tick();
+    td.focus();
+    const s = getSelection();
+    s?.selectAllChildren(td);
+    s?.collapseToEnd();
+  }
+
+  let body = $state<HTMLElement>();
+  let grid = $state<HTMLElement>();
+  /** 表格框放不下整张表；右边 / 下边还有没滚到的内容 */
+  let overflow = $state(false);
+  let moreX = $state(false);
+  let moreY = $state(false);
+  function watch() {
+    if (!grid) {
+      overflow = moreX = moreY = false;
+      return;
+    }
+    const table = grid.querySelector('table');
+    overflow = !!table && (table.offsetWidth > grid.offsetWidth - 2 || table.offsetHeight > grid.offsetHeight - 2);
+    moreX = grid.scrollLeft + grid.clientWidth < grid.scrollWidth - 2;
+    moreY = grid.scrollTop + grid.clientHeight < grid.scrollHeight - 2;
+  }
+  $effect(() => {
+    void version;
+    const el = grid;
+    if (!el) return watch();
+    const ro = new ResizeObserver(watch);
+    ro.observe(el);
+    const table = el.querySelector('table');
+    if (table) ro.observe(table);
+    return () => ro.disconnect();
+  });
+  onDestroy(() => (full = false));
+
+  /** 点暗处：正在改单元格就先结束编辑，否则还原 */
+  function onDim(e: PointerEvent) {
+    e.stopPropagation();
+    const a = document.activeElement as HTMLElement | null;
+    if (a && body?.contains(a) && (a.isContentEditable || a.tagName === 'TEXTAREA')) {
+      e.preventDefault();
+      a.blur();
+    } else full = false;
+  }
+
   /** 单元格初次挂载时写入文字；之后由用户编辑，不再从数据重绘（避免光标跳动）。 */
   function initText(node: HTMLElement, text: string) {
     node.textContent = text;
@@ -93,12 +154,24 @@
   }
 </script>
 
+{#if full}
+  <div class="dim" role="presentation" transition:fade={{ duration: 160 }} onpointerdown={onDim} oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); }}></div>
+{/if}
 <div
   class="card"
+  class:limit={cellWidth > 0}
+  style:--cell={cellWidth}
   role="dialog"
   tabindex="-1"
   aria-label={t('表格')}
-  use:floatCard={{ sel, width: WIDTH, minWidth: 340 }}
+  use:floatCard={{
+    sel,
+    width: WIDTH,
+    minWidth: 340,
+    mode: full ? 'full' : 'normal',
+    rev: `${version}|${cellWidth}`,
+    onrestore: () => (full = false),
+  }}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.stopPropagation()}
 >
@@ -151,8 +224,10 @@
     </div>
   {:else if card.stage === 'error'}
     <p class="err" role="alert">{card.error}</p>
-  {:else if view === 'grid'}
-    <div class="grid" class:editing={mode === 'edit'}>
+  {:else}
+    <div class="body" bind:this={body} class:more-x={moreX} class:more-y={moreY}>
+    {#if view === 'grid'}
+    <div class="grid" class:tight={overflow} class:editing={mode === 'edit'} data-grid bind:this={grid} onscroll={watch}>
       {#key version}
         <table>
           <tbody>
@@ -161,9 +236,12 @@
                 {#each row as cell, c (c)}
                   <td
                     class:th={cell.header}
+                    style:--span={cell.colspan}
+                    ondblclick={(e) => editOne(e, r, c)}
+                    onblur={() => (single = '')}
                     colspan={cell.colspan > 1 ? cell.colspan : undefined}
                     rowspan={cell.rowspan > 1 ? cell.rowspan : undefined}
-                    contenteditable={mode === 'edit' ? 'plaintext-only' : 'false'}
+                    contenteditable={mode === 'edit' || single === `${r},${c}` ? 'plaintext-only' : 'false'}
                     spellcheck="false"
                     use:initText={cell.text}
                     oninput={(e) => editCell(r, c, e.currentTarget.innerText)}
@@ -177,6 +255,18 @@
     </div>
   {:else}
     <textarea class="field" aria-label={t('{v} 源码', { v: view === 'markdown' ? 'Markdown' : 'CSV' })} spellcheck="false" bind:value={source}></textarea>
+    {/if}
+    {#if full || overflow}
+      <button
+        type="button"
+        class="corner"
+        class:hint={!full}
+        aria-label={full ? t('还原 Esc') : t('展开看全整张表格')}
+        title={full ? t('还原 Esc') : t('展开看全整张表格')}
+        onclick={() => (full = !full)}
+      ><Icon name={full ? 'shrink' : 'expand'} size={14} stroke={2.2} /></button>
+    {/if}
+    </div>
   {/if}
 
   <footer>
@@ -251,6 +341,40 @@
   .field, .sk { flex: 1 1 auto; min-height: 60px; }
   /* 拉伸过的卡片定高，表格 / 源码填满 */
   .card:global(.sized) .grid { max-height: none; }
+  .body { position: relative; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  /* 右边 / 下边还有内容：边缘渐隐 */
+  .body::before, .body::after { content: ''; position: absolute; z-index: 2; pointer-events: none; opacity: 0; transition: opacity var(--d-hover) var(--ease-hover); }
+  .body::before { top: 1px; bottom: 13px; right: 13px; width: 24px; background: linear-gradient(to left, color-mix(in srgb, var(--text) 14%, transparent), transparent); }
+  .body::after { left: 1px; right: 13px; bottom: 13px; height: 24px; background: linear-gradient(to top, color-mix(in srgb, var(--text) 14%, transparent), transparent); }
+  .more-x::before, .more-y::after { opacity: 1; }
+  .grid::-webkit-scrollbar { width: 12px; height: 12px; }
+  .grid::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 6px; background: var(--text3) content-box; }
+  .grid::-webkit-scrollbar-track { background: transparent; }
+  /* 滚动条在角上的按钮前停住；内容也让开一点，滚到底时不会被按钮挡住 */
+  .grid::-webkit-scrollbar-track:vertical { margin-bottom: 14px; }
+  .grid::-webkit-scrollbar-track:horizontal { margin-right: 14px; }
+  .grid::-webkit-scrollbar-corner { background: transparent; }
+  .grid.tight { padding: 0 14px 14px 0; }
+  .corner {
+    position: absolute; right: 0; bottom: 0; z-index: 3;
+    width: 26px; height: 26px; padding: 0; border: 1px solid var(--line2);
+    border-radius: 8px 0 var(--r-ctl) 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--solid); color: var(--text2); cursor: pointer;
+    transition: background-color var(--d-hover) var(--ease-hover), color var(--d-hover) var(--ease-hover), filter var(--d-hover) var(--ease-hover);
+  }
+  .corner.hint { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .corner:hover { filter: brightness(1.1); }
+  .corner:active :global(svg) { transform: scale(.85); }
+  .corner:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .dim { position: absolute; inset: 0; z-index: 45; background: var(--scrim); cursor: default; }
+  .card:global(.full) { z-index: 46; }
+  /* 展开：列宽按内容，单元格最宽 --cell（合并列按列数放宽），再长就换行 */
+  .card:global(.full) .grid { max-height: none; padding: 0 0 28px 0; }
+  .card:global(.full) table { width: max-content; font-size: var(--fs, 13px); line-height: 1.46; }
+  .card:global(.full.limit) td { max-width: calc(var(--cell) * var(--span) * 1px); overflow-wrap: anywhere; }
+  .card:global(.full) tr:first-child td { position: sticky; top: 0; z-index: 1; background: linear-gradient(var(--sunken), var(--sunken)), var(--solid); box-shadow: inset 0 -1px var(--line2); }
+  .card:global(.full) tr:first-child td:focus { box-shadow: inset 0 0 0 2px var(--accent); }
   .card:global(.sized) .field { resize: none; }
   .field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .sk { height: 180px; box-sizing: border-box; padding: 10px 2px; display: grid; grid-template-rows: repeat(4, 1fr); gap: 8px; }

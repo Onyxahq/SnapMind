@@ -91,6 +91,19 @@
       onchange={(tableMode) => save({ capture: { tableMode } })}
     />
   </Row>
+  <Row title={t('单元格最大宽度')} desc={t('展开整张表格时，内容比这还宽的单元格自动换行')}>
+    <Select
+      aria-label={t('单元格最大宽度')}
+      width="140px"
+      options={[...new Set([160, 240, 320, 480, 640, c.capture.tableCellWidth ?? 320])]
+        .filter((n) => n > 0)
+        .sort((a, b) => a - b)
+        .map((n) => ({ value: String(n), label: t('{n} 像素', { n }) }))
+        .concat({ value: '0', label: t('不限制') })}
+      value={String(c.capture.tableCellWidth ?? 320)}
+      onchange={(e) => save({ capture: { tableCellWidth: Number(e.currentTarget.value) } })}
+    />
+  </Row>
 </Card>
 
 <Card>

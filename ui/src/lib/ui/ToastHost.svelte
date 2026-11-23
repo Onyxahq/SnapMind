@@ -9,17 +9,21 @@
 
 <div class="host" aria-live="polite">
   {#each toasts as t (t.id)}
-    <button
-      type="button"
-      class="toast {t.kind}"
-      in:popIn
-      out:popOut
-      animate:flip={{ duration: 180 }}
-      onclick={() => dismiss(t.id)}
-    >
-      <span class="badge"><Icon name={ICON[t.kind]} size={13} stroke={2.4} /></span>
-      {t.text}
-    </button>
+    <div class="toast {t.kind}" role="status" in:popIn out:popOut animate:flip={{ duration: 180 }}>
+      <button type="button" class="body" onclick={() => dismiss(t.id)}>
+        <span class="badge"><Icon name={ICON[t.kind]} size={13} stroke={2.4} /></span>
+        {t.text}
+      </button>
+      {#if t.action}
+        <button
+          type="button"
+          class="act"
+          onclick={() => {
+            t.action?.run();
+            dismiss(t.id);
+          }}>{t.action.label}</button>
+      {/if}
+    </div>
   {/each}
 </div>
 
@@ -40,10 +44,8 @@
     pointer-events: auto;
     display: flex;
     align-items: center;
-    gap: 10px;
     height: 40px;
     padding: 0 14px 0 10px;
-    border: 0;
     border-radius: var(--r-panel);
     background: var(--glass);
     backdrop-filter: var(--blur-2);
@@ -51,8 +53,30 @@
     color: var(--text);
     font-size: 13px;
     white-space: nowrap;
+  }
+  .body {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
     cursor: default;
   }
+  .act {
+    margin: 0 -8px 0 10px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: var(--r-tag);
+    background: none;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--d-hover) var(--ease-hover);
+  }
+  .act:hover { background: var(--accent-soft); }
+  .act:focus-visible { outline: 2px solid var(--accent); }
   .badge {
     width: 20px;
     height: 20px;

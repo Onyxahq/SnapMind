@@ -4,7 +4,7 @@
   // M1.1 冻结帧与遮罩；M1.2 选区；M1.3 吸附窗口和控件；M1.4 放大镜与取色；M1.5 操作提示；
   // M1.6 工具条、复制 / 保存与逐级退出；M2.1 标注；M2.2 文字、马赛克 / 模糊；
   // M2.3 按原始分辨率导出标注、未保存标注的退出确认；M6.1 翻译卡片（Ctrl+Q、Ctrl+Shift+O）；
-  // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框与右键划选；M6.2 翻译的原位覆盖；
+  // M4.4 识别文字卡片（Shift+C、Ctrl+Shift+S）、检测框点选；M6.2 翻译的原位覆盖；
   // M8.1 识别为 Markdown（Shift+Alt+R）；M8.2 表格识别、M8.3 公式识别（工具条「更多」）；M9.1 长截图（L）；M9.2 录屏（R）。
   import { onMount, tick } from 'svelte';
   import { convertFileSrc } from '@tauri-apps/api/core';
@@ -106,7 +106,7 @@
   import TableCard from './TableCard.svelte';
   import { parseHtml, toClipboardHtml, type TableCardState, type TRows } from '$lib/table';
   import { canvasMeasure, drawOverlay, drawable, fitText } from '$lib/overlay';
-  import { allLines, hitLine, newOcrCard, pickLines, toggleLine, type OcrCard } from '$lib/ocr';
+  import { allLines, hitLine, newOcrCard, toggleAll, toggleLine, type OcrCard } from '$lib/ocr';
 
   /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
   const CLICK_SLOP = 3;
@@ -155,6 +155,8 @@
   const live = $derived(long !== null || (rec !== null && rec.phase !== 'setup'));
   /** 透出模式下工具条的位置 */
   let liveBarRect = $state<Rect>();
+  /** 表格卡片是否展开（展开时 Esc 先还原） */
+  let tableFull = $state(false);
   /** 表格卡片 */
   let tableCard = $state<TableCardState | null>(null);
   /** 翻译时的选区（原位覆盖只在选区没动时画） */
@@ -165,8 +167,6 @@
   let ocrModel = $state<OcrStatus | null>(null);
   /** Ctrl+Shift+S：识别完成后直接复制 */
   let ocrAutoCopy = false;
-  /** 右键划选检测框（本屏截图像素） */
-  let rdrag = $state.raw<{ p0: Point; p: Point; downCss: Point; moved: boolean } | null>(null);
   /** 工具条位置：结果卡片要避开它 */
   let toolbarRect = $state<Rect>();
 
@@ -241,17 +241,6 @@
   );
   const measureText = canvasMeasure();
   const overlayFits = $derived(overlayBlocks ? overlayBlocks.map((b) => fitText(b, measureText)) : []);
-  /** 正在右键划的矩形（相对识别区域） */
-  const rdragRect = $derived(
-    rdrag?.moved && ocr
-      ? {
-          x: Math.min(rdrag.p0.x, rdrag.p.x) - ocr.region.x,
-          y: Math.min(rdrag.p0.y, rdrag.p.y) - ocr.region.y,
-          width: Math.abs(rdrag.p.x - rdrag.p0.x),
-          height: Math.abs(rdrag.p.y - rdrag.p0.y),
-        }
-      : null,
-  );
   /** 操作提示：内容随状态变化，避开已有选区（悬停高亮不算）。 */
   const hintList = $derived(
     hintsFor(
@@ -579,7 +568,9 @@
     try {
       const res = await captureOcr(id, index, r);
       if (ocr?.id !== id) return;
-      ocr = { ...ocr, stage: 'done', result: res, text: res.text, pick: null };
+      ocr = { ...ocr, stage: 'done', result: res, text: res.text, pick: allLines(res) };
+      ocrBase = res.text;
+      ocrUndo = null;
       if (ocrAutoCopy && res.text.trim()) {
         await clipboardWriteText(res.text);
         toast(t('已复制识别出的文字'));
@@ -594,17 +585,39 @@
     ocrDownload().catch((e) => log('warn', `下载 OCR 模型失败：${e}`));
   }
 
-  /** 换排列方式或划选后，按段落规则重新拼接（改过的文字会被替换）。 */
+  /** 最近一次生成的文字（和现在的不一样就是用户改过）、改过之后重新生成前的样子（给「撤销」用） */
+  let ocrBase = '';
+  let ocrUndo: { pick: number[]; byLine: boolean; text: string; base: string } | null = null;
+  /** 换排列方式或点框后，按段落规则重新拼接；手改过的文字会被替换，提示里可以撤销。 */
   let composeSeq = 0;
   async function recompose(next: Partial<Pick<OcrCard, 'pick' | 'byLine'>>) {
     if (!ocr || ocr.stage !== 'done') return;
+    if (!ocrUndo && ocr.text !== ocrBase) ocrUndo = { pick: [...ocr.pick], byLine: ocr.byLine, text: ocr.text, base: ocrBase };
     const c = { ...ocr, ...next };
     ocr = c;
     const seq = ++composeSeq;
     try {
       const text = await ocrCompose(c.id, c.pick, c.byLine);
       // 期间又换了选择就丢掉这次结果（$state 会包一层代理，不能比较数组是否同一个）
-      if (ocr?.id === c.id && seq === composeSeq) ocr = { ...ocr, text };
+      if (ocr?.id !== c.id || seq !== composeSeq) return;
+      ocr = { ...ocr, text };
+      ocrBase = text;
+      const undo = ocrUndo;
+      ocrUndo = null;
+      if (undo)
+        toast(t('已按所选重新生成'), {
+          kind: 'info',
+          ms: 6000,
+          action: {
+            label: t('撤销'),
+            run: () => {
+              if (ocr?.id !== c.id) return;
+              composeSeq++;
+              ocr = { ...ocr, pick: undo.pick, byLine: undo.byLine, text: undo.text };
+              ocrBase = undo.base;
+            },
+          },
+        });
     } catch (e) {
       log('warn', `重新拼接识别文字失败：${e}`);
     }
@@ -613,7 +626,6 @@
   function closeOcr() {
     if (ocr) ocrForget(ocr.id);
     ocr = null;
-    rdrag = null;
   }
 
   /** 复制识别出的文字：交出结果，结束截图。 */
@@ -989,13 +1001,6 @@
   // ---------------------------------------------------------------- 鼠标
 
   function onDown(e: PointerEvent) {
-    // 识别卡片打开时，右键在检测框上划选一部分行
-    if (session && e.button === 2 && ocrBoxes) {
-      const p = toPx(e.clientX, e.clientY);
-      rdrag = { p0: p, p, downCss: { x: e.clientX, y: e.clientY }, moved: false };
-      (e.currentTarget as Element).setPointerCapture(e.pointerId);
-      return;
-    }
     if (!session || e.button !== 0) return;
     const p = toPx(e.clientX, e.clientY);
     // 左键点检测框：挑选行（F6）。按下时先记着，拖动了再当成移动选区
@@ -1035,11 +1040,6 @@
     if (!session) return;
     cursorCss = { x: e.clientX, y: e.clientY };
     const p = toPx(e.clientX, e.clientY);
-    if (rdrag) {
-      const moved = rdrag.moved || Math.hypot(e.clientX - rdrag.downCss.x, e.clientY - rdrag.downCss.y) >= CLICK_SLOP;
-      rdrag = { ...rdrag, p, moved };
-      return;
-    }
     if (boxDown) {
       if (Math.hypot(e.clientX - boxDown.downCss.x, e.clientY - boxDown.downCss.y) < CLICK_SLOP || !sel) return;
       drag = { kind: 'move', start: sel, p0: boxDown.p0 };
@@ -1081,17 +1081,6 @@
       if (ocr?.stage === 'done') recompose({ pick: toggleLine(ocr.pick, i) });
       return;
     }
-    if (rdrag) {
-      const area = rdragRect;
-      const moved = rdrag.moved;
-      rdrag = null;
-      if (!ocr?.result) return;
-      if (moved && area) {
-        const pick = pickLines(ocr.result, area);
-        if (pick.length) recompose({ pick });
-      } else if (ocr.pick) recompose({ pick: null }); // 右键单击：恢复全部
-      return;
-    }
     if (ann.gesture) {
       ann.up();
       return;
@@ -1117,7 +1106,7 @@
   function onContext(e: MouseEvent) {
     e.preventDefault();
     if (!session || drag || ann.gesture) return;
-    if (ocr) return; // 识别卡片打开时右键用来划选检测框，不取消选区
+    if (ocr) return; // 识别卡片打开时右键不取消选区，免得误丢结果
     if (ann.tool) {
       exitAnnotate();
       return;
@@ -1174,6 +1163,7 @@
       else if (ocr) closeOcr();
       else if (mdCard) closeMd();
       else if (fxCard) closeFormula();
+      else if (tableCard && tableFull) tableFull = false;
       else if (tableCard) tableCard = null;
       else if (ann.tool) exitAnnotate();
       else requestClose();
@@ -1182,12 +1172,15 @@
     if (saveOpen) return; // 保存窗口打开时，其他快捷键交给它
     // 在卡片的文本框里打字、选择、Ctrl+C 时，按键交给文本框
     const target = e.target as HTMLElement | null;
-    if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return;
+    if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)) return;
+    // 在卡片的按钮上按回车是点按钮；选中了卡片里的文字（如只看的表格）时 Ctrl+C 复制那段文字
+    if (e.key === 'Enter' && target?.tagName === 'BUTTON' && target.closest('[role="dialog"]')) return;
+    if (e.ctrlKey && e.key.toLowerCase() === 'c' && getSelection()?.toString()) return;
     const ctrl = e.ctrlKey || e.metaKey;
-    // Ctrl+A：选中全部检测框（之后点框是取消那一行）
+    // Ctrl+A：检测框全选 / 全不选
     if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'a' && ocrBoxes && ocr?.stage === 'done') {
       e.preventDefault();
-      recompose({ pick: allLines(ocrBoxes) });
+      recompose({ pick: toggleAll(ocrBoxes, ocr.pick) });
       return;
     }
     if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'q') {
@@ -1430,7 +1423,7 @@
     />
   {/if}
   {#if ocrBoxes && ocr}
-    <OcrBoxes region={ocr.region} scale={mon.scale} result={ocrBoxes} byLine={ocr.byLine} pick={ocr.pick} drag={rdragRect} hover={hoverLine} />
+    <OcrBoxes region={ocr.region} scale={mon.scale} result={ocrBoxes} byLine={ocr.byLine} pick={ocr.pick} hover={hoverLine} />
   {/if}
   {#if ocr && selOnlyCss && !saveOpen}
     <OcrCardView
@@ -1451,6 +1444,8 @@
       card={tableCard}
       model={ocrModel}
       mode={config.value.capture.tableMode ?? 'preview'}
+      bind:full={tableFull}
+      cellWidth={config.value.capture.tableCellWidth ?? 320}
       onmode={(tableMode) => updateConfig({ capture: { tableMode } })}
       onrows={(rows) => tableCard && (tableCard = { ...tableCard, rows })}
       ondownload={downloadTableModel}

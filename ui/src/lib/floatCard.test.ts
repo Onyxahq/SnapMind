@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampBox, edgeCursor, hitEdges, resizeBox } from './floatCard';
+import { clampBox, edgeCursor, fitPlace, hitEdges, resizeBox } from './floatCard';
 
 const view = { width: 1920, height: 1080 };
 
@@ -27,6 +27,19 @@ describe('floatCard', () => {
     expect(resizeBox(start, { n: false, s: false, w: true, e: false }, 300, 0, min, view)).toEqual({ x: 220, y: 100, w: 280, h: 300 });
     expect(resizeBox(start, { n: true, s: false, w: false, e: false }, 0, -500, min, view)).toEqual({ x: 100, y: 8, w: 400, h: 392 });
     expect(resizeBox(start, { n: false, s: false, w: false, e: true }, 5000, 0, min, view).w).toBe(1920 - 8 - 100);
+  });
+
+  it('fitPlace: 优先原地长、不挡选区', () => {
+    const sel = { x: 800, y: 300, width: 300, height: 200 };
+    // 在右边：原地往右长
+    expect(fitPlace({ x: 1112, y: 300, w: 380, h: 300 }, 640, 500, sel, view)).toEqual({ x: 1112, y: 300 });
+    // 在左边：贴着右边往左长
+    expect(fitPlace({ x: 408, y: 300, w: 380, h: 300 }, 640, 500, sel, view)).toEqual({ x: 148, y: 300 });
+    // 右边不够宽、原地会挡住：换到左边
+    const r = { x: 1200, y: 300, width: 300, height: 200 };
+    expect(fitPlace({ x: 1512, y: 300, w: 380, h: 300 }, 640, 500, r, view)).toEqual({ x: 1200 - 12 - 640, y: 300 });
+    // 本来就压着选区：不换地方
+    expect(fitPlace({ x: 700, y: 300, w: 380, h: 300 }, 640, 500, sel, view)).toEqual({ x: 700, y: 300 });
   });
 
   it('clampBox: 收进屏幕', () => {

@@ -191,11 +191,13 @@ pub struct CaptureConfig {
     pub confirm_discard: bool,
     /// 表格识别结果打开时只看还是直接可以改单元格（F5；卡片上切换会记住）
     pub table_mode: TableMode,
+    /// 展开表格时单元格最宽多少像素，超过就换行；0 表示不限
+    pub table_cell_width: u32,
 }
 
 impl Default for CaptureConfig {
     fn default() -> Self {
-        Self { color_format: ColorFormat::default(), show_hints: true, confirm_discard: true, table_mode: TableMode::default() }
+        Self { color_format: ColorFormat::default(), show_hints: true, confirm_discard: true, table_mode: TableMode::default(), table_cell_width: 320 }
     }
 }
 
@@ -845,7 +847,7 @@ mod tests {
                 "version": 1,
                 "general": { "language": "system" },
                 "appearance": { "theme": "system", "accent": "blue", "motion": "full" },
-                "capture": { "colorFormat": "hex", "showHints": true, "confirmDiscard": true, "tableMode": "preview" },
+                "capture": { "colorFormat": "hex", "showHints": true, "confirmDiscard": true, "tableMode": "preview", "tableCellWidth": 320 },
                 "save": {
                     "dir": "",
                     "format": "png",

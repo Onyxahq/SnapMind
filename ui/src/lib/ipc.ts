@@ -18,7 +18,7 @@ export interface Config {
   version: number;
   general: { language: LanguageSetting };
   appearance: { theme: ThemeMode; accent: Accent; motion: 'full' | 'reduced' };
-  capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean; tableMode: 'preview' | 'edit' };
+  capture: { colorFormat: ColorFormat; showHints: boolean; confirmDiscard: boolean; tableMode: 'preview' | 'edit'; tableCellWidth: number };
   save: SaveConfig;
   providers: ProviderConfig[];
   mt: { microsoftRegion: string };
@@ -145,7 +145,7 @@ export const DEFAULT_CONFIG: Config = {
   version: 1,
   general: { language: 'system' },
   appearance: { theme: 'system', accent: 'blue', motion: 'full' },
-  capture: { colorFormat: 'hex', showHints: true, confirmDiscard: true, tableMode: 'preview' },
+  capture: { colorFormat: 'hex', showHints: true, confirmDiscard: true, tableMode: 'preview', tableCellWidth: 320 },
   save: {
     dir: '',
     format: 'png',
@@ -1296,10 +1296,12 @@ export async function captureTable(index: number, region: Region): Promise<Table
     const c = (text: string, colspan = 1, header = false) => ({ text, colspan, rowspan: 1, header });
     return {
       rows: [
-        [c('快捷键', 1, true), c('动作', 1, true), c('说明', 1, true)],
-        [c('Shift+F1'), c('截图'), c('进入编辑态')],
-        [c('Ctrl+Q'), c('翻译'), c('识别后翻译选区')],
-        [c('Shift+Alt+R'), c('识别为 Markdown', 2)],
+        ['订单编号', '商品名称', '商品类别', '销售地区', '单价', '数量', '销售额', '备注'].map((x) => c(x, 1, true)),
+        ...Array.from({ length: 12 }, (_, i) => [
+          c(`SO-202310-${String(i + 1).padStart(3, '0')}`), c('4K 超高清显示器'), c('数码办公'), c('华东'), c('￥1,899.00'), c('12'), c('￥22,788.00'),
+          c(i === 2 ? '这是一条很长的备注，用来看展开之后超过最大宽度的单元格会不会自动换行，而不是把整张表撑得很宽。' : '—'),
+        ]),
+        [c('合计', 4), c('数量与金额见右侧', 4)],
       ],
       html: null,
       meta: '本地 OCR · 0.6 s',
@@ -1439,8 +1441,8 @@ function fakeOcrResult(region: Region): OcrResult {
   const texts = [
     ['Screenshots hold text that was never', 'meant to be copied, like labels in', 'a dialog or a frame of a video.'],
     ['识别后的文字按段落排好，段落内部的', '换行会被去掉，可以直接粘贴。'],
-    ['• 右键划过检测框只选一部分'],
-    ['• 右键单击恢复全部'],
+    ['• 单击检测框选中或取消'],
+    ['• 按 Ctrl+A 全选或全不选'],
   ];
   const lh = Math.max(14, Math.min(30, Math.round(region.height / 14)));
   const lines: OcrLine[] = [];

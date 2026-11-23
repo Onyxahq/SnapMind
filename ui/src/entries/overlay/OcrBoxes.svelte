@@ -1,6 +1,6 @@
 <script lang="ts">
-  // 识别文字时截图上的检测框（需求 3.8、F6）：段落框 + 行框；左键点框 / 右键划选后选中的行加深、没选的变淡，
-  // 指针下的框高亮，提示可以点。
+  // 识别文字时截图上的检测框（需求 3.8、F6）：段落框 + 行框；选中的行填蓝色、没选的不填，
+  // 左键点框切换，指针下的框边框加粗，提示可以点。
   // SVG 盖在选区上，viewBox 用选区的截图像素，行框坐标直接用 Rust 返回的值；描边按 CSS 像素画。
   import type { Rect } from '$lib/geometry';
   import type { OcrResult } from '$lib/ipc';
@@ -12,7 +12,6 @@
     result,
     byLine,
     pick,
-    drag,
     hover = -1,
   }: {
     /** 识别时的选区（截图物理像素） */
@@ -20,14 +19,13 @@
     scale: number;
     result: OcrResult;
     byLine: boolean;
-    pick: number[] | null;
-    /** 正在右键划的矩形（相对选区，截图像素） */
-    drag: Rect | null;
+    /** 选中的行号 */
+    pick: number[];
     /** 指针下的行（-1 表示没有） */
     hover?: number;
   } = $props();
 
-  const keep = $derived(pick ? new Set(pick) : null);
+  const keep = $derived(new Set(pick));
   const paras = $derived(byLine ? [] : paragraphBoxes(result, keep));
   /** 框比文字外扩一点，圆角跟着字号走 */
   const pad = $derived(2 * scale);
@@ -44,11 +42,9 @@
   aria-hidden="true"
 >
   {#each result.lines as l, i (i)}
-    {@const on = !keep || keep.has(i)}
     <rect
       class="line"
-      class:off={!on}
-      class:strong={byLine || !!keep}
+      class:on={keep.has(i)}
       class:hover={i === hover}
       x={l.x - pad / 2}
       y={l.y - pad / 2}
@@ -69,9 +65,6 @@
       vector-effect="non-scaling-stroke"
     />
   {/each}
-  {#if drag}
-    <rect class="drag" x={drag.x} y={drag.y} width={drag.width} height={drag.height} vector-effect="non-scaling-stroke" />
-  {/if}
 </svg>
 
 <style>
@@ -93,38 +86,21 @@
   }
   .line {
     fill: transparent;
-    stroke: color-mix(in srgb, var(--accent) 45%, transparent);
+    stroke: color-mix(in srgb, var(--accent) 50%, transparent);
     stroke-width: 1;
   }
-  .line.strong {
-    fill: color-mix(in srgb, var(--accent) 10%, transparent);
+  .line.on {
+    fill: color-mix(in srgb, var(--accent) 22%, transparent);
     stroke: var(--accent);
-    stroke-width: 1.25;
   }
   .line.hover {
-    fill: color-mix(in srgb, var(--accent) 18%, transparent);
     stroke: var(--accent);
-    stroke-width: 1.5;
+    stroke-width: 2;
   }
-  /* 没选中的行：盖一层遮罩让文字变淡，不描边 */
-  .line.off {
-    fill: var(--scrim);
-    stroke: transparent;
-  }
-  .line.off.hover {
-    fill: color-mix(in srgb, var(--scrim) 60%, transparent);
-    stroke: color-mix(in srgb, var(--accent) 60%, transparent);
-  }
+  /* 段落框只描边，免得没选中的行也泛蓝 */
   .para {
-    fill: color-mix(in srgb, var(--accent) 6%, transparent);
-    stroke: var(--accent);
-    stroke-width: 1.5;
-  }
-  .drag {
-    fill: color-mix(in srgb, var(--accent) 12%, transparent);
-    stroke: var(--accent);
-    stroke-width: 1.25;
-    stroke-dasharray: 5 4;
-    transition: none;
+    fill: none;
+    stroke: color-mix(in srgb, var(--accent) 70%, transparent);
+    stroke-width: 1;
   }
 </style>

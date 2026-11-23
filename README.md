@@ -53,7 +53,7 @@ Screenshot / Selection / Clipboard
 ### Offline Local OCR & Structured Recognition
 - **Local PP-OCRv5 + SLANet_plus**: Powered by ONNX Runtime with Apache-2.0 licensed models (commercial-use friendly). Automatically selects the fastest official mirror by region (ModelScope in Mainland China, Hugging Face globally) with SHA-256 verification.
 - **Smart Paragraph Reconstruction**: Rebuilds reading order across single- and multi-column layouts, joins CJK cleanly, preserves Latin spacing/de-hyphenation, and detects code blocks.
-- **Interactive Box Selection**: Left-click detected boxes to pick specific lines (`Ctrl+A` to select all, click again to deselect), or right-drag across boxes to extract a subset.
+- **Interactive Box Selection**: All detected boxes start selected; left-click a box to select or deselect it, `Ctrl+A` selects all or none. The card shows only the selected text.
 - **Recognize as Markdown (`Shift+Alt+R`)**: Editable source and live Obsidian-flavored preview (tables, callouts, highlights, KaTeX math) with `.md` export.
 - **Table Recognition**: Rendered HTML preview with inline cell editing, Markdown & CSV views, rich HTML + TSV copy (paste directly into Excel/Word with merged cells intact), and `.xlsx` export.
 - **Formula → LaTeX**: Vision-model extraction with real-time KaTeX preview, error diagnostics, and one-click `$$...$$` copy.
