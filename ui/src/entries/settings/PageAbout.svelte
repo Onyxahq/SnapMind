@@ -71,6 +71,10 @@
 
 <Card>
   <Row title="SnapMind {info?.version ?? ''}" desc="截图 · 识别 · 翻译。本地 OCR 基于 PaddleOCR（PP-OCRv5），界面基于 Tauri 2 和 Svelte 5。" />
+  <Row
+    title="开源组件与许可"
+    desc="本地识别模型 PP-OCRv5 和 SLANet_plus 由 PaddlePaddle 以 Apache-2.0 发布（可商用），首次使用时从官方仓库下载；推理引擎 ONNX Runtime（MIT）；Tauri、Svelte、KaTeX（MIT / Apache-2.0）；模型能力目录数据来自 models.dev（MIT）。"
+  />
 </Card>
 
 <Card title="更新">
