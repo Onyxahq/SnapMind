@@ -105,11 +105,14 @@ const installDir = () => join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppDa
 const startMenuLink = () =>
   join(process.env.APPDATA ?? '', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'SnapMind.lnk');
 
-/** 结束已安装版本的进程（只匹配安装目录里的 exe，连同 WebView2 子进程），以便覆盖安装。 */
+/** 为所有用户安装时的位置（安装包 installMode 是 both，管理员账号默认装在这里）。 */
+const machineDir = () => join(process.env.ProgramFiles ?? 'C:\\Program Files', 'SnapMind');
+
+/** 结束已安装版本的进程（只匹配两个安装位置里的 exe，连同 WebView2 子进程），以便覆盖安装。 */
 function stopInstalled() {
-  const exe = join(installDir(), 'snapmind.exe');
+  const exes = [installDir(), machineDir()].map((d) => `'${join(d, 'snapmind.exe')}'`).join(',');
   const ids = ps(
-    `Get-Process snapmind -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq '${exe}' } | ForEach-Object { $_.Id }`,
+    `Get-Process snapmind -ErrorAction SilentlyContinue | Where-Object { @(${exes}) -contains $_.Path } | ForEach-Object { $_.Id }`,
   );
   for (const id of ids.split(/\s+/).filter(Boolean)) {
     console.log(`  结束正在运行的 SnapMind（PID ${id}）`);
@@ -120,7 +123,9 @@ function stopInstalled() {
 function install(setup, version) {
   stopInstalled();
   console.log(`\n▶ 静默安装 ${setup}`);
-  const r = spawnSync(setup, ['/S'], { stdio: 'inherit' });
+  // 安装包会请求「最高可用权限」（管理员账号弹 UAC、装进 Program Files）。本机自动安装没人点 UAC，
+  // 用 RunAsInvoker 以当前权限运行，并指定只为当前用户安装（%LOCALAPPDATA%\SnapMind，和以前一样）。
+  const r = spawnSync(setup, ['/S', '/CURRENTUSER'], { stdio: 'inherit', env: { ...process.env, __COMPAT_LAYER: 'RunAsInvoker' } });
   if (r.status !== 0) throw new Error(`安装程序退出码 ${r.status}`);
   const exe = join(installDir(), 'snapmind.exe');
   if (!existsSync(exe)) throw new Error(`安装后找不到 ${exe}`);
