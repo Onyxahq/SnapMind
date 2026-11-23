@@ -58,7 +58,9 @@ export function hintsFor(state: HintState, toolLabel = ''): Hint[] {
       ];
     case 'ocr':
       return [
-        { k: '右键拖动', label: '只选一部分行' },
+        { k: '单击框', label: '选择 / 取消这一行' },
+        { k: 'Ctrl+A', label: '选中全部框' },
+        { k: '右键拖动', label: '框选一片行' },
         { k: '右键单击', label: '恢复全部' },
         { k: 'Ctrl+C', label: '复制文字并结束' },
         { k: 'Esc', label: '关闭识别卡片' },

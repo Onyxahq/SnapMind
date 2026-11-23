@@ -48,6 +48,25 @@ export function pickLines(r: OcrResult, area: Rect): number[] {
   return r.lines.flatMap((l, i) => (intersects(l, area) ? [i] : []));
 }
 
+/** 点（相对识别区域的截图像素）落在哪一行的检测框里；框比文字外扩 pad。没有返回 -1。 */
+export function hitLine(r: OcrResult, p: { x: number; y: number }, pad = 0): number {
+  return r.lines.findIndex((l) => p.x >= l.x - pad && p.x <= l.x + l.width + pad && p.y >= l.y - pad && p.y <= l.y + l.height + pad);
+}
+
+/**
+ * 左键点检测框（F6）：还没挑过（全部）时点一下就是只选这一行；挑过之后点一下切换这一行。
+ * Ctrl+A 全选得到的是「列出全部行」，所以之后点一下是取消这一行。
+ */
+export function toggleLine(pick: number[] | null, i: number): number[] {
+  if (!pick) return [i];
+  return pick.includes(i) ? pick.filter((x) => x !== i) : [...pick, i].sort((a, b) => a - b);
+}
+
+/** Ctrl+A：明确选中全部行（和「没挑过」不同：之后点框是取消）。 */
+export function allLines(r: OcrResult): number[] {
+  return r.lines.map((_, i) => i);
+}
+
 /** 下载进度：「8.3 / 20.5 MB」。 */
 export function progressLabel(s: OcrStatus): string {
   const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
@@ -59,6 +78,6 @@ export function progressLabel(s: OcrStatus): string {
 export function ocrMeta(c: OcrCard): string {
   const r = c.result;
   if (!r) return '';
-  if (c.pick) return `已选 ${c.pick.length} / ${r.lines.length} 行 · 右键单击恢复全部`;
-  return `${r.lines.length} 行 · ${r.paragraphs.length} 段 · 本地 OCR ${(r.ms / 1000).toFixed(2)} s`;
+  if (c.pick) return `已选 ${c.pick.length} / ${r.lines.length} 行 · 点框选择或取消 · Ctrl+A 全选 · 右键单击恢复`;
+  return `${r.lines.length} 行 · ${r.paragraphs.length} 段 · 本地 OCR ${(r.ms / 1000).toFixed(2)} s · 点框挑选`;
 }

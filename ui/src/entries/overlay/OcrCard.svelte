@@ -114,7 +114,7 @@
       oninput={(e) => ontext(e.currentTarget.value)}
     ></textarea>
     {#if !card.pick}
-      <span class="cap">右键划过检测框只选一部分</span>
+      <span class="cap">单击检测框挑选行，Ctrl+A 全选，右键划过选一片</span>
     {/if}
   {/if}
 

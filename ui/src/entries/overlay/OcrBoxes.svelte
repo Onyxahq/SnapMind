@@ -1,5 +1,6 @@
 <script lang="ts">
-  // 识别文字时截图上的检测框（需求 3.8）：段落框 + 行框；右键划选后选中的行加深、没选的变淡。
+  // 识别文字时截图上的检测框（需求 3.8、F6）：段落框 + 行框；左键点框 / 右键划选后选中的行加深、没选的变淡，
+  // 指针下的框高亮，提示可以点。
   // SVG 盖在选区上，viewBox 用选区的截图像素，行框坐标直接用 Rust 返回的值；描边按 CSS 像素画。
   import type { Rect } from '$lib/geometry';
   import type { OcrResult } from '$lib/ipc';
@@ -12,6 +13,7 @@
     byLine,
     pick,
     drag,
+    hover = -1,
   }: {
     /** 识别时的选区（截图物理像素） */
     region: Rect;
@@ -21,6 +23,8 @@
     pick: number[] | null;
     /** 正在右键划的矩形（相对选区，截图像素） */
     drag: Rect | null;
+    /** 指针下的行（-1 表示没有） */
+    hover?: number;
   } = $props();
 
   const keep = $derived(pick ? new Set(pick) : null);
@@ -45,6 +49,7 @@
       class="line"
       class:off={!on}
       class:strong={byLine || !!keep}
+      class:hover={i === hover}
       x={l.x - pad / 2}
       y={l.y - pad / 2}
       width={l.width + pad}
@@ -96,10 +101,19 @@
     stroke: var(--accent);
     stroke-width: 1.25;
   }
+  .line.hover {
+    fill: color-mix(in srgb, var(--accent) 18%, transparent);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+  }
   /* 没选中的行：盖一层遮罩让文字变淡，不描边 */
   .line.off {
     fill: var(--scrim);
     stroke: transparent;
+  }
+  .line.off.hover {
+    fill: color-mix(in srgb, var(--scrim) 60%, transparent);
+    stroke: color-mix(in srgb, var(--accent) 60%, transparent);
   }
   .para {
     fill: color-mix(in srgb, var(--accent) 6%, transparent);

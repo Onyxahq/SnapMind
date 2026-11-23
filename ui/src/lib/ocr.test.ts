@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bounds, newOcrCard, ocrMeta, paragraphBoxes, pickLines, progressLabel } from './ocr';
+import { allLines, bounds, hitLine, newOcrCard, ocrMeta, paragraphBoxes, pickLines, progressLabel, toggleLine } from './ocr';
 import type { OcrResult } from './ipc';
 
 const result: OcrResult = {
@@ -44,7 +44,21 @@ describe('ocr card helpers', () => {
       '0.0 / 20.5 MB · 魔搭 ModelScope',
     );
     const c = { ...newOcrCard('x', { x: 0, y: 0, width: 1, height: 1 }), stage: 'done' as const, result };
-    expect(ocrMeta(c)).toBe('3 行 · 2 段 · 本地 OCR 0.21 s');
-    expect(ocrMeta({ ...c, pick: [0] })).toBe('已选 1 / 3 行 · 右键单击恢复全部');
+    expect(ocrMeta(c)).toBe('3 行 · 2 段 · 本地 OCR 0.21 s · 点框挑选');
+    expect(ocrMeta({ ...c, pick: [0] })).toBe('已选 1 / 3 行 · 点框选择或取消 · Ctrl+A 全选 · 右键单击恢复');
+  });
+
+  it('clicks boxes to pick lines and Ctrl+A selects all', () => {
+    expect(hitLine(result, { x: 50, y: 20 })).toBe(0);
+    expect(hitLine(result, { x: 50, y: 40 })).toBe(1);
+    expect(hitLine(result, { x: 50, y: 60 })).toBe(-1);
+    expect(hitLine(result, { x: 50, y: 57 }, 4)).toBe(1); // 外扩的边上也算
+    // 没挑过：点一下只选这一行；之后点一下切换
+    expect(toggleLine(null, 2)).toEqual([2]);
+    expect(toggleLine([2], 0)).toEqual([0, 2]);
+    expect(toggleLine([0, 2], 2)).toEqual([0]);
+    expect(toggleLine([0], 0)).toEqual([]);
+    // Ctrl+A 之后点一下是取消
+    expect(toggleLine(allLines(result), 1)).toEqual([0, 2]);
   });
 });

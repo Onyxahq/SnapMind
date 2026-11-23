@@ -105,7 +105,7 @@
   import TableCard from './TableCard.svelte';
   import { parseHtml, toClipboardHtml, type TableCardState, type TRows } from '$lib/table';
   import { canvasMeasure, drawOverlay, drawable, fitText } from '$lib/overlay';
-  import { newOcrCard, pickLines, type OcrCard } from '$lib/ocr';
+  import { allLines, hitLine, newOcrCard, pickLines, toggleLine, type OcrCard } from '$lib/ocr';
 
   /** 拖动时，按下点离开多少 CSS 像素才算「拖」，否则算单击。 */
   const CLICK_SLOP = 3;
@@ -127,6 +127,10 @@
   // raw：拖动过程中只整体替换，不需要深层响应
   let drag = $state.raw<Drag | null>(null);
   let hover = $state<Hit>(null);
+  /** 指针下的检测框（行号，-1 表示不在框上） */
+  let hoverLine = $state(-1);
+  /** 左键在检测框上按下：松手前没拖动就是点框（切换这一行），拖动了就改成移动选区 */
+  let boxDown: { i: number; p0: Point; downCss: Point } | null = null;
 
   /** 光标的 CSS 坐标；鼠标离开这块屏时为 null。 */
   let cursorCss = $state<Point | null>(null);
@@ -203,9 +207,6 @@
     const { x, y, width: w, height: h } = selCss;
     return `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${x}px ${y}px, ${x + w}px ${y}px, ${x + w}px ${y + h}px, ${x}px ${y + h}px, ${x}px ${y}px)`;
   });
-  const cursor = $derived(
-    ann.tool ? ann.cursor() : drag?.kind === 'move' ? 'move' : cursorFor(hover),
-  );
   /** 光标所在的截图像素（向下取整：光标落在哪个像素里就是哪个） */
   const cursorPx = $derived(
     cursorCss
@@ -223,6 +224,14 @@
   const ocrBoxes = $derived(
     ocr?.result && sel && !saveOpen && !ann.tool && sameRect(sel, ocr.region) ? ocr.result : null,
   );
+  const cursor = $derived(
+    ann.tool ? ann.cursor() : drag?.kind === 'move' ? 'move' : hoverLine >= 0 && ocrBoxes ? 'pointer' : cursorFor(hover),
+  );
+  /** 选区里这个点落在哪个检测框上（框比文字外扩 2 像素，和画出来的一样） */
+  function lineAt(p: Point): number {
+    if (!ocrBoxes || !ocr) return -1;
+    return hitLine(ocrBoxes, { x: p.x - ocr.region.x, y: p.y - ocr.region.y }, 2 * mon.scale);
+  }
   /** 原位覆盖：覆盖模式、翻译完成、选区还是翻译时那块 */
   const overlayBlocks = $derived(
     config.value.translation.overlay && card?.overlay && sel && cardRegion && !saveOpen && sameRect(sel, cardRegion)
@@ -988,6 +997,15 @@
     }
     if (!session || e.button !== 0) return;
     const p = toPx(e.clientX, e.clientY);
+    // 左键点检测框：挑选行（F6）。按下时先记着，拖动了再当成移动选区
+    if (ocrBoxes && !ann.tool && !ann.editing && sel) {
+      const i = lineAt(p);
+      if (i >= 0) {
+        boxDown = { i, p0: p, downCss: { x: e.clientX, y: e.clientY } };
+        (e.currentTarget as Element).setPointerCapture(e.pointerId);
+        return;
+      }
+    }
     if (ann.editing) {
       // 点别处：提交正在编辑的文字（编辑框失焦也会提交，提交是幂等的）
       ann.commitText();
@@ -1021,6 +1039,11 @@
       rdrag = { ...rdrag, p, moved };
       return;
     }
+    if (boxDown) {
+      if (Math.hypot(e.clientX - boxDown.downCss.x, e.clientY - boxDown.downCss.y) < CLICK_SLOP || !sel) return;
+      drag = { kind: 'move', start: sel, p0: boxDown.p0 };
+      boxDown = null;
+    }
     if (ann.gesture) {
       ann.move(p, e.shiftKey);
       return;
@@ -1028,6 +1051,7 @@
     if (!drag) {
       if (sel) hover = hitTest(sel, p, HIT_TOL * mon.scale);
       else querySnap(p);
+      hoverLine = lineAt(p);
       return;
     }
     switch (drag.kind) {
@@ -1050,6 +1074,12 @@
   }
 
   function onUp(e: PointerEvent) {
+    if (boxDown) {
+      const { i } = boxDown;
+      boxDown = null;
+      if (ocr?.stage === 'done') recompose({ pick: toggleLine(ocr.pick, i) });
+      return;
+    }
     if (rdrag) {
       const area = rdragRect;
       const moved = rdrag.moved;
@@ -1153,6 +1183,12 @@
     const target = e.target as HTMLElement | null;
     if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return;
     const ctrl = e.ctrlKey || e.metaKey;
+    // Ctrl+A：选中全部检测框（之后点框是取消那一行）
+    if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'a' && ocrBoxes && ocr?.stage === 'done') {
+      e.preventDefault();
+      recompose({ pick: allLines(ocrBoxes) });
+      return;
+    }
     if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'q') {
       e.preventDefault();
       translate();
@@ -1393,7 +1429,7 @@
     />
   {/if}
   {#if ocrBoxes && ocr}
-    <OcrBoxes region={ocr.region} scale={mon.scale} result={ocrBoxes} byLine={ocr.byLine} pick={ocr.pick} drag={rdragRect} />
+    <OcrBoxes region={ocr.region} scale={mon.scale} result={ocrBoxes} byLine={ocr.byLine} pick={ocr.pick} drag={rdragRect} hover={hoverLine} />
   {/if}
   {#if ocr && selOnlyCss && !saveOpen}
     <OcrCardView
