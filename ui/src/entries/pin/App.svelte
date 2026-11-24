@@ -267,7 +267,7 @@
     } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 's') {
       e.preventDefault();
       save();
-    } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
+    } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'x') {
       // 全局快捷键被别的程序占用时按键会落到这里
       e.preventDefault();
       pinThrough();

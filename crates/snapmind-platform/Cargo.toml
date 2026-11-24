@@ -26,3 +26,15 @@ windows = { version = "0.62", features = [
   "Win32_System_Com_StructuredStorage",
   "Win32_System_Variant",
 ] }
+
+# macOS：截屏用 ScreenCaptureKit（CGWindowListCreateImage 从 macOS 15 起已废弃不可用），窗口调整用 AppKit。
+# 版本跟 Tauri（tao / wry）用的 objc2 系列一致，不多编一份。
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+block2 = "0.6"
+dispatch2 = "0.3"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
+objc2-core-foundation = "0.3"
+objc2-core-graphics = "0.3"
+objc2-screen-capture-kit = "0.3"

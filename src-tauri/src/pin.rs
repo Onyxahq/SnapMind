@@ -183,8 +183,8 @@ fn create_with<R: Runtime>(
         .build()?;
     let _ = win.set_position(PhysicalPosition::new(at.0 - margin, at.1 - margin));
     let _ = win.set_size(PhysicalSize::new(w + 2 * margin as u32, h + 2 * margin as u32));
-    if let Ok(hwnd) = win.hwnd() {
-        snapmind_platform::window::disable_transitions(hwnd.0 as isize);
+    if let Some(h) = crate::wm::native_handle(&win) {
+        snapmind_platform::window::disable_transitions(h);
     }
     ensure_shortcut(app);
     remember(app, id);

@@ -28,8 +28,15 @@ pub fn exclude_from_capture(handle: isize, on: bool) -> bool {
     imp::exclude_from_capture(handle, on)
 }
 
+/// 遮罩窗口要盖住菜单栏和程序坞（macOS 上普通置顶窗口在菜单栏下面；Windows 的置顶已经盖住任务栏）。
+pub fn cover_menu_bar(handle: isize) {
+    imp::cover_menu_bar(handle)
+}
+
 #[cfg(windows)]
 mod imp {
+    pub fn cover_menu_bar(_handle: isize) {}
+
     use windows::core::BOOL;
     use windows::Win32::Foundation::HWND;
     use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
@@ -94,8 +101,67 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+/// macOS：句柄是 NSWindow 指针。AppKit 只能在主线程上调，不在主线程时转给主线程异步执行。
+#[cfg(target_os = "macos")]
 mod imp {
+    use objc2_app_kit::{
+        NSScreenSaverWindowLevel, NSWindow, NSWindowAnimationBehavior, NSWindowCollectionBehavior, NSWindowSharingType,
+    };
+    use objc2_foundation::MainThreadMarker;
+
+    fn on_main(handle: isize, f: impl FnOnce(&NSWindow) + Send + 'static) {
+        if handle == 0 {
+            return;
+        }
+        let run = move || {
+            // SAFETY: 句柄来自 Tauri 的 ns_window()，窗口由 Tauri 持有，比这次调用活得久
+            let w = unsafe { &*(handle as *const NSWindow) };
+            f(w)
+        };
+        if MainThreadMarker::new().is_some() {
+            run()
+        } else {
+            dispatch2::DispatchQueue::main().exec_async(run);
+        }
+    }
+
+    pub fn disable_transitions(handle: isize) {
+        on_main(handle, |w| w.setAnimationBehavior(NSWindowAnimationBehavior::None));
+    }
+
+    /// 在每个桌面（Space）和全屏应用上都能出现，不参与 Cmd+` 窗口切换。macOS 没有任务栏；
+    /// 程序坞图标由整个应用的激活策略决定（见 src-tauri 的 setup）。
+    pub fn make_tool_window(handle: isize) {
+        on_main(handle, |w| {
+            w.setCollectionBehavior(
+                w.collectionBehavior()
+                    | NSWindowCollectionBehavior::CanJoinAllSpaces
+                    | NSWindowCollectionBehavior::FullScreenAuxiliary
+                    | NSWindowCollectionBehavior::IgnoresCycle,
+            )
+        });
+    }
+
+    pub fn show_no_activate(handle: isize) {
+        on_main(handle, |w| w.orderFrontRegardless());
+    }
+
+    pub fn make_popup(_handle: isize) {}
+
+    pub fn exclude_from_capture(handle: isize, on: bool) -> bool {
+        on_main(handle, move |w| w.setSharingType(if on { NSWindowSharingType::None } else { NSWindowSharingType::ReadOnly }));
+        true
+    }
+
+    pub fn cover_menu_bar(handle: isize) {
+        let level = NSScreenSaverWindowLevel;
+        on_main(handle, move |w| w.setLevel(level));
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+mod imp {
+    pub fn cover_menu_bar(_handle: isize) {}
     pub fn disable_transitions(_handle: isize) {}
     pub fn make_tool_window(_handle: isize) {}
     pub fn show_no_activate(_handle: isize) {}

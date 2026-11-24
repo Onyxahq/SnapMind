@@ -91,6 +91,14 @@ pub fn run() {
             configfile::apply_proxy(&config.get().proxy);
             app.manage(state::AppState { config, history });
 
+            // macOS：常驻托盘的工具，不在程序坞显示图标；第一次启动就申请截屏权限（系统弹出授权提示）
+            #[cfg(target_os = "macos")]
+            {
+                let _ = handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                if !snapmind_platform::capture::has_permission() {
+                    snapmind_platform::capture::request_permission(false);
+                }
+            }
             tray::create(handle)?;
             overlay::prewarm(handle);
             pintools::prewarm(handle);
@@ -166,6 +174,9 @@ pub fn run() {
             configfile::config_reset,
             commands::system_language,
             commands::autostart_get,
+            commands::permissions_get,
+            commands::permission_request_screen,
+            commands::app_restart,
             commands::settings_open,
             commands::autostart_set,
             hotkeys::hotkeys_status,

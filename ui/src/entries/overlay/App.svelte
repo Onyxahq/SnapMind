@@ -1175,7 +1175,7 @@
     if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)) return;
     // 在卡片的按钮上按回车是点按钮；选中了卡片里的文字（如只看的表格）时 Ctrl+C 复制那段文字
     if (e.key === 'Enter' && target?.tagName === 'BUTTON' && target.closest('[role="dialog"]')) return;
-    if (e.ctrlKey && e.key.toLowerCase() === 'c' && getSelection()?.toString()) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && getSelection()?.toString()) return;
     const ctrl = e.ctrlKey || e.metaKey;
     // Ctrl+A：检测框全选 / 全不选
     if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'a' && ocrBoxes && ocr?.stage === 'done') {

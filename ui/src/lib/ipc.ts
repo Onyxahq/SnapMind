@@ -1048,6 +1048,28 @@ export async function systemLanguage(): Promise<string> {
   return invoke('system_language');
 }
 
+/** 系统权限的授权状态（只有 macOS 需要用户授权）。 */
+export interface Permissions {
+  screen: boolean;
+}
+
+export async function permissionsGet(): Promise<Permissions> {
+  if (!inTauri()) return { screen: true };
+  return invoke('permissions_get');
+}
+
+/** 申请屏幕录制权限：第一次弹系统提示，之后打开系统设置的「屏幕录制」页。 */
+export async function permissionRequestScreen(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('permission_request_screen');
+}
+
+/** 重启 SnapMind。 */
+export async function appRestart(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('app_restart');
+}
+
 export async function autostartGet(): Promise<boolean> {
   if (!inTauri()) return fakeAutostart;
   return invoke('autostart_get');

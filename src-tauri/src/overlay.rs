@@ -167,10 +167,10 @@ fn build_window<R: Runtime>(app: &AppHandle<R>, i: usize) -> tauri::Result<Webvi
         .additional_browser_args(BROWSER_ARGS)
         .build()?;
     let _ = w.set_position(PARK);
-    if let Ok(hwnd) = w.hwnd() {
-        let h = hwnd.0 as isize;
+    if let Some(h) = crate::wm::native_handle(&w) {
         snapmind_platform::window::disable_transitions(h);
         snapmind_platform::window::make_tool_window(h);
+        snapmind_platform::window::cover_menu_bar(h);
         snapmind_platform::window::show_no_activate(h);
     }
     Ok(w)
@@ -178,10 +178,20 @@ fn build_window<R: Runtime>(app: &AppHandle<R>, i: usize) -> tauri::Result<Webvi
 
 /// 让窗口正好盖住显示器。先移位置再改尺寸：跨 DPI 移动时系统会按新显示器重算缩放。
 fn place<R: Runtime>(w: &WebviewWindow<R>, m: &MonitorGeom) {
-    let size = PhysicalSize::new(m.width, m.height);
-    let _ = w.set_position(PhysicalPosition::new(m.x, m.y));
-    if w.inner_size().ok() != Some(size) {
-        let _ = w.set_size(size);
+    // macOS 的「物理像素」是点乘以各显示器自己的倍数，按窗口当前倍数换算会在不同倍数的显示器间错位；
+    // 用这个显示器自己的倍数换回点（逻辑坐标）最准
+    #[cfg(target_os = "macos")]
+    {
+        let _ = w.set_position(tauri::LogicalPosition::new(m.x as f64 / m.scale, m.y as f64 / m.scale));
+        let _ = w.set_size(tauri::LogicalSize::new(m.width as f64 / m.scale, m.height as f64 / m.scale));
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let size = PhysicalSize::new(m.width, m.height);
+        let _ = w.set_position(PhysicalPosition::new(m.x, m.y));
+        if w.inner_size().ok() != Some(size) {
+            let _ = w.set_size(size);
+        }
     }
 }
 
@@ -237,6 +247,10 @@ pub fn begin<R: Runtime>(app: &AppHandle<R>, intent: Intent) {
         .collect();
     let t_cap = t0.elapsed();
     if frames.iter().all(Option::is_none) {
+        if !capture::has_permission() {
+            crate::log_warn!("没有截屏权限，打开系统设置让用户授权");
+            capture::request_permission(true);
+        }
         return;
     }
 

@@ -56,6 +56,30 @@ pub fn system_language() -> String {
     snapmind_platform::locale::system_ui_language()
 }
 
+/// 系统权限的授权状态（设置 → 通用 → 系统权限；只有 macOS 显示这一组）。
+#[derive(serde::Serialize)]
+pub struct Permissions {
+    /// 屏幕录制：截图必需
+    pub screen: bool,
+}
+
+#[tauri::command]
+pub fn permissions_get() -> Permissions {
+    Permissions { screen: snapmind_platform::capture::has_permission() }
+}
+
+/// 申请屏幕录制权限：第一次弹系统提示，之后直接打开系统设置里的对应页面。
+#[tauri::command]
+pub fn permission_request_screen() {
+    snapmind_platform::capture::request_permission(true);
+}
+
+/// 重启应用（macOS 授权屏幕录制后要重启才生效）。
+#[tauri::command]
+pub fn app_restart(app: AppHandle) {
+    app.restart();
+}
+
 /// 开机自启的实际状态。
 #[tauri::command]
 pub fn autostart_get(app: AppHandle) -> bool {

@@ -114,8 +114,7 @@ fn create<R: Runtime>(app: &AppHandle<R>, cfg: &BallConfig) -> tauri::Result<()>
         .inner_size(SIZE_CSS, SIZE_CSS)
         .additional_browser_args(crate::overlay::BROWSER_ARGS)
         .build()?;
-    if let Ok(h) = w.hwnd() {
-        let h = h.0 as isize;
+    if let Some(h) = crate::wm::native_handle(&w) {
         snapmind_platform::window::disable_transitions(h);
         snapmind_platform::window::make_tool_window(h);
         snapmind_platform::window::make_popup(h);

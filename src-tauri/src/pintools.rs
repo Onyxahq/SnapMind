@@ -69,9 +69,9 @@ pub fn prewarm<R: Runtime>(app: &AppHandle<R>) {
         .build();
     match built {
         Ok(w) => {
-            if let Ok(hwnd) = w.hwnd() {
-                snapmind_platform::window::disable_transitions(hwnd.0 as isize);
-                snapmind_platform::window::make_tool_window(hwnd.0 as isize);
+            if let Some(h) = crate::wm::native_handle(&w) {
+                snapmind_platform::window::disable_transitions(h);
+                snapmind_platform::window::make_tool_window(h);
             }
         }
         Err(e) => crate::log_warn!("创建贴图工具条窗口失败：{e}"),

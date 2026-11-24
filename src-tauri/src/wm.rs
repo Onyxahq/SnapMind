@@ -64,3 +64,20 @@ fn build_settings<R: Runtime>(app: &AppHandle<R>, page: Option<&str>) -> tauri::
     let _ = w.set_focus();
     Ok(())
 }
+
+/// 窗口的原生句柄，交给平台层做系统级调整：Windows 上是 HWND，macOS 上是 NSWindow 指针。
+pub fn native_handle<R: Runtime>(w: &tauri::WebviewWindow<R>) -> Option<isize> {
+    #[cfg(windows)]
+    {
+        w.hwnd().ok().map(|h| h.0 as isize)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        w.ns_window().ok().map(|p| p as isize)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let _ = w;
+        None
+    }
+}

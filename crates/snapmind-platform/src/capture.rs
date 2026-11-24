@@ -32,6 +32,31 @@ pub fn capture_rect_with_cursor(r: Rect) -> Result<Frame, CaptureError> {
     imp::capture_rect(r, true)
 }
 
+/// 有没有截屏权限。只有 macOS 需要用户授权（系统设置 → 隐私与安全性 → 屏幕录制），其他平台总是 true。
+pub fn has_permission() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        objc2_core_graphics::CGPreflightScreenCaptureAccess()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+/// 申请截屏权限。系统只在第一次弹出授权提示；`open_settings` 为 true 时，已经提示过还没授权就直接打开
+/// 「屏幕录制」设置页让用户去勾选。授权后要重启应用才生效（系统的规定）。
+pub fn request_permission(open_settings: bool) {
+    #[cfg(not(target_os = "macos"))]
+    let _ = open_settings;
+    #[cfg(target_os = "macos")]
+    if !objc2_core_graphics::CGRequestScreenCaptureAccess() && open_settings {
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+            .spawn();
+    }
+}
+
 /// 并行抓取多块矩形（每个显示器一块），结果顺序与输入一致。
 pub fn capture_all(rects: &[Rect]) -> Vec<Result<Frame, CaptureError>> {
     std::thread::scope(|s| {
@@ -150,7 +175,154 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+/// macOS：ScreenCaptureKit 的截图接口（macOS 14 起）。旧的 CGWindowListCreateImage 从 macOS 15 起已不可用。
+///
+/// 坐标：Tauri（tao）在 macOS 上把「点」乘以**该显示器自己的**缩放倍数当作物理像素，所以每个显示器
+/// 的矩形除以它自己的倍数，就回到系统的全局点坐标（主显示器左上角为原点，y 向下）。
+#[cfg(target_os = "macos")]
+mod imp {
+    use super::*;
+    use objc2::rc::Retained;
+    use objc2::AnyThread;
+    use objc2_core_foundation::{CGPoint, CGRect, CGSize};
+    use objc2_core_graphics::{CGDisplayCopyDisplayMode, CGDisplayMode, CGDisplayPixelsWide, CGImage};
+    use objc2_foundation::{NSArray, NSError};
+    use objc2_screen_capture_kit::{
+        SCCaptureResolutionType, SCContentFilter, SCDisplay, SCScreenshotManager, SCShareableContent,
+        SCStreamConfiguration,
+    };
+    use std::ffi::c_void;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    const TIMEOUT: Duration = Duration::from_secs(3);
+
+    #[link(name = "CoreGraphics", kind = "framework")]
+    unsafe extern "C" {
+        fn CGBitmapContextCreate(
+            data: *mut c_void,
+            width: usize,
+            height: usize,
+            bits_per_component: usize,
+            bytes_per_row: usize,
+            space: *const c_void,
+            bitmap_info: u32,
+        ) -> *mut c_void;
+        fn CGContextDrawImage(c: *mut c_void, rect: CGRect, image: *const c_void);
+        fn CGContextRelease(c: *mut c_void);
+        fn CGImageGetColorSpace(image: *const c_void) -> *const c_void;
+        fn CGColorSpaceCreateDeviceRGB() -> *const c_void;
+        fn CGColorSpaceRelease(space: *const c_void);
+    }
+    /// kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little：内存里是 B G R A
+    const BGRA: u32 = 2 | (2 << 12);
+
+    /// 显示器的缩放倍数（像素 / 点）。
+    fn scale_of(id: u32) -> f64 {
+        let points = CGDisplayPixelsWide(id) as f64;
+        let mode = CGDisplayCopyDisplayMode(id);
+        let pixels = CGDisplayMode::pixel_width(mode.as_deref()) as f64;
+        if points > 0.0 && pixels > 0.0 { pixels / points } else { 1.0 }
+    }
+
+    fn shareable_content() -> Result<Retained<SCShareableContent>, CaptureError> {
+        let (tx, rx) = mpsc::channel();
+        let block = block2::RcBlock::new(move |content: *mut SCShareableContent, err: *mut NSError| {
+            // SAFETY: 回调给出的对象在回调期间有效，retain 一份带出去
+            let r = match unsafe { Retained::retain(content) } {
+                Some(c) => Ok(c),
+                None => Err(unsafe { err.as_ref() }.map(|e| e.localizedDescription().to_string()).unwrap_or_default()),
+            };
+            let _ = tx.send(r);
+        });
+        unsafe { SCShareableContent::getShareableContentWithCompletionHandler(&block) };
+        match rx.recv_timeout(TIMEOUT) {
+            Ok(Ok(c)) => Ok(c),
+            // 没有「屏幕录制」权限时系统在这里报错
+            Ok(Err(e)) => Err(CaptureError::Os(format!("读取可截屏内容失败（是否已在「系统设置 → 隐私与安全性 → 屏幕录制」里允许 SnapMind？）：{e}"))),
+            Err(_) => Err(CaptureError::Os("读取可截屏内容超时".into())),
+        }
+    }
+
+    pub fn capture_rect(r: Rect, cursor: bool) -> Result<Frame, CaptureError> {
+        let content = shareable_content()?;
+        let displays = unsafe { content.displays() };
+        // 找出矩形所在的显示器：矩形左上角换算成点之后落在它里面
+        let mut hit: Option<(Retained<SCDisplay>, f64)> = None;
+        for d in displays.iter() {
+            let s = scale_of(unsafe { d.displayID() });
+            let f = unsafe { d.frame() };
+            let (px, py) = (r.x as f64 / s, r.y as f64 / s);
+            if px >= f.origin.x - 0.5 && py >= f.origin.y - 0.5 && px < f.origin.x + f.size.width && py < f.origin.y + f.size.height {
+                hit = Some((d, s));
+                break;
+            }
+        }
+        let Some((display, s)) = hit else { return Err(CaptureError::Os("找不到截屏区域所在的显示器".into())) };
+        let f = unsafe { display.frame() };
+        let source = CGRect::new(
+            CGPoint::new(r.x as f64 / s - f.origin.x, r.y as f64 / s - f.origin.y),
+            CGSize::new(r.width as f64 / s, r.height as f64 / s),
+        );
+        let filter = unsafe {
+            SCContentFilter::initWithDisplay_excludingWindows(SCContentFilter::alloc(), &display, &NSArray::new())
+        };
+        let config = unsafe { SCStreamConfiguration::new() };
+        unsafe {
+            config.setSourceRect(source);
+            config.setWidth(r.width as usize);
+            config.setHeight(r.height as usize);
+            config.setShowsCursor(cursor);
+            config.setCaptureResolution(SCCaptureResolutionType::Best);
+        }
+
+        let (tx, rx) = mpsc::channel();
+        let (w, h) = (r.width, r.height);
+        let block = block2::RcBlock::new(move |image: *mut CGImage, err: *mut NSError| {
+            let r = if image.is_null() {
+                Err(unsafe { err.as_ref() }.map(|e| e.localizedDescription().to_string()).unwrap_or_default())
+            } else {
+                Ok(unsafe { to_bgra(image as *const c_void, w, h) })
+            };
+            let _ = tx.send(r);
+        });
+        unsafe { SCScreenshotManager::captureImageWithFilter_configuration_completionHandler(&filter, &config, Some(&block)) };
+        match rx.recv_timeout(TIMEOUT) {
+            Ok(Ok(bgra)) => Ok(Frame::from_bgra(w, h, &bgra)),
+            Ok(Err(e)) => Err(CaptureError::Os(format!("ScreenCaptureKit：{e}"))),
+            Err(_) => Err(CaptureError::Os("截屏超时".into())),
+        }
+    }
+
+    /// 把 CGImage 画进一块 w×h 的 BGRA 内存（不管系统给的图是什么格式、行宽有没有对齐）。
+    /// 用图片自己的色彩空间，像素值和屏幕上一致，不做色彩转换。
+    unsafe fn to_bgra(image: *const c_void, w: u32, h: u32) -> Vec<u8> {
+        let mut buf = vec![0u8; w as usize * h as usize * 4];
+        unsafe {
+            let mut space = CGImageGetColorSpace(image);
+            let own = space.is_null();
+            if own {
+                space = CGColorSpaceCreateDeviceRGB();
+            }
+            let ctx = CGBitmapContextCreate(buf.as_mut_ptr() as *mut c_void, w as usize, h as usize, 8, w as usize * 4, space, BGRA);
+            if !ctx.is_null() {
+                let rect = CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(w as f64, h as f64));
+                CGContextDrawImage(ctx, rect, image);
+                CGContextRelease(ctx);
+            }
+            if own {
+                CGColorSpaceRelease(space);
+            }
+        }
+        // 屏幕内容不透明；预乘 alpha 在 alpha = 255 时就是原值
+        for px in buf.chunks_exact_mut(4) {
+            px[3] = 255;
+        }
+        buf
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
     use super::*;
 
@@ -190,5 +362,24 @@ mod tests {
         let out = capture_all(&rects);
         assert_eq!(out[0].as_ref().unwrap().width, 8);
         assert_eq!(out[1].as_ref().unwrap().width, 16);
+    }
+}
+
+/// macOS 截屏要「屏幕录制」权限，运行测试的终端未必有，所以默认不跑：`cargo test -- --ignored`。
+#[cfg(all(test, target_os = "macos"))]
+mod mac_tests {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn captures_a_small_region() {
+        let r = Rect { x: 0, y: 0, width: 64, height: 32 };
+        let t0 = std::time::Instant::now();
+        let f = capture_rect(r).expect("截屏应当成功");
+        eprintln!("截屏耗时 {:?}", t0.elapsed());
+        assert_eq!((f.width, f.height), (64, 32));
+        assert!(f.pixels().chunks_exact(4).all(|p| p[3] == 255));
+        // 菜单栏不会是一片纯黑（没有权限时系统只给黑图或报错）
+        assert!(f.pixels().chunks_exact(4).any(|p| p[0] | p[1] | p[2] != 0));
     }
 }

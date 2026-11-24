@@ -13,7 +13,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+# macos-private-api：macOS 上透明窗口（截图遮罩、贴图、悬浮球）要用到；对 Windows 没有影响
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 snapmind-core = { workspace = true }

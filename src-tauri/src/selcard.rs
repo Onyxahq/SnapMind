@@ -84,8 +84,8 @@ fn build<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
         .build();
     match built {
         Ok(w) => {
-            if let Ok(hwnd) = w.hwnd() {
-                snapmind_platform::window::disable_transitions(hwnd.0 as isize);
+            if let Some(h) = crate::wm::native_handle(&w) {
+                snapmind_platform::window::disable_transitions(h);
             }
             Some(label)
         }

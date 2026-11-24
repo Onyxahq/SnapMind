@@ -37,8 +37,7 @@ impl Live {
     /// 进入透出模式（已经在透出模式就先退出原来的）。
     pub fn enter(app: &AppHandle, window: &WebviewWindow, mon: (i32, i32)) -> Arc<Live> {
         exit(app, false);
-        if let Ok(h) = window.hwnd() {
-            let h = h.0 as isize;
+        if let Some(h) = crate::wm::native_handle(window) {
             let _ = app.run_on_main_thread(move || {
                 if !snapmind_platform::window::exclude_from_capture(h, true) {
                     crate::log_warn!("系统不支持把遮罩排除在截屏之外（需要 Windows 10 2004 及以上）");
@@ -73,8 +72,7 @@ impl Live {
         let mut flags = self.flags.lock().expect("透出模式标志锁");
         flags.0 = true;
         let _ = self.window.set_ignore_cursor_events(false);
-        if let Ok(h) = self.window.hwnd() {
-            let h = h.0 as isize;
+        if let Some(h) = crate::wm::native_handle(&self.window) {
             let _ = self.window.app_handle().run_on_main_thread(move || {
                 snapmind_platform::window::exclude_from_capture(h, false);
             });
