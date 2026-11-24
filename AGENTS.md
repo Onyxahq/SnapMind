@@ -15,11 +15,11 @@
 
 
 
-- 每次完成本任务的修改、按项目要求验证并创建 commit 后，**立即执行 `git push --set-upstream origin HEAD` 自动上传**，不再等待用户额外要求。用户明确要求只保留本机或暂不上传时，遵从该次要求。
+- 每次完成本任务的修改、按项目要求验证并创建 commit 后，**立即同时推送两个远程仓库**，不再等待用户额外要求：私用 `origin`（SheZioTor/SnapMind，Private）和公开 `public`（Onyxahq/SnapMind，Public）。本机 `gh` 同时登录了两个账号，凭据助手只认当前激活账号，所以按顺序：`gh auth switch -u SheZioTor && git push --set-upstream origin HEAD`，再 `gh auth switch -u Onyxahq && git push public HEAD`（tag 用 `git push public <tag>`），最后保持 `Onyxahq` 为激活账号。用户明确要求只保留本机或暂不上传时，遵从该次要求。
 
 - 提交前检查 `git status` 和暂存区，只提交本任务已完成的文件，不夹带其他任务正在编辑或暂存的改动。密钥、会话、数据库、个人资料及被忽略的本机配置不入库；已有 `.gitignore` 的保护必须保留。
 
-- 推送前核实 `origin` 指向上述仓库且仓库仍为 Private。不要向公开仓库、其他账号或 `upstream` 推送，也不要自行创建新的同步目标。
+- 推送前核实 `origin` 仍指向 SheZioTor/SnapMind 且为 Private、`public` 指向 Onyxahq/SnapMind。不要向 `upstream` 或其他账号的仓库推送，也不要自行创建新的同步目标。公开仓库可见，推送前确认没有密钥、个人资料等敏感内容。
 
 - 开始修改前检查本机和远端状态。需要拉取时先保留已有工作；出现分叉、冲突或网络失败时，不执行强制推送或破坏性重置，不覆盖他人的改动。
 
