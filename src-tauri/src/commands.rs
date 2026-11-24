@@ -61,11 +61,22 @@ pub fn system_language() -> String {
 pub struct Permissions {
     /// 屏幕录制：截图必需
     pub screen: bool,
+    /// 辅助功能：截图时框出控件、长截图自动滚动、划词
+    pub accessibility: bool,
 }
 
 #[tauri::command]
 pub fn permissions_get() -> Permissions {
-    Permissions { screen: snapmind_platform::capture::has_permission() }
+    Permissions {
+        screen: snapmind_platform::capture::has_permission(),
+        accessibility: snapmind_platform::accessibility::has_permission(),
+    }
+}
+
+/// 申请辅助功能权限：系统弹出提示；已经提示过还没授权时直接打开系统设置里的对应页面。授权后立即生效。
+#[tauri::command]
+pub fn permission_request_accessibility() {
+    snapmind_platform::accessibility::request_permission(true);
 }
 
 /// 申请屏幕录制权限：第一次弹系统提示，之后直接打开系统设置里的对应页面。

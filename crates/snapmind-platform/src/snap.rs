@@ -305,8 +305,8 @@ mod imp {
 }
 
 /// macOS：顶层窗口用 `CGWindowListCopyWindowInfo` 拍快照（只读位置和大小，不需要任何权限）。
-/// 往窗口里面找控件要用辅助功能（AX）接口，需要用户授权，还没做（MAC-2.1 第二步），
-/// 暂时吸附链只有窗口本身。
+/// 往窗口里面找控件用辅助功能（AX）接口：让目标程序自己做命中测试（遮罩不在它的进程里，不会挡住），
+/// 再沿父元素一路走到窗口。没有辅助功能授权时 AX 调用直接失败，吸附链只有窗口本身。
 #[cfg(target_os = "macos")]
 mod imp {
     use super::*;
@@ -377,9 +377,137 @@ mod imp {
         Rect { x: x0, y: y0, width: (x1 - x0).max(0) as u32, height: (y1 - y0).max(0) as u32 }
     }
 
+    mod ax {
+        use std::ffi::c_void;
+        use objc2_core_foundation::CFString;
+
+        #[link(name = "ApplicationServices", kind = "framework")]
+        unsafe extern "C" {
+            fn AXUIElementCreateApplication(pid: i32) -> *const c_void;
+            fn AXUIElementCopyElementAtPosition(app: *const c_void, x: f32, y: f32, out: *mut *const c_void) -> i32;
+            fn AXUIElementCopyAttributeValue(el: *const c_void, attr: *const c_void, out: *mut *const c_void) -> i32;
+            fn AXUIElementSetMessagingTimeout(el: *const c_void, seconds: f32) -> i32;
+            fn AXValueGetValue(value: *const c_void, kind: u32, out: *mut c_void) -> u8;
+            fn AXUIElementSetAttributeValue(el: *const c_void, attr: *const c_void, value: *const c_void) -> i32;
+        }
+        #[link(name = "CoreFoundation", kind = "framework")]
+        unsafe extern "C" {
+            fn CFRelease(cf: *const c_void);
+            static kCFBooleanTrue: *const c_void;
+        }
+        const AX_VALUE_CGPOINT: u32 = 1;
+        const AX_VALUE_CGSIZE: u32 = 2;
+
+        /// 自己持有的一个 CF 对象，离开作用域时释放。
+        pub struct Owned(*const c_void);
+        impl Drop for Owned {
+            fn drop(&mut self) {
+                // SAFETY: 只装 Copy / Create 系列函数返回的对象，引用归我们所有
+                unsafe { CFRelease(self.0) }
+            }
+        }
+        // SAFETY: AX 元素是不可变的引用计数对象，可以在线程间移动
+        unsafe impl Send for Owned {}
+
+        fn attr(el: &Owned, name: &'static str) -> Option<Owned> {
+            let key = CFString::from_static_str(name);
+            let mut out = std::ptr::null();
+            // SAFETY: el 有效；成功时 out 是一个新的 +1 引用
+            let err = unsafe { AXUIElementCopyAttributeValue(el.0, &*key as *const CFString as *const c_void, &mut out) };
+            (err == 0 && !out.is_null()).then(|| Owned(out))
+        }
+
+        pub fn app(pid: i32, timeout_secs: f32) -> Option<Owned> {
+            // SAFETY: 任意 pid 都可以传，不存在时后续调用返回错误
+            let a = unsafe { AXUIElementCreateApplication(pid) };
+            if a.is_null() {
+                return None;
+            }
+            unsafe { AXUIElementSetMessagingTimeout(a, timeout_secs) };
+            // Chromium / Electron 系（Chrome、VS Code 等）默认不对外提供完整的控件树，
+            // 要有人把 AXManualAccessibility 设成 true 才打开；不认这个属性的程序返回错误，没有影响
+            let key = CFString::from_static_str("AXManualAccessibility");
+            unsafe { AXUIElementSetAttributeValue(a, &*key as *const CFString as *const c_void, kCFBooleanTrue) };
+            Some(Owned(a))
+        }
+
+        pub fn element_at(app: &Owned, x: f64, y: f64) -> Option<Owned> {
+            let mut out = std::ptr::null();
+            let err = unsafe { AXUIElementCopyElementAtPosition(app.0, x as f32, y as f32, &mut out) };
+            (err == 0 && !out.is_null()).then(|| Owned(out))
+        }
+
+        pub fn parent(el: &Owned) -> Option<Owned> {
+            attr(el, "AXParent")
+        }
+
+        pub fn role(el: &Owned) -> String {
+            // SAFETY: AXRole 的值是 CFString
+            attr(el, "AXRole").map(|v| unsafe { &*(v.0 as *const CFString) }.to_string()).unwrap_or_default()
+        }
+
+        /// 元素外框（全局点坐标）：(x, y, 宽, 高)。
+        pub fn frame(el: &Owned) -> Option<(f64, f64, f64, f64)> {
+            let pos = attr(el, "AXPosition")?;
+            let size = attr(el, "AXSize")?;
+            let mut p = [0f64; 2];
+            let mut s = [0f64; 2];
+            // SAFETY: AXPosition / AXSize 是 AXValue，里面分别是 CGPoint / CGSize（两个 f64）
+            let ok = unsafe {
+                AXValueGetValue(pos.0, AX_VALUE_CGPOINT, p.as_mut_ptr() as *mut c_void) != 0
+                    && AXValueGetValue(size.0, AX_VALUE_CGSIZE, s.as_mut_ptr() as *mut c_void) != 0
+            };
+            ok.then_some((p[0], p[1], s[0], s[1]))
+        }
+    }
+
+    /// 最多往上走这么多层（正常界面十几层就到窗口了）。
+    const MAX_DEPTH: usize = 40;
+
+    fn intersect(a: Rect, b: Rect) -> Rect {
+        let (x0, y0) = (a.x.max(b.x), a.y.max(b.y));
+        let x1 = (a.x + a.width as i32).min(b.x + b.width as i32);
+        let y1 = (a.y + a.height as i32).min(b.y + b.height as i32);
+        Rect { x: x0, y: y0, width: (x1 - x0).max(0) as u32, height: (y1 - y0).max(0) as u32 }
+    }
+
+    fn chain(req: &Request) -> Vec<Rect> {
+        let deadline = std::time::Instant::now() + req.budget;
+        let mut chain = Vec::new();
+        // 任何一步失败（没授权、程序不支持辅助功能、超时）就停在已找到的层
+        let _ = (|| {
+            let pid = window_owner_pid(req.window.handle)?;
+            let app = ax::app(pid, req.budget.as_secs_f32().max(0.05))?;
+            let (px, py) = crate::capture::pixel_to_point(req.x, req.y);
+            let scale = crate::capture::scale_at_point(px, py);
+            let mut el = ax::element_at(&app, px, py)?;
+            for _ in 0..MAX_DEPTH {
+                if let Some((x, y, w, h)) = ax::frame(&el) {
+                    // 滚动区域里的内容可能比窗口还大，只取窗口里看得见的部分；不含鼠标的层跳过
+                    let r = intersect(to_pixels(x, y, w, h, scale), req.window.rect);
+                    if r != req.window.rect && contains(&r, req.x, req.y) {
+                        push_unique(&mut chain, r);
+                    }
+                }
+                if ax::role(&el) == "AXWindow" || std::time::Instant::now() > deadline {
+                    break;
+                }
+                el = ax::parent(&el)?;
+            }
+            Some(())
+        })();
+        push_unique(&mut chain, req.window.rect);
+        chain
+    }
+
     pub fn serve(rx: std::sync::mpsc::Receiver<Request>) {
-        while let Ok(req) = rx.recv() {
-            let _ = req.reply.send(vec![req.window.rect]);
+        while let Ok(mut req) = rx.recv() {
+            // 只处理最新的请求：鼠标移动很快，旧位置的结果没有意义
+            while let Ok(newer) = rx.try_recv() {
+                let _ = req.reply.send(vec![req.window.rect]);
+                req = newer;
+            }
+            let _ = req.reply.send(chain(&req));
         }
     }
 }
@@ -465,6 +593,24 @@ mod mac_tests {
         assert_eq!(imp::to_pixels(10.25, 20.0, 100.0, 50.0, 2.0), Rect { x: 21, y: 40, width: 200, height: 100 });
         // 主显示器左边的外接 1 倍屏，坐标是负的
         assert_eq!(imp::to_pixels(-1920.0, 0.0, 800.0, 600.0, 1.0), Rect { x: -1920, y: 0, width: 800, height: 600 });
+    }
+
+    /// 真机：在每个窗口中央问吸附链（需要运行测试的终端有辅助功能授权）。
+    #[test]
+    #[ignore]
+    fn element_chain_inside_real_windows() {
+        let probe = ElementProbe::new();
+        let mut deeper = 0;
+        for w in top_level_windows(std::process::id()).into_iter().take(6) {
+            let (x, y) = (w.rect.x + w.rect.width as i32 / 2, w.rect.y + w.rect.height as i32 / 2);
+            let t = std::time::Instant::now();
+            let chain = probe.chain(w, x, y, std::time::Duration::from_millis(150));
+            eprintln!("窗口 {:?}：{} 层，{:.1} ms，{:?}", w.rect, chain.len(), t.elapsed().as_secs_f64() * 1e3, chain);
+            assert_eq!(chain.last(), Some(&w.rect), "最后一层是窗口本身");
+            assert!(chain.iter().all(|r| contains(r, x, y)), "每层都包含鼠标点");
+            deeper += (chain.len() > 1) as usize;
+        }
+        assert!(deeper > 0, "至少有一个窗口能找到控件");
     }
 
     #[test]

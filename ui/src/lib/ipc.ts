@@ -1051,11 +1051,19 @@ export async function systemLanguage(): Promise<string> {
 /** 系统权限的授权状态（只有 macOS 需要用户授权）。 */
 export interface Permissions {
   screen: boolean;
+  /** 辅助功能：截图时框出控件、长截图自动滚动、划词 */
+  accessibility: boolean;
 }
 
 export async function permissionsGet(): Promise<Permissions> {
-  if (!inTauri()) return { screen: true };
+  if (!inTauri()) return { screen: true, accessibility: true };
   return invoke('permissions_get');
+}
+
+/** 申请辅助功能权限：系统弹出提示，或打开系统设置的「辅助功能」页。授权后立即生效。 */
+export async function permissionRequestAccessibility(): Promise<void> {
+  if (!inTauri()) return;
+  return invoke('permission_request_accessibility');
 }
 
 /** 申请屏幕录制权限：第一次弹系统提示，之后打开系统设置的「屏幕录制」页。 */

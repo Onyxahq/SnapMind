@@ -87,15 +87,7 @@ mod imp {
         CGScrollEventUnit, CGWarpMouseCursorPosition,
     };
 
-    #[link(name = "ApplicationServices", kind = "framework")]
-    unsafe extern "C" {
-        fn AXIsProcessTrusted() -> u8;
-    }
-
-    fn trusted() -> bool {
-        // SAFETY: 无参数，只读当前进程的授权状态
-        unsafe { AXIsProcessTrusted() != 0 }
-    }
+    use crate::accessibility::has_permission as trusted;
 
     fn location() -> Option<CGPoint> {
         let e = CGEvent::new(None)?;

@@ -3,6 +3,7 @@
 //! 坐标约定：一律使用**物理像素**、虚拟桌面坐标（主显示器左上角为原点，可以为负）。
 //! Windows、macOS 实现在这里；Linux 实现在 M12。
 
+pub mod accessibility;
 pub mod bmp;
 pub mod capture;
 pub mod clipboard;

@@ -177,6 +177,7 @@ pub fn run() {
             commands::system_language,
             commands::autostart_get,
             commands::permissions_get,
+            commands::permission_request_accessibility,
             commands::permission_request_screen,
             commands::app_restart,
             commands::settings_open,

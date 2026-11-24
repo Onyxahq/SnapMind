@@ -1,7 +1,7 @@
 <script lang="ts">
   // 设置 → 通用：显示语言、开机自动启动、网络代理；macOS 上还有系统权限。
   import { onMount } from 'svelte';
-  import { appInfo, appRestart, autostartGet, autostartSet, permissionRequestScreen, permissionsGet, type Permissions } from '$lib/ipc';
+  import { appInfo, appRestart, autostartGet, autostartSet, permissionRequestAccessibility, permissionRequestScreen, permissionsGet, type Permissions } from '$lib/ipc';
   import { config, systemTag, updateConfig } from '$lib/config.svelte';
   import { LANGUAGES, matchLocale, t, type LanguageSetting } from '$lib/i18n.svelte';
   import { toast } from '$lib/ui/toast.svelte';
@@ -98,6 +98,18 @@
       {:else}
         {#if asked}<Button onclick={appRestart}>{t('重启 SnapMind')}</Button>{/if}
         <Button variant="primary" onclick={requestScreen}>{t('去授权')}</Button>
+      {/if}
+    </Row>
+    <Row
+      title={t('辅助功能')}
+      desc={perms.accessibility
+        ? t('已允许。截图时框出窗口里的按钮和输入框、长截图自动滚动、划词翻译都要用到它。')
+        : t('选用。截图时框出窗口里的按钮和输入框、长截图自动滚动、划词翻译要用到；不授权时截图只能框出整个窗口。点「去授权」后在系统设置里打开 SnapMind 的开关，立即生效。')}
+    >
+      {#if perms.accessibility}
+        <span class="ok">{t('已允许')}</span>
+      {:else}
+        <Button variant="primary" onclick={permissionRequestAccessibility}>{t('去授权')}</Button>
       {/if}
     </Row>
   </Card>
