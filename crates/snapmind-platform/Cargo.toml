@@ -38,3 +38,7 @@ objc2-app-kit = "0.3"
 objc2-core-foundation = "0.3"
 objc2-core-graphics = "0.3"
 objc2-screen-capture-kit = "0.3"
+# 录屏：AVAssetWriter 写 H.264 + AAC 的 MP4（系统自带编码器，有硬件编码时自动用上）
+objc2-av-foundation = { version = "0.3", features = ["objc2-core-media", "objc2-core-video"] }
+objc2-core-media = "0.3"
+objc2-core-video = "0.3"

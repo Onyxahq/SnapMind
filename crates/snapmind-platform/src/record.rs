@@ -330,7 +330,390 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+/// macOS：MP4 用 AVAssetWriter（系统自带的 H.264 / AAC 编码器，有硬件编码时自动用上）。
+/// 系统声音（`Loopback`）要靠 ScreenCaptureKit 的音频流，还没做（MAC-3.1 第三步），先报不支持——
+/// 上层会退回只录画面。
+#[cfg(target_os = "macos")]
+mod imp {
+    use super::*;
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2::AnyThread;
+    use objc2_av_foundation::{
+        AVAssetWriter, AVAssetWriterInput, AVAssetWriterInputPixelBufferAdaptor, AVAssetWriterStatus, AVFileTypeMPEG4,
+        AVMediaTypeAudio, AVMediaTypeVideo, AVVideoAverageBitRateKey, AVVideoCodecKey, AVVideoCodecTypeH264,
+        AVVideoCompressionPropertiesKey, AVVideoExpectedSourceFrameRateKey, AVVideoHeightKey, AVVideoProfileLevelH264MainAutoLevel,
+        AVVideoProfileLevelKey, AVVideoWidthKey,
+    };
+    use objc2_core_media::{CMSampleBuffer, CMTime, CMTimeFlags};
+    use objc2_core_video::CVPixelBuffer;
+    use objc2_foundation::{NSCopying, NSDictionary, NSNumber, NSString, NSURL};
+    use std::ffi::c_void;
+
+    fn os(e: impl std::fmt::Display) -> RecordError {
+        RecordError::Os(e.to_string())
+    }
+
+    #[link(name = "CoreVideo", kind = "framework")]
+    unsafe extern "C" {
+        fn CVPixelBufferPoolCreatePixelBuffer(alloc: *const c_void, pool: *const c_void, out: *mut *mut c_void) -> i32;
+        fn CVPixelBufferLockBaseAddress(buf: *mut c_void, flags: u64) -> i32;
+        fn CVPixelBufferUnlockBaseAddress(buf: *mut c_void, flags: u64) -> i32;
+        fn CVPixelBufferGetBaseAddress(buf: *mut c_void) -> *mut u8;
+        fn CVPixelBufferGetBytesPerRow(buf: *mut c_void) -> usize;
+        fn CVPixelBufferRelease(buf: *mut c_void);
+    }
+
+    /// AudioStreamBasicDescription
+    #[repr(C)]
+    struct Asbd {
+        sample_rate: f64,
+        format_id: u32,
+        format_flags: u32,
+        bytes_per_packet: u32,
+        frames_per_packet: u32,
+        bytes_per_frame: u32,
+        channels_per_frame: u32,
+        bits_per_channel: u32,
+        reserved: u32,
+    }
+
+    #[link(name = "CoreMedia", kind = "framework")]
+    unsafe extern "C" {
+        fn CMAudioFormatDescriptionCreate(
+            alloc: *const c_void,
+            asbd: *const Asbd,
+            layout_size: usize,
+            layout: *const c_void,
+            cookie_size: usize,
+            cookie: *const c_void,
+            extensions: *const c_void,
+            out: *mut *const c_void,
+        ) -> i32;
+        fn CMBlockBufferCreateWithMemoryBlock(
+            alloc: *const c_void,
+            memory: *mut c_void,
+            block_len: usize,
+            block_alloc: *const c_void,
+            source: *const c_void,
+            offset: usize,
+            data_len: usize,
+            flags: u32,
+            out: *mut *mut c_void,
+        ) -> i32;
+        fn CMBlockBufferReplaceDataBytes(src: *const c_void, dest: *mut c_void, offset: usize, len: usize) -> i32;
+        fn CMAudioSampleBufferCreateReadyWithPacketDescriptions(
+            alloc: *const c_void,
+            data: *mut c_void,
+            format: *const c_void,
+            frames: isize,
+            pts: CMTime,
+            packets: *const c_void,
+            out: *mut *mut c_void,
+        ) -> i32;
+    }
+    #[link(name = "CoreFoundation", kind = "framework")]
+    unsafe extern "C" {
+        fn CFRelease(cf: *const c_void);
+    }
+
+    const BGRA: u32 = u32::from_be_bytes(*b"BGRA");
+    const AAC: u32 = u32::from_be_bytes(*b"aac ");
+    const LPCM: u32 = u32::from_be_bytes(*b"lpcm");
+    /// 有符号整数 | 紧凑排列
+    const PCM_FLAGS: u32 = 4 | 8;
+
+    fn time(t: Duration) -> CMTime {
+        CMTime { value: t.as_micros() as i64, timescale: 1_000_000, flags: CMTimeFlags::Valid, epoch: 0 }
+    }
+
+    fn dict(pairs: &[(&NSString, Retained<AnyObject>)]) -> Retained<NSDictionary<NSString, AnyObject>> {
+        let keys: Vec<&NSString> = pairs.iter().map(|(k, _)| *k).collect();
+        let values: Vec<&AnyObject> = pairs.iter().map(|(_, v)| &**v).collect();
+        NSDictionary::from_slices(&keys, &values)
+    }
+
+    fn num(v: f64) -> Retained<AnyObject> {
+        Retained::into_super(Retained::into_super(NSNumber::new_f64(v))).into()
+    }
+
+    fn string(v: &NSString) -> Retained<AnyObject> {
+        Retained::into_super(Retained::into_super(v.copy())).into()
+    }
+
+    fn key(k: Option<&'static NSString>) -> Result<&'static NSString, RecordError> {
+        k.ok_or_else(|| os("系统缺少 AVFoundation 常量"))
+    }
+
+    pub struct Mp4Writer {
+        writer: Retained<AVAssetWriter>,
+        video: Retained<AVAssetWriterInput>,
+        adaptor: Retained<AVAssetWriterInputPixelBufferAdaptor>,
+        audio: Option<(Retained<AVAssetWriterInput>, *const c_void, u32)>, // (输入, 声音格式描述, 采样率)
+        width: u32,
+        height: u32,
+        last: Option<Duration>,
+    }
+    // SAFETY: AVAssetWriter 可以在任意线程使用；调用方用 Mutex 串行化所有调用。
+    unsafe impl Send for Mp4Writer {}
+
+    impl Mp4Writer {
+        /// `audio_rate`：要写声音时给出采样率（44100 / 48000），立体声 16 位。
+        pub fn create(path: &Path, width: u32, height: u32, fps: u32, audio_rate: Option<u32>) -> Result<Self, RecordError> {
+            // AVAssetWriter 不覆盖已有文件
+            let _ = std::fs::remove_file(path);
+            let url = NSURL::from_file_path(path).ok_or_else(|| os("文件路径无效"))?;
+            let writer = unsafe {
+                AVAssetWriter::initWithURL_fileType_error(AVAssetWriter::alloc(), &url, key(AVFileTypeMPEG4)?)
+            }
+            .map_err(|e| os(e.localizedDescription()))?;
+
+            // 与 Windows 相同：按 0.12 bit / 像素 / 帧估码率，限制在 2–40 Mbps
+            let bitrate = (width as f64 * height as f64 * fps as f64 * 0.12).clamp(2_000_000.0, 40_000_000.0);
+            let compression = dict(&[
+                (key(unsafe { AVVideoAverageBitRateKey })?, num(bitrate)),
+                (key(unsafe { AVVideoExpectedSourceFrameRateKey })?, num(fps as f64)),
+                (
+                    key(unsafe { AVVideoProfileLevelKey })?,
+                    string(key(unsafe { AVVideoProfileLevelH264MainAutoLevel })?),
+                ),
+            ]);
+            let settings = dict(&[
+                (key(unsafe { AVVideoCodecKey })?, string(key(unsafe { AVVideoCodecTypeH264 })?)),
+                (key(unsafe { AVVideoWidthKey })?, num(width as f64)),
+                (key(unsafe { AVVideoHeightKey })?, num(height as f64)),
+                (key(unsafe { AVVideoCompressionPropertiesKey })?, Retained::into_super(Retained::into_super(compression)).into()),
+            ]);
+            let video = unsafe {
+                AVAssetWriterInput::initWithMediaType_outputSettings(
+                    AVAssetWriterInput::alloc(),
+                    key(AVMediaTypeVideo)?,
+                    Some(&settings),
+                )
+            };
+            unsafe { video.setExpectsMediaDataInRealTime(true) };
+            let attrs = dict(&[
+                (&NSString::from_str("PixelFormatType"), num(BGRA as f64)),
+                (&NSString::from_str("Width"), num(width as f64)),
+                (&NSString::from_str("Height"), num(height as f64)),
+            ]);
+            let adaptor = unsafe {
+                AVAssetWriterInputPixelBufferAdaptor::initWithAssetWriterInput_sourcePixelBufferAttributes(
+                    AVAssetWriterInputPixelBufferAdaptor::alloc(),
+                    &video,
+                    Some(&attrs),
+                )
+            };
+            if !unsafe { writer.canAddInput(&video) } {
+                return Err(os("不能添加视频轨"));
+            }
+            unsafe { writer.addInput(&video) };
+
+            let audio = match audio_rate {
+                Some(rate) => {
+                    // 这几个键的值就是它们的名字（AVAudioSettings.h）
+                    let settings = dict(&[
+                        (&NSString::from_str("AVFormatIDKey"), num(AAC as f64)),
+                        (&NSString::from_str("AVSampleRateKey"), num(rate as f64)),
+                        (&NSString::from_str("AVNumberOfChannelsKey"), num(2.0)),
+                        (&NSString::from_str("AVEncoderBitRateKey"), num(192_000.0)),
+                    ]);
+                    let input = unsafe {
+                        AVAssetWriterInput::initWithMediaType_outputSettings(
+                            AVAssetWriterInput::alloc(),
+                            key(AVMediaTypeAudio)?,
+                            Some(&settings),
+                        )
+                    };
+                    unsafe { input.setExpectsMediaDataInRealTime(true) };
+                    if !unsafe { writer.canAddInput(&input) } {
+                        return Err(os("不能添加声音轨"));
+                    }
+                    unsafe { writer.addInput(&input) };
+                    let asbd = Asbd {
+                        sample_rate: rate as f64,
+                        format_id: LPCM,
+                        format_flags: PCM_FLAGS,
+                        bytes_per_packet: 4,
+                        frames_per_packet: 1,
+                        bytes_per_frame: 4,
+                        channels_per_frame: 2,
+                        bits_per_channel: 16,
+                        reserved: 0,
+                    };
+                    let mut fmt = std::ptr::null();
+                    let st = unsafe {
+                        CMAudioFormatDescriptionCreate(
+                            std::ptr::null(),
+                            &asbd,
+                            0,
+                            std::ptr::null(),
+                            0,
+                            std::ptr::null(),
+                            std::ptr::null(),
+                            &mut fmt,
+                        )
+                    };
+                    if st != 0 {
+                        return Err(os(format!("声音格式 {st}")));
+                    }
+                    Some((input, fmt, rate))
+                }
+                None => None,
+            };
+
+            if !unsafe { writer.startWriting() } {
+                return Err(os(unsafe { writer.error() }.map(|e| e.localizedDescription().to_string()).unwrap_or_default()));
+            }
+            unsafe { writer.startSessionAtSourceTime(time(Duration::ZERO)) };
+            Ok(Self { writer, video, adaptor, audio, width, height, last: None })
+        }
+
+        /// 编码器忙不过来时最多等一会儿，还不行就丢掉这一帧 / 这段（实时录制，宁丢不卡）。
+        fn ready(input: &AVAssetWriterInput) -> bool {
+            for _ in 0..25 {
+                if unsafe { input.isReadyForMoreMediaData() } {
+                    return true;
+                }
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            false
+        }
+
+        fn failed(&self) -> RecordError {
+            os(unsafe { self.writer.error() }.map(|e| e.localizedDescription().to_string()).unwrap_or_else(|| "写入失败".into()))
+        }
+
+        /// 写一帧画面（BGRA，自上而下，宽高与创建时一致）。`t` 是这一帧在视频里的时间。
+        pub fn video(&mut self, bgra: &[u8], t: Duration, _dur: Duration) -> Result<(), RecordError> {
+            // 时间必须严格递增
+            if self.last.is_some_and(|l| t <= l) {
+                return Ok(());
+            }
+            if !Self::ready(&self.video) {
+                return Ok(());
+            }
+            let Some(pool) = (unsafe { self.adaptor.pixelBufferPool() }) else { return Err(self.failed()) };
+            let mut buf: *mut c_void = std::ptr::null_mut();
+            let st = unsafe { CVPixelBufferPoolCreatePixelBuffer(std::ptr::null(), &*pool as *const _ as *const c_void, &mut buf) };
+            if st != 0 || buf.is_null() {
+                return Err(os(format!("取像素缓冲 {st}")));
+            }
+            let row = self.width as usize * 4;
+            unsafe {
+                CVPixelBufferLockBaseAddress(buf, 0);
+                let base = CVPixelBufferGetBaseAddress(buf);
+                let stride = CVPixelBufferGetBytesPerRow(buf);
+                for y in 0..self.height as usize {
+                    std::ptr::copy_nonoverlapping(bgra[y * row..].as_ptr(), base.add(y * stride), row);
+                }
+                CVPixelBufferUnlockBaseAddress(buf, 0);
+            }
+            let ok = unsafe { self.adaptor.appendPixelBuffer_withPresentationTime(&*(buf as *const CVPixelBuffer), time(t)) };
+            unsafe { CVPixelBufferRelease(buf) };
+            if !ok {
+                return Err(self.failed());
+            }
+            self.last = Some(t);
+            Ok(())
+        }
+
+        /// 写一段声音（16 位立体声交错采样）。`t` 是这段声音开头在视频里的时间。
+        pub fn audio(&mut self, pcm: &[i16], t: Duration) -> Result<(), RecordError> {
+            let Some((input, fmt, _rate)) = &self.audio else { return Ok(()) };
+            if pcm.is_empty() || !Self::ready(input) {
+                return Ok(());
+            }
+            let bytes = pcm.len() * 2;
+            unsafe {
+                let mut block: *mut c_void = std::ptr::null_mut();
+                // 1 = kCMBlockBufferAssureMemoryNowFlag：现在就分配内存
+                let st = CMBlockBufferCreateWithMemoryBlock(
+                    std::ptr::null(),
+                    std::ptr::null_mut(),
+                    bytes,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    0,
+                    bytes,
+                    1,
+                    &mut block,
+                );
+                if st != 0 {
+                    return Err(os(format!("声音缓冲 {st}")));
+                }
+                CMBlockBufferReplaceDataBytes(pcm.as_ptr() as *const c_void, block, 0, bytes);
+                let mut sample: *mut c_void = std::ptr::null_mut();
+                let st = CMAudioSampleBufferCreateReadyWithPacketDescriptions(
+                    std::ptr::null(),
+                    block,
+                    *fmt,
+                    (pcm.len() / 2) as isize,
+                    time(t),
+                    std::ptr::null(),
+                    &mut sample,
+                );
+                CFRelease(block);
+                if st != 0 || sample.is_null() {
+                    return Err(os(format!("声音样本 {st}")));
+                }
+                let ok = input.appendSampleBuffer(&*(sample as *const CMSampleBuffer));
+                CFRelease(sample);
+                if !ok {
+                    return Err(self.failed());
+                }
+            }
+            Ok(())
+        }
+
+        pub fn finish(self) -> Result<(), RecordError> {
+            unsafe {
+                self.video.markAsFinished();
+                if let Some((input, _, _)) = &self.audio {
+                    input.markAsFinished();
+                }
+                let (tx, rx) = std::sync::mpsc::channel();
+                let block = block2::RcBlock::new(move || {
+                    let _ = tx.send(());
+                });
+                self.writer.finishWritingWithCompletionHandler(&block);
+                let _ = rx.recv_timeout(Duration::from_secs(30));
+                if self.writer.status() == AVAssetWriterStatus::Completed {
+                    Ok(())
+                } else {
+                    Err(self.failed())
+                }
+            }
+        }
+    }
+
+    impl Drop for Mp4Writer {
+        fn drop(&mut self) {
+            if let Some((_, fmt, _)) = &self.audio {
+                // SAFETY: 格式描述是 Create 出来的，归我们所有
+                unsafe { CFRelease(*fmt) };
+            }
+        }
+    }
+
+    pub struct Loopback;
+    impl Loopback {
+        pub fn open() -> Result<Self, RecordError> {
+            Err(RecordError::Unsupported)
+        }
+        pub fn rate(&self) -> u32 {
+            48_000
+        }
+        pub fn channels(&self) -> usize {
+            2
+        }
+        pub fn read(&mut self) -> Result<&[f32], RecordError> {
+            Err(RecordError::Unsupported)
+        }
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
     use super::*;
 
@@ -426,5 +809,44 @@ mod tests {
         assert!(bytes.len() > 1000, "{}", bytes.len());
         assert_eq!(&bytes[4..8], b"ftyp");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod mac_tests {
+    use super::*;
+
+    /// 离线：2 秒 640×360、30 帧的渐变画面 + 440 Hz 立体声，写成 MP4（不碰屏幕）。
+    #[test]
+    fn writes_mp4_with_audio() {
+        let dir = std::env::temp_dir().join(format!("snapmind-mp4-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("test.mp4");
+        let (w, h, fps, rate) = (640u32, 360u32, 30u32, 48_000u32);
+        let mut mp4 = Mp4Writer::create(&path, w, h, fps, Some(rate)).unwrap();
+        let frame_dur = Duration::from_secs_f64(1.0 / fps as f64);
+        let mut buf = vec![0u8; (w * h * 4) as usize];
+        for i in 0..fps * 2 {
+            for (j, px) in buf.chunks_exact_mut(4).enumerate() {
+                let x = (j as u32 % w + i * 8) % 256;
+                px.copy_from_slice(&[x as u8, (255 - x) as u8, 128, 255]);
+            }
+            let t = frame_dur * i;
+            mp4.video(&buf, t, frame_dur).unwrap();
+            // 每帧配 1/30 秒的声音
+            let n = (rate / fps) as usize;
+            let pcm: Vec<i16> = (0..n)
+                .flat_map(|k| {
+                    let s = ((i as usize * n + k) as f64 / rate as f64 * 440.0 * std::f64::consts::TAU).sin();
+                    let v = (s * 8000.0) as i16;
+                    [v, v]
+                })
+                .collect();
+            mp4.audio(&pcm, t).unwrap();
+        }
+        mp4.finish().unwrap();
+        let len = std::fs::metadata(&path).unwrap().len();
+        eprintln!("写出 {} 字节：{}", len, path.display());
+        assert!(len > 10_000);
     }
 }

@@ -71,6 +71,9 @@
 ### 三期：录屏与发布
 
 - [ ] **MAC-3.1** 录屏：SCStream 取视频帧和系统声音，AVAssetWriter 写 H.264 + AAC 的 MP4；GIF 沿用现有编码。
+  - ✅ 第一步：`Mp4Writer`（AVAssetWriter，H.264 + AAC），离线测试用 ffprobe / ffmpeg 核对通过。
+  - 第二步：SCStream 持续取帧（带指针），替换一帧 100 ~ 250 ms 的旧截屏路径。
+  - 第三步：SCStream 音频做 `Loopback`（系统声音）。
 - [ ] **MAC-3.2** 发布：`scripts/release.mjs` 加 Mac 分支（dmg、`latest.json` 的 `darwin-aarch64`），更新器在 Mac 上能装新版。**需要用户决定**：是否购买 Apple Developer 账号做 Developer ID 签名和公证——不做的话，别人下载后要右键打开或在「隐私与安全性」里放行，且每台机器都要重新授权屏幕录制。
 
 ## 4. 在 Mac 上开发与验证
