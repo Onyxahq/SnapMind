@@ -25,6 +25,28 @@ pub fn capture_rect(r: Rect) -> Result<Frame, CaptureError> {
     imp::capture_rect(r, false)
 }
 
+/// 录屏的连续取帧：按帧率不停地拿「这块矩形现在的样子」（带鼠标指针）。
+///
+/// Windows 每次 `frame` 现抓一帧（GDI 很快）；macOS 开一个 ScreenCaptureKit 的视频流，系统在画面
+/// 变化时推送新帧，`frame` 拿最新的一帧——画面没变时重复上一帧，视频时长照常。
+pub struct Stream {
+    inner: imp::Stream,
+}
+
+impl Stream {
+    pub fn start(r: Rect, fps: u32) -> Result<Self, CaptureError> {
+        if r.width == 0 || r.height == 0 {
+            return Err(CaptureError::Empty);
+        }
+        Ok(Self { inner: imp::Stream::start(r, fps.max(1))? })
+    }
+
+    /// 当前画面（宽高与 `start` 时的矩形一致，带指针）。
+    pub fn frame(&mut self) -> Result<Frame, CaptureError> {
+        self.inner.frame()
+    }
+}
+
 /// 抓取一块矩形，并把鼠标指针画上去（录屏用；截图本身不带指针）。
 pub fn capture_rect_with_cursor(r: Rect) -> Result<Frame, CaptureError> {
     if r.width == 0 || r.height == 0 {
@@ -134,6 +156,17 @@ mod imp {
         }
     }
 
+    /// 每次现抓一帧（GDI 抓一块矩形只要几毫秒）。
+    pub struct Stream(Rect);
+    impl Stream {
+        pub fn start(r: Rect, _fps: u32) -> Result<Self, CaptureError> {
+            Ok(Self(r))
+        }
+        pub fn frame(&mut self) -> Result<Frame, CaptureError> {
+            capture_rect(self.0, true)
+        }
+    }
+
     pub fn capture_rect(r: Rect, cursor: bool) -> Result<Frame, CaptureError> {
         let (w, h) = (r.width as i32, r.height as i32);
         unsafe {
@@ -193,7 +226,13 @@ mod imp {
         CGDirectDisplayID, CGDisplayBounds, CGDisplayCopyDisplayMode, CGDisplayMode, CGDisplayPixelsWide,
         CGGetActiveDisplayList, CGImage,
     };
+    use dispatch2::DispatchQueue;
+    use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
+    use objc2::{define_class, msg_send, DefinedClass};
+    use objc2_core_media::{CMSampleBuffer, CMTime, CMTimeFlags};
     use objc2_foundation::{NSArray, NSError};
+    use objc2_screen_capture_kit::{SCDisplay, SCStream, SCStreamOutput, SCStreamOutputType};
+    use std::sync::{Arc, Mutex};
     use objc2_screen_capture_kit::{
         SCCaptureResolutionType, SCContentFilter, SCScreenshotManager, SCShareableContent,
         SCStreamConfiguration,
@@ -249,6 +288,184 @@ mod imp {
             // 没有「屏幕录制」权限时系统在这里报错
             Ok(Err(e)) => Err(CaptureError::Os(format!("读取可截屏内容失败（是否已在「系统设置 → 隐私与安全性 → 屏幕录制」里允许 SnapMind？）：{e}"))),
             Err(_) => Err(CaptureError::Os("读取可截屏内容超时".into())),
+        }
+    }
+
+    /// ScreenCaptureKit 视频流：系统在画面变化时把新帧推到我们的队列里，存成最新一帧。
+    pub struct Stream {
+        stream: Retained<SCStream>,
+        latest: Arc<Mutex<Option<Frame>>>,
+        last: Option<Frame>,
+        // 输出对象要活到流停下为止
+        _output: Retained<StreamOutput>,
+    }
+    // SAFETY: SCStream 可以在任意线程启停；帧通过 Mutex 交接。
+    unsafe impl Send for Stream {}
+
+    pub struct OutputIvars {
+        latest: Arc<Mutex<Option<Frame>>>,
+        width: u32,
+        height: u32,
+    }
+
+    define_class!(
+        // SAFETY: NSObject 没有子类化要求；StreamOutput 不实现 Drop。
+        #[unsafe(super(NSObject))]
+        #[ivars = OutputIvars]
+        pub struct StreamOutput;
+
+        unsafe impl NSObjectProtocol for StreamOutput {}
+
+        unsafe impl SCStreamOutput for StreamOutput {
+            #[unsafe(method(stream:didOutputSampleBuffer:ofType:))]
+            fn did_output(&self, _stream: &SCStream, sample: &CMSampleBuffer, kind: SCStreamOutputType) {
+                if kind != SCStreamOutputType::Screen {
+                    return;
+                }
+                let iv = self.ivars();
+                // 画面没变时系统也会送「空闲」样本，里面没有图像，跳过
+                if let Some(f) = unsafe { frame_from_sample(sample, iv.width, iv.height) } {
+                    *iv.latest.lock().expect("录屏帧锁") = Some(f);
+                }
+            }
+        }
+    );
+
+    impl StreamOutput {
+        fn new(latest: Arc<Mutex<Option<Frame>>>, width: u32, height: u32) -> Retained<Self> {
+            let this = Self::alloc().set_ivars(OutputIvars { latest, width, height });
+            unsafe { msg_send![super(this), init] }
+        }
+    }
+
+    #[link(name = "CoreMedia", kind = "framework")]
+    unsafe extern "C" {
+        fn CMSampleBufferGetImageBuffer(sample: &CMSampleBuffer) -> *mut c_void;
+    }
+    #[link(name = "CoreVideo", kind = "framework")]
+    unsafe extern "C" {
+        fn CVPixelBufferLockBaseAddress(buf: *mut c_void, flags: u64) -> i32;
+        fn CVPixelBufferUnlockBaseAddress(buf: *mut c_void, flags: u64) -> i32;
+        fn CVPixelBufferGetBaseAddress(buf: *mut c_void) -> *mut u8;
+        fn CVPixelBufferGetBytesPerRow(buf: *mut c_void) -> usize;
+        fn CVPixelBufferGetWidth(buf: *mut c_void) -> usize;
+        fn CVPixelBufferGetHeight(buf: *mut c_void) -> usize;
+    }
+    /// kCVPixelBufferLock_ReadOnly
+    const READ_ONLY: u64 = 1;
+
+    /// 把样本里的 BGRA 图像按行拷成 w×h 的帧（系统给的行宽可能有对齐填充；尺寸不对就不要）。
+    unsafe fn frame_from_sample(sample: &CMSampleBuffer, w: u32, h: u32) -> Option<Frame> {
+        unsafe {
+            let buf = CMSampleBufferGetImageBuffer(sample);
+            if buf.is_null() || CVPixelBufferGetWidth(buf) < w as usize || CVPixelBufferGetHeight(buf) < h as usize {
+                return None;
+            }
+            CVPixelBufferLockBaseAddress(buf, READ_ONLY);
+            let base = CVPixelBufferGetBaseAddress(buf);
+            let stride = CVPixelBufferGetBytesPerRow(buf);
+            let row = w as usize * 4;
+            let mut bgra = vec![0u8; row * h as usize];
+            if !base.is_null() {
+                for y in 0..h as usize {
+                    std::ptr::copy_nonoverlapping(base.add(y * stride), bgra.as_mut_ptr().add(y * row), row);
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(buf, READ_ONLY);
+            (!base.is_null()).then(|| Frame::from_bgra(w, h, &bgra))
+        }
+    }
+
+    /// 矩形所在的显示器，以及矩形在那块显示器里的位置（点）。
+    fn display_for(r: Rect) -> Result<(Retained<SCDisplay>, CGRect), CaptureError> {
+        let content = shareable_content()?;
+        let displays = unsafe { content.displays() };
+        let Some(s) = scale_at(r) else { return Err(CaptureError::Os("找不到录屏区域所在的显示器".into())) };
+        let (px, py) = (r.x as f64 / s, r.y as f64 / s);
+        let display = displays.iter().find(|d| {
+            let f = unsafe { d.frame() };
+            px >= f.origin.x - 0.5 && py >= f.origin.y - 0.5 && px < f.origin.x + f.size.width && py < f.origin.y + f.size.height
+        });
+        let Some(display) = display else { return Err(CaptureError::Os("找不到录屏区域所在的显示器".into())) };
+        let f = unsafe { display.frame() };
+        let source = CGRect::new(
+            CGPoint::new(px - f.origin.x, py - f.origin.y),
+            CGSize::new(r.width as f64 / s, r.height as f64 / s),
+        );
+        Ok((display, source))
+    }
+
+    impl Stream {
+        pub fn start(r: Rect, fps: u32) -> Result<Self, CaptureError> {
+            let (display, source) = display_for(r)?;
+            let filter = unsafe {
+                SCContentFilter::initWithDisplay_excludingWindows(SCContentFilter::alloc(), &display, &NSArray::new())
+            };
+            let config = unsafe { SCStreamConfiguration::new() };
+            unsafe {
+                config.setSourceRect(source);
+                config.setWidth(r.width as usize);
+                config.setHeight(r.height as usize);
+                config.setShowsCursor(true);
+                config.setPixelFormat(u32::from_be_bytes(*b"BGRA"));
+                config.setMinimumFrameInterval(CMTime {
+                    value: 1,
+                    timescale: fps as i32,
+                    flags: CMTimeFlags::Valid,
+                    epoch: 0,
+                });
+                config.setQueueDepth(5);
+            }
+            let latest = Arc::new(Mutex::new(None));
+            let output = StreamOutput::new(latest.clone(), r.width, r.height);
+            let stream = unsafe { SCStream::initWithFilter_configuration_delegate(SCStream::alloc(), &filter, &config, None) };
+            let queue = DispatchQueue::new("snapmind.record", None);
+            unsafe {
+                stream.addStreamOutput_type_sampleHandlerQueue_error(
+                    ProtocolObject::from_ref(&*output),
+                    SCStreamOutputType::Screen,
+                    Some(&queue),
+                )
+            }
+            .map_err(|e| CaptureError::Os(format!("ScreenCaptureKit：{}", e.localizedDescription())))?;
+            let (tx, rx) = mpsc::channel();
+            let block = block2::RcBlock::new(move |err: *mut NSError| {
+                let _ = tx.send(unsafe { err.as_ref() }.map(|e| e.localizedDescription().to_string()));
+            });
+            unsafe { stream.startCaptureWithCompletionHandler(Some(&block)) };
+            match rx.recv_timeout(TIMEOUT) {
+                Ok(None) => {}
+                Ok(Some(e)) => return Err(CaptureError::Os(format!("ScreenCaptureKit：{e}"))),
+                Err(_) => return Err(CaptureError::Os("启动录屏流超时".into())),
+            }
+            Ok(Self { stream, latest, last: None, _output: output })
+        }
+
+        pub fn frame(&mut self) -> Result<Frame, CaptureError> {
+            // 刚开始时系统还没送来第一帧：最多等一会儿
+            let t0 = std::time::Instant::now();
+            loop {
+                if let Some(f) = self.latest.lock().expect("录屏帧锁").take() {
+                    self.last = Some(f);
+                    break;
+                }
+                if self.last.is_some() || t0.elapsed() > TIMEOUT {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            self.last.clone().ok_or_else(|| CaptureError::Os("录屏流没有送来画面".into()))
+        }
+    }
+
+    impl Drop for Stream {
+        fn drop(&mut self) {
+            let (tx, rx) = mpsc::channel();
+            let block = block2::RcBlock::new(move |_err: *mut NSError| {
+                let _ = tx.send(());
+            });
+            unsafe { self.stream.stopCaptureWithCompletionHandler(Some(&block)) };
+            let _ = rx.recv_timeout(TIMEOUT);
         }
     }
 
@@ -431,6 +648,17 @@ mod imp {
 mod imp {
     use super::*;
 
+    /// 每次现抓一帧。
+    pub struct Stream(Rect);
+    impl Stream {
+        pub fn start(r: Rect, _fps: u32) -> Result<Self, CaptureError> {
+            Ok(Self(r))
+        }
+        pub fn frame(&mut self) -> Result<Frame, CaptureError> {
+            capture_rect(self.0, true)
+        }
+    }
+
     pub fn capture_rect(_r: Rect, _cursor: bool) -> Result<Frame, CaptureError> {
         Err(CaptureError::Unsupported)
     }
@@ -486,5 +714,28 @@ mod mac_tests {
         assert!(f.pixels().chunks_exact(4).all(|p| p[3] == 255));
         // 菜单栏不会是一片纯黑（没有权限时系统只给黑图或报错）
         assert!(f.pixels().chunks_exact(4).any(|p| p[0] | p[1] | p[2] != 0));
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod stream_tests {
+    /// 真机：开 1 秒 30 帧的录屏流，看能不能持续拿到正确尺寸的帧、每帧多快（需要屏幕录制授权、屏幕亮着）。
+    #[test]
+    #[ignore]
+    fn stream_delivers_frames() {
+        let r = crate::Rect { x: 0, y: 0, width: 800, height: 600 };
+        let t = std::time::Instant::now();
+        let mut s = super::Stream::start(r, 30).expect("开不了录屏流");
+        eprintln!("启动 {:.1} ms", t.elapsed().as_secs_f64() * 1e3);
+        let mut slow = std::time::Duration::ZERO;
+        for _ in 0..30 {
+            let t = std::time::Instant::now();
+            let f = s.frame().unwrap();
+            slow = slow.max(t.elapsed());
+            assert_eq!((f.width, f.height), (800, 600));
+            assert!(f.pixels().chunks_exact(4).any(|p| p[0] != 0 || p[1] != 0 || p[2] != 0), "全黑");
+            std::thread::sleep(std::time::Duration::from_millis(33));
+        }
+        eprintln!("30 次取帧，最慢 {:.1} ms", slow.as_secs_f64() * 1e3);
     }
 }

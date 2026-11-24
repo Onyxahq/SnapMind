@@ -186,13 +186,25 @@ pub fn record_start(
         let shared = shared.clone();
         let live = live.clone();
         threads.push(spawn("record-capture", move || {
+            // macOS 是持续推帧的视频流，Windows 每次现抓；流开不起来就退回逐帧抓
+            let mut stream = match capture::Stream::start(rect, fps) {
+                Ok(s) => Some(s),
+                Err(e) => {
+                    crate::log_warn!("录屏：视频流开不起来，改为逐帧抓：{e}");
+                    None
+                }
+            };
             let mut next = Instant::now();
             loop {
                 if shared.stop.load(Ordering::SeqCst) || !live.poll() {
                     break;
                 }
                 if !shared.paused() {
-                    match capture::capture_rect_with_cursor(rect) {
+                    let frame = match stream.as_mut() {
+                        Some(s) => s.frame(),
+                        None => capture::capture_rect_with_cursor(rect),
+                    };
+                    match frame {
                         Ok(f) => {
                             let t = shared.now();
                             if let Err(TrySendError::Disconnected(_)) = tx.try_send((f.pixels().to_vec(), t)) {
