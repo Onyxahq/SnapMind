@@ -80,7 +80,9 @@ pub fn run() {
             }
             state::apply_native_theme(handle, &config.get());
             // 托盘菜单等原生文字在创建时就要用对语言
-            snapmind_core::i18n::set_language(config.get().general.language, &snapmind_platform::locale::system_ui_language());
+            let system_lang = snapmind_platform::locale::system_ui_language();
+            let lang = snapmind_core::i18n::set_language(config.get().general.language, &system_lang);
+            crate::log_info!("界面语言 {lang:?}（设置 {:?}，系统 {system_lang:?}）", config.get().general.language);
             let history = match snapmind_core::history::History::open(&state::history_dir(handle)?) {
                 Ok(h) => Some(h),
                 Err(e) => {

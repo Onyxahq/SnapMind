@@ -27,7 +27,14 @@ fn imp() -> String {
     String::from_utf16_lossy(first)
 }
 
-#[cfg(not(windows))]
+/// macOS：「系统设置 → 通用 → 语言与地区」里排第一的语言（如 `zh-Hans-CN`）。
+/// 从访达 / 启动台打开的程序没有 `LANG` 环境变量，所以不能读环境变量。
+#[cfg(target_os = "macos")]
+fn imp() -> String {
+    objc2_foundation::NSLocale::preferredLanguages().firstObject().map(|s| s.to_string()).unwrap_or_default()
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 fn imp() -> String {
     for key in ["LC_ALL", "LC_MESSAGES", "LANG"] {
         if let Ok(v) = std::env::var(key) {

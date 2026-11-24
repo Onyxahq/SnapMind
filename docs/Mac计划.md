@@ -29,7 +29,7 @@
 | 坐标 | 物理像素 | tao 约定：显示器位置 = 点 × 该显示器缩放；放窗口用 Logical 坐标 | ✅（混合缩放未测） |
 | 剪贴板 文字 / HTML / 图片 | Win32 多格式 | arboard（文字、HTML、图片） | 基本可用；「粘贴成文件」未做 |
 | 密钥 | Credential Manager | Keychain（keyring 自带） | ✅ |
-| 系统界面语言 | `GetUserPreferredUILanguages` | 现在读 `LANG`（从访达启动时通常没有）→ 要改成 `NSLocale.preferredLanguages` | ❌ MAC-1.3 |
+| 系统界面语言 | `GetUserPreferredUILanguages` | `NSLocale.preferredLanguages`（地区：`NSLocale.currentLocale.regionCode`） | ✅ |
 | 窗口吸附 | EnumWindows + UI Automation | `CGWindowListCopyWindowInfo` + AXUIElement（辅助功能权限） | ❌ MAC-2.1 |
 | 划词 | UI Automation + 模拟 Ctrl+C | AX `kAXSelectedTextAttribute` + 模拟 ⌘C（CGEvent） | ❌ MAC-2.2 |
 | 鼠标微移 / 位置 / 滚轮 | SendInput | CGEvent / `CGWarpMouseCursorPosition` | ❌ MAC-2.3 |
@@ -49,7 +49,7 @@
 
 ### 一期收尾：打磨（下一步）
 
-- [ ] **MAC-1.3** 显示语言跟随系统：Mac 上用 `NSLocale.preferredLanguages` 取首选语言。验收：从访达启动、系统语言中文时界面是中文。
+- [x] **MAC-1.3** 显示语言跟随系统：Mac 上用 `NSLocale.preferredLanguages` 取首选语言。验收：从访达启动、系统语言中文时界面是中文。
 - [ ] **MAC-1.4** 逐项真机点验已有功能：标注、贴图、复制图片 / 文字 / 表格 HTML、保存、本地 OCR（ONNX Runtime 在 Mac 上实际识别一次）、翻译、开机自启、悬浮球。发现问题当场修。
 - [ ] **MAC-1.5** Mac 键盘习惯：默认截图快捷键改成 Mac 上好按的组合（Windows 默认 `Shift+F1` 不变，只改 Mac 默认值）；界面里的快捷键提示显示 ⌘ / ⌥ / ⇧；排查所有只认 Ctrl 的按键处理。
 - [ ] **MAC-1.6** 遮罩显示提速：按键 → 冻结帧画好里，窗口显示后页面拿到 1920×1080 BMP（约 8 MB）再画出来还要 60 ~ 150 ms。方向：缩小传输（压缩或共享内存）、提前准备好画布。验收：按键 → 遮罩出现 ≤ 150 ms。

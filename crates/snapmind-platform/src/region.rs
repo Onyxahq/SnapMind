@@ -3,6 +3,7 @@
 /// 系统地区设成了中国大陆。
 ///
 /// Windows 读「设置 → 时间和语言 → 区域 → 国家或地区」（GEOID 45 = 中国，港澳台各有自己的编号）；
+/// macOS 读「语言与地区 → 地区」（`NSLocale.currentLocale.regionCode`）；
 /// 其他平台看 `LC_ALL` / `LANG` 是不是 `zh_CN`。环境变量 `SNAPMIND_REGION=cn` / `other` 可以强制指定。
 pub fn mainland_china() -> bool {
     if let Some(v) = std::env::var_os("SNAPMIND_REGION") {
@@ -14,13 +15,17 @@ pub fn mainland_china() -> bool {
         // SAFETY: 只读系统设置，没有指针参数
         unsafe { GetUserGeoID(GEOCLASS_NATION) == 45 }
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        objc2_foundation::NSLocale::currentLocale().regionCode().is_some_and(|c| c.to_string() == "CN")
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         ["LC_ALL", "LANG"].iter().filter_map(std::env::var_os).any(|v| is_zh_cn(&v.to_string_lossy()))
     }
 }
 
-#[cfg_attr(windows, allow(dead_code))]
+#[cfg_attr(any(windows, target_os = "macos"), allow(dead_code))]
 fn is_zh_cn(locale: &str) -> bool {
     let l = locale.to_ascii_lowercase();
     l.starts_with("zh_cn") || l.starts_with("zh-cn") || l.starts_with("zh_hans_cn")
