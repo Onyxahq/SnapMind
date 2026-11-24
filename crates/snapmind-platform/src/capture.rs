@@ -2,6 +2,7 @@
 //!
 //! Windows 用 GDI BitBlt（带 CAPTUREBLT，分层窗口也能抓到）。进程是「每显示器 DPI 感知」，
 //! 所以坐标和像素都是物理像素，高 DPI 下不会模糊或错位。
+//! macOS 用 ScreenCaptureKit（15.2+ 直接按区域截，更早的按显示器截）。
 
 use crate::bmp::Frame;
 use crate::Rect;
@@ -185,10 +186,13 @@ mod imp {
     use objc2::rc::Retained;
     use objc2::AnyThread;
     use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-    use objc2_core_graphics::{CGDisplayCopyDisplayMode, CGDisplayMode, CGDisplayPixelsWide, CGImage};
+    use objc2_core_graphics::{
+        CGDirectDisplayID, CGDisplayBounds, CGDisplayCopyDisplayMode, CGDisplayMode, CGDisplayPixelsWide,
+        CGGetActiveDisplayList, CGImage,
+    };
     use objc2_foundation::{NSArray, NSError};
     use objc2_screen_capture_kit::{
-        SCCaptureResolutionType, SCContentFilter, SCDisplay, SCScreenshotManager, SCShareableContent,
+        SCCaptureResolutionType, SCContentFilter, SCScreenshotManager, SCShareableContent,
         SCStreamConfiguration,
     };
     use std::ffi::c_void;
@@ -213,6 +217,7 @@ mod imp {
         fn CGImageGetColorSpace(image: *const c_void) -> *const c_void;
         fn CGColorSpaceCreateDeviceRGB() -> *const c_void;
         fn CGColorSpaceRelease(space: *const c_void);
+        fn CGImageGetWidth(image: *const c_void) -> usize;
     }
     /// kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little：内存里是 B G R A
     const BGRA: u32 = 2 | (2 << 12);
@@ -245,23 +250,95 @@ mod imp {
     }
 
     pub fn capture_rect(r: Rect, cursor: bool) -> Result<Frame, CaptureError> {
-        let content = shareable_content()?;
-        let displays = unsafe { content.displays() };
-        // 找出矩形所在的显示器：矩形左上角换算成点之后落在它里面
-        let mut hit: Option<(Retained<SCDisplay>, f64)> = None;
-        for d in displays.iter() {
-            let s = scale_of(unsafe { d.displayID() });
-            let f = unsafe { d.frame() };
-            let (px, py) = (r.x as f64 / s, r.y as f64 / s);
-            if px >= f.origin.x - 0.5 && py >= f.origin.y - 0.5 && px < f.origin.x + f.size.width && py < f.origin.y + f.size.height {
-                hit = Some((d, s));
-                break;
+        // macOS 15.2+：直接按屏幕坐标截一块，不用先列出所有显示器和窗口，约 20 ms（旧路径 100~250 ms）。
+        // 录屏要画指针，仍走旧路径；系统给的图分辨率不够（比如只给了点而不是像素）也退回旧路径。
+        if !cursor && objc2::available!(macos = 15.2) {
+            if let Some(s) = scale_at(r) {
+                let rect = CGRect::new(
+                    CGPoint::new(r.x as f64 / s, r.y as f64 / s),
+                    CGSize::new(r.width as f64 / s, r.height as f64 / s),
+                );
+                match grab(r, |block| unsafe { SCScreenshotManager::captureImageInRect_completionHandler(rect, Some(block)) }) {
+                    Err(Grab::LowRes) => {}
+                    other => return other.map_err(Grab::into_error),
+                }
             }
         }
-        let Some((display, s)) = hit else { return Err(CaptureError::Os("找不到截屏区域所在的显示器".into())) };
+        capture_with_filter(r, cursor)
+    }
+
+    /// 矩形所在显示器的缩放倍数：矩形左上角换算成点之后落在该显示器里。
+    fn scale_at(r: Rect) -> Option<f64> {
+        let mut ids = [0 as CGDirectDisplayID; 16];
+        let mut n = 0u32;
+        unsafe { CGGetActiveDisplayList(ids.len() as u32, ids.as_mut_ptr(), &mut n) };
+        ids[..n as usize].iter().find_map(|&id| {
+            let s = scale_of(id);
+            let b = CGDisplayBounds(id);
+            let (px, py) = (r.x as f64 / s, r.y as f64 / s);
+            let inside = px >= b.origin.x - 0.5
+                && py >= b.origin.y - 0.5
+                && px < b.origin.x + b.size.width
+                && py < b.origin.y + b.size.height;
+            inside.then_some(s)
+        })
+    }
+
+    enum Grab {
+        LowRes,
+        Os(String),
+        Timeout,
+    }
+
+    impl Grab {
+        fn into_error(self) -> CaptureError {
+            match self {
+                Grab::Os(e) => CaptureError::Os(format!("ScreenCaptureKit：{e}")),
+                Grab::Timeout => CaptureError::Os("截屏超时".into()),
+                Grab::LowRes => CaptureError::Os("截到的图分辨率不够".into()),
+            }
+        }
+    }
+
+    /// 发起一次截图（`start` 把回调交给系统），等系统把图送回来并转成 w×h 的帧。
+    fn grab(
+        r: Rect,
+        start: impl FnOnce(&block2::DynBlock<dyn Fn(*mut CGImage, *mut NSError)>),
+    ) -> Result<Frame, Grab> {
+        let (tx, rx) = mpsc::channel();
+        let (w, h) = (r.width, r.height);
+        let block = block2::RcBlock::new(move |image: *mut CGImage, err: *mut NSError| {
+            let r = if image.is_null() {
+                Err(Grab::Os(unsafe { err.as_ref() }.map(|e| e.localizedDescription().to_string()).unwrap_or_default()))
+            } else if unsafe { CGImageGetWidth(image as *const c_void) } < w as usize {
+                Err(Grab::LowRes)
+            } else {
+                Ok(unsafe { to_bgra(image as *const c_void, w, h) })
+            };
+            let _ = tx.send(r);
+        });
+        start(&block);
+        match rx.recv_timeout(TIMEOUT) {
+            Ok(Ok(bgra)) => Ok(Frame::from_bgra(w, h, &bgra)),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(Grab::Timeout),
+        }
+    }
+
+    /// 旧路径（macOS 14 起可用）：先列出显示器，再按显示器 + 区域截图。
+    fn capture_with_filter(r: Rect, cursor: bool) -> Result<Frame, CaptureError> {
+        let content = shareable_content()?;
+        let displays = unsafe { content.displays() };
+        let Some(s) = scale_at(r) else { return Err(CaptureError::Os("找不到截屏区域所在的显示器".into())) };
+        let (px, py) = (r.x as f64 / s, r.y as f64 / s);
+        let display = displays.iter().find(|d| {
+            let f = unsafe { d.frame() };
+            px >= f.origin.x - 0.5 && py >= f.origin.y - 0.5 && px < f.origin.x + f.size.width && py < f.origin.y + f.size.height
+        });
+        let Some(display) = display else { return Err(CaptureError::Os("找不到截屏区域所在的显示器".into())) };
         let f = unsafe { display.frame() };
         let source = CGRect::new(
-            CGPoint::new(r.x as f64 / s - f.origin.x, r.y as f64 / s - f.origin.y),
+            CGPoint::new(px - f.origin.x, py - f.origin.y),
             CGSize::new(r.width as f64 / s, r.height as f64 / s),
         );
         let filter = unsafe {
@@ -275,23 +352,10 @@ mod imp {
             config.setShowsCursor(cursor);
             config.setCaptureResolution(SCCaptureResolutionType::Best);
         }
-
-        let (tx, rx) = mpsc::channel();
-        let (w, h) = (r.width, r.height);
-        let block = block2::RcBlock::new(move |image: *mut CGImage, err: *mut NSError| {
-            let r = if image.is_null() {
-                Err(unsafe { err.as_ref() }.map(|e| e.localizedDescription().to_string()).unwrap_or_default())
-            } else {
-                Ok(unsafe { to_bgra(image as *const c_void, w, h) })
-            };
-            let _ = tx.send(r);
-        });
-        unsafe { SCScreenshotManager::captureImageWithFilter_configuration_completionHandler(&filter, &config, Some(&block)) };
-        match rx.recv_timeout(TIMEOUT) {
-            Ok(Ok(bgra)) => Ok(Frame::from_bgra(w, h, &bgra)),
-            Ok(Err(e)) => Err(CaptureError::Os(format!("ScreenCaptureKit：{e}"))),
-            Err(_) => Err(CaptureError::Os("截屏超时".into())),
-        }
+        grab(r, |block| unsafe {
+            SCScreenshotManager::captureImageWithFilter_configuration_completionHandler(&filter, &config, Some(block))
+        })
+        .map_err(Grab::into_error)
     }
 
     /// 把 CGImage 画进一块 w×h 的 BGRA 内存（不管系统给的图是什么格式、行宽有没有对齐）。
