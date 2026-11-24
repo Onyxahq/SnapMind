@@ -304,7 +304,77 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+/// macOS：顶层窗口用 `CGWindowListCopyWindowInfo` 拍快照（只读位置和大小，不需要任何权限）。
+/// 往窗口里面找控件要用辅助功能（AX）接口，需要用户授权，还没做（MAC-2.1 第二步），
+/// 暂时吸附链只有窗口本身。
+#[cfg(target_os = "macos")]
+mod imp {
+    use super::*;
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2_core_graphics::{kCGNullWindowID, CGWindowListCopyWindowInfo, CGWindowListOption};
+    use objc2_foundation::{NSArray, NSDictionary, NSNumber, NSString};
+
+    /// 普通应用窗口所在的层（kCGNormalWindowLevel）。菜单栏、程序坞、浮动面板在更高的层，不吸附。
+    const NORMAL_LAYER: i64 = 0;
+
+    fn num(d: &NSDictionary<NSString, AnyObject>, key: &str) -> Option<f64> {
+        let v = d.objectForKey(&NSString::from_str(key))?;
+        v.downcast::<NSNumber>().ok().map(|n| n.doubleValue())
+    }
+
+    pub fn top_level_windows(exclude_pid: u32) -> Vec<TopWindow> {
+        let opts = CGWindowListOption::OptionOnScreenOnly | CGWindowListOption::ExcludeDesktopElements;
+        let Some(list) = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) else { return Vec::new() };
+        // CFArray 和 NSArray 可以互相直接当作对方使用（toll-free bridging）
+        // SAFETY: 系统保证数组里每一项都是 CFDictionary（键为 CFString）。
+        // SAFETY: 同上；`list` 活到函数结束，借用不会悬空。
+        let list: &NSArray<NSDictionary<NSString, AnyObject>> =
+            unsafe { &*(&*list as *const objc2_core_foundation::CFArray).cast() };
+        let mut out = Vec::new();
+        // 系统按前后顺序给出，最前面的在第一个，和 Windows 的 Z 序一致
+        for d in list.iter() {
+            if num(&d, "kCGWindowLayer") != Some(NORMAL_LAYER as f64) {
+                continue;
+            }
+            if num(&d, "kCGWindowOwnerPID").is_some_and(|p| p as u32 == exclude_pid) {
+                continue;
+            }
+            if num(&d, "kCGWindowAlpha").is_some_and(|a| a <= 0.0) {
+                continue;
+            }
+            let Some(b) = d.objectForKey(&NSString::from_str("kCGWindowBounds")) else { continue };
+            let Ok(b) = b.downcast::<NSDictionary>() else { continue };
+            // SAFETY: 窗口外框字典的键都是字符串
+            let b: Retained<NSDictionary<NSString, AnyObject>> = unsafe { Retained::cast_unchecked(b) };
+            let (Some(x), Some(y), Some(w), Some(h)) = (num(&b, "X"), num(&b, "Y"), num(&b, "Width"), num(&b, "Height")) else {
+                continue;
+            };
+            let rect = to_pixels(x, y, w, h, crate::capture::scale_at_point(x, y));
+            if rect.width == 0 || rect.height == 0 {
+                continue;
+            }
+            let handle = num(&d, "kCGWindowNumber").unwrap_or(0.0) as isize;
+            out.push(TopWindow { handle, rect });
+        }
+        out
+    }
+
+    /// 点坐标 → 物理像素（tao 约定：乘以窗口所在显示器的缩放倍数）。
+    pub(super) fn to_pixels(x: f64, y: f64, w: f64, h: f64, scale: f64) -> Rect {
+        let (x0, y0) = ((x * scale).round() as i32, (y * scale).round() as i32);
+        let (x1, y1) = (((x + w) * scale).round() as i32, ((y + h) * scale).round() as i32);
+        Rect { x: x0, y: y0, width: (x1 - x0).max(0) as u32, height: (y1 - y0).max(0) as u32 }
+    }
+
+    pub fn serve(rx: std::sync::mpsc::Receiver<Request>) {
+        while let Ok(req) = rx.recv() {
+            let _ = req.reply.send(vec![req.window.rect]);
+        }
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
     use super::*;
 
@@ -372,6 +442,26 @@ mod tests {
 
 /// 手动诊断：`cargo test -p snapmind-platform -- --ignored --nocapture probe_report`
 /// 打印屏幕上几个点的吸附链和耗时。
+#[cfg(all(test, target_os = "macos"))]
+mod mac_tests {
+    use super::*;
+
+    #[test]
+    fn points_become_pixels_of_that_display() {
+        // Retina（2 倍）上 (10.25, 20) 起 100×50 点的窗口
+        assert_eq!(imp::to_pixels(10.25, 20.0, 100.0, 50.0, 2.0), Rect { x: 21, y: 40, width: 200, height: 100 });
+        // 主显示器左边的外接 1 倍屏，坐标是负的
+        assert_eq!(imp::to_pixels(-1920.0, 0.0, 800.0, 600.0, 1.0), Rect { x: -1920, y: 0, width: 800, height: 600 });
+    }
+
+    #[test]
+    fn lists_other_apps_windows_front_to_back() {
+        let ws = top_level_windows(std::process::id());
+        eprintln!("{} 个窗口：{:?}", ws.len(), ws.iter().take(5).collect::<Vec<_>>());
+        assert!(ws.iter().all(|w| w.rect.width > 0 && w.rect.height > 0));
+    }
+}
+
 #[cfg(all(test, windows))]
 #[test]
 #[ignore]

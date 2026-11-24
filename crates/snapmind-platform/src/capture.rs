@@ -58,6 +58,9 @@ pub fn request_permission(open_settings: bool) {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub(crate) use imp::scale_at_point;
+
 /// 并行抓取多块矩形（每个显示器一块），结果顺序与输入一致。
 pub fn capture_all(rects: &[Rect]) -> Vec<Result<Frame, CaptureError>> {
     std::thread::scope(|s| {
@@ -265,6 +268,22 @@ mod imp {
             }
         }
         capture_with_filter(r, cursor)
+    }
+
+    /// 全局点坐标 (x, y) 所在显示器的缩放倍数；不在任何显示器上时取主显示器的。
+    /// 窗口吸附（`snap`）把系统给的点坐标换成和截图一致的物理像素时用。
+    pub(crate) fn scale_at_point(x: f64, y: f64) -> f64 {
+        let mut ids = [0 as CGDirectDisplayID; 16];
+        let mut n = 0u32;
+        unsafe { CGGetActiveDisplayList(ids.len() as u32, ids.as_mut_ptr(), &mut n) };
+        let ids = &ids[..n as usize];
+        ids.iter()
+            .find(|&&id| {
+                let b = CGDisplayBounds(id);
+                x >= b.origin.x && y >= b.origin.y && x < b.origin.x + b.size.width && y < b.origin.y + b.size.height
+            })
+            .or(ids.first())
+            .map_or(1.0, |&id| scale_of(id))
     }
 
     /// 矩形所在显示器的缩放倍数：矩形左上角换算成点之后落在该显示器里。
