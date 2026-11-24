@@ -360,6 +360,16 @@ mod imp {
         out
     }
 
+    /// 窗口（kCGWindowNumber）属于哪个进程。长截图往指定窗口发滚轮时用。
+    pub(crate) fn window_owner_pid(handle: isize) -> Option<i32> {
+        let list = CGWindowListCopyWindowInfo(CGWindowListOption::OptionIncludingWindow, handle as u32)?;
+        // SAFETY: 同 top_level_windows
+        let list: &NSArray<NSDictionary<NSString, AnyObject>> =
+            unsafe { &*(&*list as *const objc2_core_foundation::CFArray).cast() };
+        let d = list.iter().next()?;
+        num(&d, "kCGWindowOwnerPID").map(|p| p as i32)
+    }
+
     /// 点坐标 → 物理像素（tao 约定：乘以窗口所在显示器的缩放倍数）。
     pub(super) fn to_pixels(x: f64, y: f64, w: f64, h: f64, scale: f64) -> Rect {
         let (x0, y0) = ((x * scale).round() as i32, (y * scale).round() as i32);
@@ -373,6 +383,9 @@ mod imp {
         }
     }
 }
+
+#[cfg(target_os = "macos")]
+pub(crate) use imp::window_owner_pid;
 
 #[cfg(not(any(windows, target_os = "macos")))]
 mod imp {

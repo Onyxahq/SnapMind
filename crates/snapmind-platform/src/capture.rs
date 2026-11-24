@@ -59,7 +59,7 @@ pub fn request_permission(open_settings: bool) {
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) use imp::scale_at_point;
+pub(crate) use imp::{pixel_to_point, scale_at_point};
 
 /// 并行抓取多块矩形（每个显示器一块），结果顺序与输入一致。
 pub fn capture_all(rects: &[Rect]) -> Vec<Result<Frame, CaptureError>> {
@@ -284,6 +284,28 @@ mod imp {
             })
             .or(ids.first())
             .map_or(1.0, |&id| scale_of(id))
+    }
+
+    /// 物理像素 → 全局点坐标：先找出像素落在哪块显示器（显示器的点范围乘以它自己的倍数），再除以那个倍数。
+    pub(crate) fn pixel_to_point(x: i32, y: i32) -> (f64, f64) {
+        let mut ids = [0 as CGDirectDisplayID; 16];
+        let mut n = 0u32;
+        unsafe { CGGetActiveDisplayList(ids.len() as u32, ids.as_mut_ptr(), &mut n) };
+        let ids = &ids[..n as usize];
+        let (fx, fy) = (x as f64, y as f64);
+        let s = ids
+            .iter()
+            .map(|&id| (scale_of(id), CGDisplayBounds(id)))
+            .find(|(s, b)| {
+                fx >= b.origin.x * s
+                    && fy >= b.origin.y * s
+                    && fx < (b.origin.x + b.size.width) * s
+                    && fy < (b.origin.y + b.size.height) * s
+            })
+            .map(|(s, _)| s)
+            .or_else(|| ids.first().map(|&id| scale_of(id)))
+            .unwrap_or(1.0);
+        (fx / s, fy / s)
     }
 
     /// 矩形所在显示器的缩放倍数：矩形左上角换算成点之后落在该显示器里。

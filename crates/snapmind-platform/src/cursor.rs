@@ -76,7 +76,85 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+/// macOS：读位置 / 按键状态不需要权限；移动指针、发滚轮要「辅助功能」授权，
+/// 没授权时移动指针退回 `CGWarpMouseCursorPosition`（不会带动正在进行的拖动），滚轮发不出去。
+#[cfg(target_os = "macos")]
+mod imp {
+    use crate::capture::{pixel_to_point, scale_at_point};
+    use objc2_core_foundation::CGPoint;
+    use objc2_core_graphics::{
+        CGEvent, CGEventField, CGEventSource, CGEventSourceStateID, CGEventTapLocation, CGEventType, CGMouseButton,
+        CGScrollEventUnit, CGWarpMouseCursorPosition,
+    };
+
+    #[link(name = "ApplicationServices", kind = "framework")]
+    unsafe extern "C" {
+        fn AXIsProcessTrusted() -> u8;
+    }
+
+    fn trusted() -> bool {
+        // SAFETY: 无参数，只读当前进程的授权状态
+        unsafe { AXIsProcessTrusted() != 0 }
+    }
+
+    fn location() -> Option<CGPoint> {
+        let e = CGEvent::new(None)?;
+        Some(CGEvent::location(Some(&e)))
+    }
+
+    pub fn position() -> Option<(i32, i32)> {
+        let p = location()?;
+        let s = scale_at_point(p.x, p.y);
+        Some(((p.x * s).round() as i32, (p.y * s).round() as i32))
+    }
+
+    pub fn left_button_down() -> bool {
+        CGEventSource::button_state(CGEventSourceStateID::CombinedSessionState, CGMouseButton::Left)
+    }
+
+    pub fn nudge(dx: i32, dy: i32) {
+        let Some((x, y)) = position() else { return };
+        let (px, py) = pixel_to_point(x + dx, y + dy);
+        let to = CGPoint::new(px, py);
+        if trusted() {
+            // 发一个真实的移动（按着左键时是拖动）事件：指针跟着动，正在进行的拖动也会精确跟上
+            let kind = if left_button_down() { CGEventType::LeftMouseDragged } else { CGEventType::MouseMoved };
+            if let Some(e) = CGEvent::new_mouse_event(None, kind, to, CGMouseButton::Left) {
+                CGEvent::post(CGEventTapLocation::HIDEventTap, Some(&e));
+                return;
+            }
+        }
+        let _ = CGWarpMouseCursorPosition(to);
+    }
+
+    /// 往窗口 `top`（kCGWindowNumber）所属进程直接投递滚轮事件，并把事件标成「鼠标下是这个窗口」：
+    /// 遮罩盖在最上面，发到系统事件流里会被遮罩自己收到。
+    /// 用像素单位：120 = Windows 的一格 ≈ 60 点，40（小选区的三分之一格）≈ 20 点。
+    pub fn post_wheel(top: isize, x: i32, y: i32, delta: i32, horizontal: bool) -> bool {
+        if !trusted() {
+            return false;
+        }
+        let Some(pid) = crate::snap::window_owner_pid(top) else { return false };
+        let amount = delta / 2;
+        // 纵向：两边都是正数向上。横向：Windows 正数向右，macOS 的第二个滚轮正数向左（这是推断，待真机核对）
+        let (w1, w2) = if horizontal { (0, -amount) } else { (amount, 0) };
+        let Some(e) = CGEvent::new_scroll_wheel_event2(None, CGScrollEventUnit::Pixel, 2, w1, w2, 0) else {
+            return false;
+        };
+        let (px, py) = pixel_to_point(x, y);
+        CGEvent::set_location(Some(&e), CGPoint::new(px, py));
+        for field in [
+            CGEventField::MouseEventWindowUnderMousePointer,
+            CGEventField::MouseEventWindowUnderMousePointerThatCanHandleThisEvent,
+        ] {
+            CGEvent::set_integer_value_field(Some(&e), field, top as i64);
+        }
+        CGEvent::post_to_pid(pid, Some(&e));
+        true
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
     pub fn nudge(_dx: i32, _dy: i32) {}
     pub fn position() -> Option<(i32, i32)> {
@@ -87,5 +165,26 @@ mod imp {
     }
     pub fn post_wheel(_top: isize, _x: i32, _y: i32, _delta: i32, _horizontal: bool) -> bool {
         false
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod mac_tests {
+    /// 真机：读位置、左右各挪 3 像素、往一个真实窗口投递 0 距离滚轮（不会真的滚动别人的内容）。
+    /// 需要运行测试的终端有辅助功能授权；屏幕锁定时位置读得到，但挪动可能不生效。
+    #[test]
+    #[ignore]
+    fn moves_pointer_and_posts_wheel() {
+        let (x, y) = super::position().expect("读不到指针位置");
+        super::nudge(3, 0);
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let after = super::position().unwrap();
+        super::nudge(-3, 0);
+        eprintln!("指针 ({x}, {y}) → {after:?}，左键按着：{}", super::left_button_down());
+        assert_eq!(after, (x + 3, y));
+        let ws = crate::snap::top_level_windows(std::process::id());
+        let w = ws.first().expect("没有窗口");
+        assert!(crate::snap::window_owner_pid(w.handle).is_some());
+        assert!(super::post_wheel(w.handle, w.rect.x + 5, w.rect.y + 5, 0, false));
     }
 }
