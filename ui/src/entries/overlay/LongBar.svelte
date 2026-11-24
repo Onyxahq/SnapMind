@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n.svelte';
+  import { appKeys } from '$lib/hotkey';
   // 长截图（需求 3.9、M9.1）：选区下方的工具条 + 选区旁边的实时拼接预览。
   // 选区里透出真实页面，滚轮直接滚页面；只有这条工具条接收鼠标（位置报给 Rust 切换穿透）。
   import type { Rect } from '$lib/geometry';
@@ -132,8 +133,8 @@
     onclick={() => onauto(!auto)}
   />
   <IconButton icon="scan" label={t('识别文字 Shift+C')} disabled={busy} onclick={() => onfinish('ocr')} />
-  <IconButton icon="pin" label={t('贴图 Ctrl+T')} disabled={busy} onclick={() => onfinish('pin')} />
-  <IconButton icon="download" label={t('保存 Ctrl+S')} disabled={busy} onclick={() => onfinish('save')} />
+  <IconButton icon="pin" label={appKeys(t('贴图 Ctrl+T'))} disabled={busy} onclick={() => onfinish('pin')} />
+  <IconButton icon="download" label={appKeys(t('保存 Ctrl+S'))} disabled={busy} onclick={() => onfinish('save')} />
   <IconButton icon="close" label={t('取消长截图 Esc')} disabled={busy} onclick={oncancel} />
   <button type="button" class="done" disabled={busy} title={t('完成并复制 Enter')} onclick={() => onfinish('copy')}>
     {busy ? t('处理中…') : t('完成并复制')}

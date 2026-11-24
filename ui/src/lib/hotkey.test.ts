@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayKeys, keyName, record, sameKeys } from './hotkey';
+import { appKeys, displayKeys, keyName, record, sameKeys } from './hotkey';
 
 const ev = (code: string, mods: Partial<Record<'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey', boolean>> = {}) => ({
   code,
@@ -32,11 +32,24 @@ describe('hotkey', () => {
   });
 
   it('displays and compares', () => {
-    expect(displayKeys('Ctrl+Shift+O')).toBe('Ctrl + Shift + O');
-    expect(displayKeys('Alt+Super+Backquote')).toBe('Alt + Win + `');
+    expect(displayKeys('Ctrl+Shift+O', false)).toBe('Ctrl + Shift + O');
+    expect(displayKeys('Alt+Super+Backquote', false)).toBe('Alt + Win + `');
     expect(displayKeys('')).toBe('未设置');
+    // Mac：符号按 ⌃⌥⇧⌘ 排，Ctrl 就是 Control 键
+    expect(displayKeys('Shift+Super+1', true)).toBe('⇧⌘1');
+    expect(displayKeys('Ctrl+Alt+D', true)).toBe('⌃⌥D');
+    expect(displayKeys('Super+Space', true)).toBe('⌘空格');
+    expect(displayKeys('', true)).toBe('未设置');
     expect(sameKeys('Ctrl+Shift+S', 'shift+control+s')).toBe(true);
     expect(sameKeys('Ctrl+S', 'Ctrl+Shift+S')).toBe(false);
     expect(sameKeys('', '')).toBe(false);
+  });
+
+  it('shows in-app keys the Mac way', () => {
+    expect(appKeys('复制 Ctrl+C / Enter', true)).toBe('复制 ⌘C / Enter');
+    expect(appKeys('Shift+Alt+R', true)).toBe('⌥⇧R');
+    expect(appKeys('Ctrl+Shift+X', true)).toBe('⇧⌘X');
+    expect(appKeys('滚轮 / Ctrl+滚轮', true)).toBe('滚轮 / ⌘滚轮');
+    expect(appKeys('Ctrl+C', false)).toBe('Ctrl+C');
   });
 });

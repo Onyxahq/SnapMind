@@ -182,7 +182,7 @@ mod tests {
         let cfg = HotkeysConfig {
             capture: "Shift+F1".into(),
             pin_clipboard: "shift+f1".into(),
-            selection: "Ctrl+Shift+X".into(),
+            selection: crate::pin::THROUGH_SHORTCUT.into(),
             capture_translate: "Ctrl+Nope".into(),
             capture_recognize: String::new(),
         };

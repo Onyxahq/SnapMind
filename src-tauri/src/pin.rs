@@ -25,8 +25,11 @@ use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, Runtime, Webview
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 pub const LABEL_PREFIX: &str = "pin-";
-/// 鼠标穿透的开关键。
+/// 鼠标穿透的开关键（只在有贴图时注册）。Mac 上程序内的 Ctrl 键都显示成 ⌘，这里也用 ⇧⌘X，说法一致。
+#[cfg(not(target_os = "macos"))]
 pub const THROUGH_SHORTCUT: &str = "Ctrl+Shift+X";
+#[cfg(target_os = "macos")]
+pub const THROUGH_SHORTCUT: &str = "Super+Shift+X";
 /// 图片四周的透明边距（CSS 像素），用来画阴影。页面里有同一个常量。
 pub const MARGIN_CSS: f64 = 10.0;
 /// 缩放范围。

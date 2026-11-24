@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n.svelte';
+  import { IS_MAC } from '$lib/hotkey';
   // 贴图窗口（需求第 6 节）：置顶、拖动移动、滚轮缩放、Ctrl+滚轮调不透明度、Ctrl+0 恢复 100%、
   // Ctrl+Shift+X 鼠标穿透（全局快捷键，在 Rust 里处理）、双击或 Esc 关闭。
   // 窗口比图片大一圈透明边距，用来画阴影；缩放由 Rust 改窗口尺寸。
@@ -225,7 +226,8 @@
 
   function onWheel(e: WheelEvent) {
     e.preventDefault();
-    if (e.ctrlKey) {
+    // Mac 触控板双指捏合送来的是带 ctrlKey 的滚轮事件，要当缩放；Mac 上调不透明度用 ⌘ + 滚轮
+    if (IS_MAC ? e.metaKey : e.ctrlKey) {
       setOpacity(opacityStep(opacity, e.deltaY));
     } else {
       pinZoom({ factor: zoomFactor(e.deltaY), x: e.clientX, y: e.clientY });

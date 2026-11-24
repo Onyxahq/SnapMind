@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n.svelte';
+  import { appKeys } from '$lib/hotkey';
   // 截图工具条（需求 3.6，按钮 30px、内边距 4px）：按钮的顺序、隐藏、收进「⋯ 更多」都读配置
   // （config.toolbar.capture，设置 → 工具栏）；退出、复制固定在最右边。标注工具和撤销之间、
   // 和动作按钮之间自动加分隔。标注工具按钮与样式面板和贴图工具条共用（$lib/annot）。
@@ -44,7 +45,7 @@
   const bar = $derived(visibleBar(config.value.toolbar.capture, CAPTURE_ITEMS));
   /** 标注工具和撤销算一组，其余是动作：组和组之间加分隔 */
   const group = (i: BarItem) => (i.kind === 'action' ? 'action' : 'annot');
-  const tip = (i: BarItem) => (i.key ? `${t(i.label)}  ${t(i.key)}` : t(i.label));
+  const tip = (i: BarItem) => (i.key ? `${t(i.label)}  ${appKeys(t(i.key))}` : t(i.label));
 
   function pickMore(i: BarItem) {
     moreOpen = false;
@@ -92,7 +93,7 @@
   </span>
   <span class="sep" aria-hidden="true"></span>
   <IconButton icon="close" label={t('退出 Esc')} onclick={() => onaction('exit')} />
-  <button type="button" class="copy" title={t('复制 Ctrl+C / Enter')} aria-label={t('复制')} onclick={() => onaction('copy')}>
+  <button type="button" class="copy" title={appKeys(t('复制 Ctrl+C / Enter'))} aria-label={t('复制')} onclick={() => onaction('copy')}>
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
   </button>
 
@@ -100,7 +101,7 @@
     <div class="more" class:up={popUp} style:left="{moreAnchor?.offsetLeft ?? 0}px" role="menu" aria-label={t('更多')} in:popIn out:popOut>
       {#each bar.more as m (m.id)}
         <button type="button" role="menuitem" disabled={m.kind === 'undo' && !canUndo} onclick={() => pickMore(m)}>
-          <Icon name={m.icon} size={16} /><span class="ml">{t(m.label)}</span>{#if m.key}<kbd>{t(m.key)}</kbd>{/if}
+          <Icon name={m.icon} size={16} /><span class="ml">{t(m.label)}</span>{#if m.key}<kbd>{appKeys(t(m.key))}</kbd>{/if}
         </button>
       {/each}
       {#if bar.more.length}<span class="msep" aria-hidden="true"></span>{/if}

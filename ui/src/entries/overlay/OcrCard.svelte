@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n.svelte';
+  import { appKeys } from '$lib/hotkey';
   // 识别文字卡片（需求 3.8、M4.4）：按段落 / 按行切换、可编辑；复制或贴图后结束截图，关闭卡片不会。
   // 本地 OCR 模型第一次用时在这里下载（约 21 MB，PaddlePaddle 官方仓库，逐个校验 SHA-256）。
   import type { Rect } from '$lib/geometry';
@@ -130,7 +131,7 @@
       value={card.text}
       oninput={(e) => ontext(e.currentTarget.value)}
     ></textarea>
-    <span class="cap">{t('单击检测框选中或取消，Ctrl+A 全选 / 全不选')}</span>
+    <span class="cap">{appKeys(t('单击检测框选中或取消，Ctrl+A 全选 / 全不选'))}</span>
   {/if}
 
   <footer>

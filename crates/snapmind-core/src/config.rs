@@ -554,11 +554,18 @@ pub struct HotkeysConfig {
     pub capture_recognize: String,
 }
 
+/// 截图、贴图的默认键。Mac 笔记本的 F 键要配 fn 才能按，所以 Mac 上用 ⇧⌘1 / ⇧⌘2
+/// （紧挨系统的 ⇧⌘3 / 4 / 5 截屏键，系统和常见软件都没占用）；其余三个用 Control，两边一样。
+#[cfg(not(target_os = "macos"))]
+pub const DEFAULT_CAPTURE_KEYS: (&str, &str) = ("Shift+F1", "Shift+F3");
+#[cfg(target_os = "macos")]
+pub const DEFAULT_CAPTURE_KEYS: (&str, &str) = ("Super+Shift+1", "Super+Shift+2");
+
 impl Default for HotkeysConfig {
     fn default() -> Self {
         Self {
-            capture: "Shift+F1".into(),
-            pin_clipboard: "Shift+F3".into(),
+            capture: DEFAULT_CAPTURE_KEYS.0.into(),
+            pin_clipboard: DEFAULT_CAPTURE_KEYS.1.into(),
             selection: "Ctrl+Alt+D".into(),
             capture_translate: "Ctrl+Shift+O".into(),
             capture_recognize: "Ctrl+Shift+S".into(),
@@ -879,8 +886,8 @@ mod tests {
                 },
                 "record": { "format": "mp4", "fps": 30, "audio": true },
                 "hotkeys": {
-                    "capture": "Shift+F1",
-                    "pinClipboard": "Shift+F3",
+                    "capture": DEFAULT_CAPTURE_KEYS.0,
+                    "pinClipboard": DEFAULT_CAPTURE_KEYS.1,
                     "selection": "Ctrl+Alt+D",
                     "captureTranslate": "Ctrl+Shift+O",
                     "captureRecognize": "Ctrl+Shift+S"

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n.svelte';
+  import { appKeys } from '$lib/hotkey';
   // 设置 → 截图与贴图：图片格式与质量、文件名模板（实时预览）、保存目录、Ctrl+S 的行为、退出确认；录屏的默认选择。
   import { onMount } from 'svelte';
   import { openFolder, pickFolder, saveInfo, type ImageFormat, type RecordConfig, type SaveConfig } from '$lib/ipc';
@@ -120,9 +121,9 @@
       {#if s.dir}<Button variant="ghost" onclick={resetDir} title={t('改回「图片\\SnapMind」')}>{t('默认')}</Button>{/if}
     </div>
   </Row>
-  <Row title={t('Ctrl+S 保存方式')} desc={t('保存窗口可以改名、换格式和尺寸；直接保存会存到上面的目录')}>
+  <Row title={appKeys(t('Ctrl+S 保存方式'))} desc={t('保存窗口可以改名、换格式和尺寸；直接保存会存到上面的目录')}>
     <Seg
-      label={t('Ctrl+S 保存方式')}
+      label={appKeys(t('Ctrl+S 保存方式'))}
       options={[
         { value: 'window', label: t('SnapMind 保存窗口') },
         { value: 'system', label: t('系统另存为') },

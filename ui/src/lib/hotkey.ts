@@ -11,6 +11,9 @@ export const GLOBAL_HOTKEYS: { action: HotkeyAction; name: string; desc: string 
   { action: 'captureRecognize', name: msg('直接截图 OCR'), desc: msg('框选后复制识别出的文字') },
 ];
 
+/** 是不是 macOS：快捷键显示成 ⌘ ⌥ ⇧ ⌃，录制提示也换成 Mac 的键名。 */
+export const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent);
+
 const MODS: ['ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey', string][] = [
   ['ctrlKey', 'Ctrl'],
   ['altKey', 'Alt'],
@@ -54,7 +57,9 @@ export function record(e: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'altKey' | 's
   const key = keyName(e.code);
   if (!key) return { kind: 'pending', hint: t('这个键不能用作快捷键') };
   const standalone = /^F\d+$/.test(key) || key === 'PrintScreen' || key === 'Pause';
-  if (!mods.length && !standalone) return { kind: 'pending', hint: t('要配合 Ctrl、Alt、Shift 或 Win 键') };
+  if (!mods.length && !standalone) {
+    return { kind: 'pending', hint: IS_MAC ? t('要配合 ⌘、⌥、⌃ 或 ⇧ 键') : t('要配合 Ctrl、Alt、Shift 或 Win 键') };
+  }
   return { kind: 'keys', keys: [...mods, key].join('+') };
 }
 
@@ -65,19 +70,40 @@ const SHOW: Record<string, string> = {
   Insert: 'Ins',
 };
 
-/** 显示用：Ctrl+Shift+O → Ctrl + Shift + O；空字符串 → 未设置。 */
-export function displayKeys(keys: string): string {
+/** Mac 菜单里修饰键的固定顺序：⌃ ⌥ ⇧ ⌘。 */
+const MAC_MODS: [string, string][] = [['Ctrl', '⌃'], ['Alt', '⌥'], ['Shift', '⇧'], ['Super', '⌘']];
+
+/**
+ * 显示全局快捷键（Tauri 写法）：Ctrl+Shift+O → Ctrl + Shift + O；空字符串 → 未设置。
+ * Mac 上按系统习惯写成符号：Super+Shift+1 → ⇧⌘1，Ctrl 就是 Control 键 → ⌃。
+ */
+export function displayKeys(keys: string, mac = IS_MAC): string {
   if (!keys.trim()) return t('未设置');
-  return keys
+  const parts = keys
     .split('+')
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => {
       const cap = p.length === 1 ? p.toUpperCase() : p;
-      const norm = /^(ctrl|control)$/i.test(p) ? 'Ctrl' : /^(super|meta|win)$/i.test(p) ? 'Super' : cap;
-      return norm === 'Space' ? t('空格') : (SHOW[norm] ?? norm);
-    })
-    .join(' + ');
+      return /^(ctrl|control)$/i.test(p) ? 'Ctrl' : /^(super|meta|win|cmd|command)$/i.test(p) ? 'Super' : /^(alt|option)$/i.test(p) ? 'Alt' : /^shift$/i.test(p) ? 'Shift' : cap;
+    });
+  const show = (p: string) => (p === 'Space' ? t('空格') : (SHOW[p] ?? p));
+  if (!mac) return parts.map(show).join(' + ');
+  const mods = MAC_MODS.filter(([n]) => parts.includes(n)).map(([, s]) => s).join('');
+  return mods + parts.filter((p) => !MAC_MODS.some(([n]) => n === p)).map(show).join('');
+}
+
+/**
+ * 显示程序内的快捷键（工具条、提示、设置页里写死的 Ctrl+C 一类）。这些键在 Mac 上按 ⌘ 也行
+ * （处理时判断 ctrlKey || metaKey），所以 Mac 上 Ctrl 显示成 ⌘：Ctrl+C → ⌘C，Shift+Alt+R → ⌥⇧R。
+ * 可以传整句文字，只替换其中的组合键。
+ */
+export function appKeys(text: string, mac = IS_MAC): string {
+  if (!mac) return text;
+  const sym: Record<string, string> = { Alt: '⌥', Shift: '⇧', Ctrl: '⌘' };
+  return text.replace(/\b(?:(?:Ctrl|Alt|Shift)\+)+/g, (m) =>
+    ['Alt', 'Shift', 'Ctrl'].filter((k) => m.includes(`${k}+`)).map((k) => sym[k]).join(''),
+  );
 }
 
 /** 比较两个快捷键是否相同（不区分大小写和修饰键顺序）。 */

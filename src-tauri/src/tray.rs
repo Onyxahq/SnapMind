@@ -40,7 +40,27 @@ pub struct TrayItems<R: Runtime> {
 
 /// 菜单里显示的快捷键（没设置时不显示）。
 fn with_key(label: &str, keys: &str) -> String {
-    if keys.trim().is_empty() { label.to_string() } else { format!("{label}\t{}", keys.trim()) }
+    if keys.trim().is_empty() { label.to_string() } else { format!("{label}\t{}", show_keys(keys.trim())) }
+}
+
+/// Mac 菜单习惯写符号：Super+Shift+1 → ⇧⌘1（顺序固定为 ⌃⌥⇧⌘）。其他系统原样显示。
+fn show_keys(keys: &str) -> String {
+    if !cfg!(target_os = "macos") {
+        return keys.to_string();
+    }
+    let parts: Vec<&str> = keys.split('+').map(str::trim).filter(|p| !p.is_empty()).collect();
+    let is = |p: &str, names: &[&str]| names.iter().any(|n| p.eq_ignore_ascii_case(n));
+    let mods: [(&[&str], &str); 4] = [
+        (&["ctrl", "control"], "⌃"),
+        (&["alt", "option"], "⌥"),
+        (&["shift"], "⇧"),
+        (&["super", "cmd", "command", "meta"], "⌘"),
+    ];
+    let mut out: String = mods.iter().filter(|(n, _)| parts.iter().any(|p| is(p, n))).map(|(_, s)| *s).collect();
+    for p in parts.iter().filter(|p| !mods.iter().any(|(n, _)| is(p, n))) {
+        out.push_str(&p.to_uppercase());
+    }
+    out
 }
 
 /// 快捷键改了：更新托盘菜单里的提示。
@@ -191,3 +211,17 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 }
 
 
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn menu_shows_keys() {
+        let got = super::show_keys("Super+Shift+1");
+        if cfg!(target_os = "macos") {
+            assert_eq!(got, "⇧⌘1");
+            assert_eq!(super::show_keys("Ctrl+Alt+d"), "⌃⌥D");
+        } else {
+            assert_eq!(got, "Super+Shift+1");
+        }
+    }
+}

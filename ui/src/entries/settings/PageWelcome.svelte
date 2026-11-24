@@ -5,7 +5,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { inTauri } from '$lib/ipc';
   import { config } from '$lib/config.svelte';
-  import { GLOBAL_HOTKEYS, displayKeys } from '$lib/hotkey';
+  import { GLOBAL_HOTKEYS, displayKeys, appKeys } from '$lib/hotkey';
   import Card from '$lib/ui/Card.svelte';
   import Row from '$lib/ui/Row.svelte';
   import Button from '$lib/ui/Button.svelte';
@@ -51,7 +51,7 @@
     <div class="local">
       <span class="lt">{t('截图时')}</span>
       {#each IN_CAPTURE as [name, key] (name)}
-        <span class="chip"><kbd>{t(key)}</kbd>{t(name)}</span>
+        <span class="chip"><kbd>{appKeys(t(key))}</kbd>{t(name)}</span>
       {/each}
       <button type="button" class="link" onclick={() => go('keys')}>{t('全部快捷键 / 修改')}</button>
     </div>

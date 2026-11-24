@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n.svelte';
+  import { appKeys } from '$lib/hotkey';
   // 贴图工具条（需求第 6 节）：所有贴图共用的一个窗口，由 Rust 摆到当前悬停的贴图下方（放不下时在上方）。
   // 顶部（或底部）留 8px 透明连接区，鼠标从贴图移过来不会丢；悬停 / 菜单打开 / 标注期间一直显示。
   // 普通模式：按钮的顺序、隐藏、收进「更多」读配置（config.toolbar.pin，设置 → 工具栏）；
@@ -104,7 +105,7 @@
           onundo={() => send({ action: 'undo' })}
         />
         <span class="sep" aria-hidden="true"></span>
-        <IconButton icon="copy" label={t('复制 Ctrl+C')} onclick={() => act('copy')} />
+        <IconButton icon="copy" label={appKeys(t('复制 Ctrl+C'))} onclick={() => act('copy')} />
         <button type="button" class="done" title={t('完成 空格')} onclick={() => act('done')}>{t('完成')}</button>
       </div>
       {#if propsOpen && annot.tool && TOOL_INFO[annot.tool].props}
@@ -142,7 +143,7 @@
           </label>
           {#each bar.more as it (it.id)}
             <button type="button" class="row" role="menuitem" onclick={() => act(it.id as PinActionMsg['action'])}>
-              <Icon name={it.icon} size={15} /><span class="ml">{t(it.label)}</span>{#if it.key}<kbd>{t(it.key)}</kbd>{/if}
+              <Icon name={it.icon} size={15} /><span class="ml">{t(it.label)}</span>{#if it.key}<kbd>{appKeys(t(it.key))}</kbd>{/if}
             </button>
           {/each}
           <span class="msep" aria-hidden="true"></span>

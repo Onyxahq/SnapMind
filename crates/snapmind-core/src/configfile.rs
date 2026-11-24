@@ -396,7 +396,7 @@ mod tests {
         let target = Config::default();
         let next = crate::config::apply_patch(&target, &patch).unwrap();
         assert_eq!(next.prompts.translate, "自定义翻译提示词");
-        assert_eq!(next.hotkeys.capture, "Shift+F1");
+        assert_eq!(next.hotkeys.capture, crate::config::DEFAULT_CAPTURE_KEYS.0);
         assert!(next.providers.is_empty());
     }
 
@@ -429,7 +429,7 @@ mod tests {
         assert_eq!(r.providers, c.providers);
         assert_eq!(r.history.max_mb, 50);
         assert_eq!(r.prompts.translate, "");
-        assert_eq!(r.hotkeys.capture, "Shift+F1");
+        assert_eq!(r.hotkeys.capture, crate::config::DEFAULT_CAPTURE_KEYS.0);
     }
 
     #[test]

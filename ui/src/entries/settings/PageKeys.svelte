@@ -12,7 +12,7 @@
     type HotkeyStatus,
   } from '$lib/ipc';
   import { config, updateConfig } from '$lib/config.svelte';
-  import { GLOBAL_HOTKEYS, displayKeys, record, sameKeys } from '$lib/hotkey';
+  import { GLOBAL_HOTKEYS, displayKeys, record, sameKeys, appKeys } from '$lib/hotkey';
   import { toast } from '$lib/ui/toast.svelte';
   import Card from '$lib/ui/Card.svelte';
   import Row from '$lib/ui/Row.svelte';
@@ -153,7 +153,7 @@
 <Card title={t('截图编辑态与贴图（只在它们打开时生效）')}>
   <div class="grid">
     {#each LOCAL as [name, keys] (name)}
-      <div class="lk"><span>{t(name)}</span><span class="k">{t(keys)}</span></div>
+      <div class="lk"><span>{t(name)}</span><span class="k">{appKeys(t(keys))}</span></div>
     {/each}
   </div>
 </Card>
