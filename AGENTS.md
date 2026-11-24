@@ -24,3 +24,11 @@
 - 开始修改前检查本机和远端状态。需要拉取时先保留已有工作；出现分叉、冲突或网络失败时，不执行强制推送或破坏性重置，不覆盖他人的改动。
 
 - 推送完成后核对远端当前分支的提交哈希与本机 `HEAD` 一致。失败时保留本机 commit，明确报告“已提交但未同步”及原因，不能把 commit 成功当成上传成功。
+
+## 跨平台：Windows + macOS（2026-11-25 起）
+
+- SnapMind 同时支持 **Windows（主力）和 macOS**。以后任何功能改动都要同时兼顾两端：Windows 不能因为 Mac 的改动退步，Windows 新加的功能要想清楚 Mac 上怎么做（做不了就在 Mac 计划里登记）。
+- 新会话开始时，除了 `docs/需求.md`、`docs/编程计划.md`、`docs/进度.md`，还要读 **`docs/Mac计划.md`**：里面有两端的 API 对照表、Mac 分期任务（MAC-x.y）和当前进度。截至 2026-11-25：Mac 一期（编译打包、截屏、遮罩、权限引导、截屏提速）已完成；下一步是一期收尾 MAC-1.3 ~ 1.7，然后二期（窗口吸附、划词、鼠标 / 滚轮）、三期（录屏、发布）。
+- 平台差异只写在 `crates/snapmind-platform`，每个模块用 `#[cfg(windows)]` / `#[cfg(target_os = "macos")]` / `#[cfg(not(any(windows, target_os = "macos")))]` 三段，对外签名一致；`src-tauri` 里要窗口句柄统一用 `wm::native_handle`。前端快捷键判断 `e.ctrlKey || e.metaKey`。
+- 编译打包按改动的平台来：Windows 在 Windows 机器上用 `pnpm release`；macOS 在 Mac 上用 `scripts/mac-build.sh`（用本机钥匙串里的自签名证书「SnapMind Local Signing」签名，屏幕录制授权才不会每次重编就失效；装到 `/Applications` 并删掉 target 里的 .app，免得启动台出现两个）。在 Mac 上改了 Windows 分支或共用代码而没法编译 Windows 时，汇报写明「Windows 未编译验证」。
+- Mac 的系统权限（屏幕录制、以后的辅助功能）只能由用户本人在系统设置里授权，不要代点。
