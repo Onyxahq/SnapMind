@@ -75,6 +75,9 @@ pub fn set_file(path: &Path) -> Result<(), ClipboardError> {
 #[derive(Debug, Default, Clone)]
 pub struct Snapshot {
     pub formats: Vec<(u32, Vec<u8>)>,
+    /// macOS：剪贴板里每一项（一次复制可能有多项，比如多个文件），每项的每种类型（UTI）和数据
+    #[cfg(target_os = "macos")]
+    pub items: Vec<Vec<(String, Vec<u8>)>>,
 }
 
 /// 存下剪贴板的全部内容。打不开剪贴板时返回 None。
@@ -318,17 +321,79 @@ mod imp {
 mod imp {
     use super::*;
 
+    pub use pasteboard::{restore, sequence, snapshot};
+
+    /// macOS：NSPasteboard 的 changeCount 当序号；快照存下每一项的全部类型，划词后原样放回
+    /// （图片、富文本、文件都不丢）。
+    #[cfg(target_os = "macos")]
+    mod pasteboard {
+        use super::*;
+        use objc2::rc::Retained;
+        use objc2::runtime::ProtocolObject;
+        use objc2_app_kit::{NSPasteboard, NSPasteboardItem, NSPasteboardWriting};
+        use objc2_foundation::{NSArray, NSData, NSString};
+
+        pub fn sequence() -> u32 {
+            NSPasteboard::generalPasteboard().changeCount() as u32
+        }
+
+        pub fn snapshot() -> Option<Snapshot> {
+            let pb = NSPasteboard::generalPasteboard();
+            let items = pb.pasteboardItems().map(|items| {
+                items
+                    .iter()
+                    .map(|item| {
+                        item.types()
+                            .iter()
+                            .filter_map(|t| item.dataForType(&t).map(|d| (t.to_string(), d.to_vec())))
+                            .collect()
+                    })
+                    .collect()
+            });
+            Some(Snapshot { formats: Vec::new(), items: items.unwrap_or_default() })
+        }
+
+        pub fn restore(s: &Snapshot) -> Result<(), ClipboardError> {
+            let pb = NSPasteboard::generalPasteboard();
+            pb.clearContents();
+            if s.items.is_empty() {
+                return Ok(());
+            }
+            let items: Vec<Retained<ProtocolObject<dyn NSPasteboardWriting>>> = s
+                .items
+                .iter()
+                .map(|types| {
+                    let item = NSPasteboardItem::new();
+                    for (t, bytes) in types {
+                        item.setData_forType(&NSData::with_bytes(bytes), &NSString::from_str(t));
+                    }
+                    ProtocolObject::from_retained(item)
+                })
+                .collect();
+            if pb.writeObjects(&NSArray::from_retained_slice(&items)) {
+                Ok(())
+            } else {
+                Err(ClipboardError("还原剪贴板失败".into()))
+            }
+        }
+    }
+
     // Linux（M12）：先只存文字
-    pub fn sequence() -> u32 {
-        0
-    }
-    pub fn snapshot() -> Option<Snapshot> {
-        Some(Snapshot { formats: super::text().map(|t| vec![(13, t.into_bytes())]).unwrap_or_default() })
-    }
-    pub fn restore(s: &Snapshot) -> Result<(), ClipboardError> {
-        match s.formats.first() {
-            Some((_, b)) => super::set_text(&String::from_utf8_lossy(b)),
-            None => Ok(()),
+    #[cfg(not(target_os = "macos"))]
+    mod pasteboard {
+        use super::*;
+
+        pub fn sequence() -> u32 {
+            0
+        }
+        pub fn snapshot() -> Option<Snapshot> {
+            Some(Snapshot { formats: super::super::text().map(|t| vec![(13, t.into_bytes())]).unwrap_or_default() })
+        }
+        pub fn restore(s: &Snapshot) -> Result<(), ClipboardError> {
+            match s.formats.first() {
+                Some((_, b)) => super::super::set_text(&String::from_utf8_lossy(b)),
+                None => Ok(()),
+            }
         }
     }
 

@@ -7,6 +7,8 @@
 //!    格式，等用户松开 Alt / Shift / Win，发 Ctrl+C，等剪贴板序号变化后读文字，再把原来的内容放回去。
 //!
 //! UI Automation 是跨进程调用，个别程序会卡住，所以放在专用线程里、限时等待。
+//!
+//! macOS 对应：AX 的 `AXSelectedText` 代替 TextPattern，模拟 ⌘C，剪贴板序号用 NSPasteboard 的 changeCount。
 
 use std::time::{Duration, Instant};
 
@@ -182,7 +184,58 @@ mod imp {
     }
 }
 
-#[cfg(not(windows))]
+/// macOS：先问有焦点的控件要 `AXSelectedText`（需要辅助功能授权）；控件不支持时模拟 ⌘C。
+#[cfg(target_os = "macos")]
+mod imp {
+    use super::*;
+    use crate::accessibility::{ax, has_permission};
+    use objc2_core_graphics::{CGEvent, CGEventFlags, CGEventSource, CGEventSourceStateID, CGEventTapLocation};
+
+    /// 美式键盘上 C 键的键码（kVK_ANSI_C）
+    const KEY_C: u16 = 8;
+
+    pub fn uia_selection(timeout: Duration) -> UiaResult {
+        if !has_permission() {
+            return UiaResult::Unsupported;
+        }
+        // 跨进程调用的超时由 AX 自己控制（AXUIElementSetMessagingTimeout），不用另开线程
+        let Some(app) = ax::focused_app(timeout.as_secs_f32()) else { return UiaResult::Unsupported };
+        let Some(el) = ax::focused_element(&app) else { return UiaResult::Unsupported };
+        match ax::string_attr(&el, "AXSelectedText").map(|t| normalize(&t)) {
+            Some(t) if t.is_empty() => UiaResult::Empty,
+            Some(t) => UiaResult::Text(t),
+            None => UiaResult::Unsupported,
+        }
+    }
+
+    fn mods_down() -> bool {
+        let held = CGEventSource::flags_state(CGEventSourceStateID::CombinedSessionState);
+        held.intersects(
+            CGEventFlags::MaskShift | CGEventFlags::MaskControl | CGEventFlags::MaskAlternate | CGEventFlags::MaskCommand,
+        )
+    }
+
+    /// 快捷键（默认 ⌃⌥D）的修饰键还按着时，先等用户松开。等不到也没关系：发出去的 ⌘C 事件
+    /// 自带「只有 ⌘」的修饰键状态，目标程序看到的就是 ⌘C。
+    pub fn wait_modifiers_released(timeout: Duration) {
+        let t0 = Instant::now();
+        while mods_down() && t0.elapsed() < timeout {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    /// 发 ⌘C（要辅助功能授权，没授权时系统静默丢弃，剪贴板不变，取词返回空）。
+    pub fn send_copy() {
+        for down in [true, false] {
+            if let Some(e) = CGEvent::new_keyboard_event(None, KEY_C, down) {
+                CGEvent::set_flags(Some(&e), CGEventFlags::MaskCommand);
+                CGEvent::post(CGEventTapLocation::HIDEventTap, Some(&e));
+            }
+        }
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 mod imp {
     use super::*;
 
@@ -201,5 +254,34 @@ mod tests {
     #[test]
     fn normalizes_line_endings() {
         assert_eq!(normalize("  a\r\nb\rc  \n"), "a\nb\nc");
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod mac_tests {
+    /// 真机：剪贴板存下 → 写入别的文字 → 还原，前后每一项每种类型都要一样；序号要跟着变。
+    #[test]
+    #[ignore]
+    fn clipboard_round_trip() {
+        let before = crate::clipboard::snapshot().unwrap();
+        let seq = crate::clipboard::sequence();
+        crate::clipboard::set_text("SnapMind 剪贴板测试").unwrap();
+        assert_ne!(crate::clipboard::sequence(), seq, "写入后序号要变");
+        assert_eq!(crate::clipboard::text().as_deref(), Some("SnapMind 剪贴板测试"));
+        crate::clipboard::restore(&before).unwrap();
+        let after = crate::clipboard::snapshot().unwrap();
+        let kinds: Vec<Vec<&str>> = before.items.iter().map(|i| i.iter().map(|(t, _)| t.as_str()).collect()).collect();
+        eprintln!("剪贴板 {} 项，类型 {:?}", before.items.len(), kinds);
+        assert_eq!(after.items, before.items);
+    }
+
+    /// 真机：问当前焦点控件的选中文字（结果取决于当时的屏幕，只要不卡住、不崩）。
+    #[test]
+    #[ignore]
+    fn reads_focused_selection() {
+        let t = std::time::Instant::now();
+        let r = super::imp::uia_selection(super::UIA_TIMEOUT);
+        eprintln!("AX 选中文字：{r:?}，{:.1} ms", t.elapsed().as_secs_f64() * 1e3);
+        assert!(t.elapsed() < std::time::Duration::from_secs(2));
     }
 }

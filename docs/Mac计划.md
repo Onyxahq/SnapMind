@@ -31,7 +31,7 @@
 | 密钥 | Credential Manager | Keychain（keyring 自带） | ✅ |
 | 系统界面语言 | `GetUserPreferredUILanguages` | `NSLocale.preferredLanguages`（地区：`NSLocale.currentLocale.regionCode`） | ✅ |
 | 窗口吸附 | EnumWindows + UI Automation | `CGWindowListCopyWindowInfo` + AXUIElement（辅助功能权限） | ✅ 代码完成，待真机验收 |
-| 划词 | UI Automation + 模拟 Ctrl+C | AX `kAXSelectedTextAttribute` + 模拟 ⌘C（CGEvent） | ❌ MAC-2.2 |
+| 划词 | UI Automation + 模拟 Ctrl+C | AX `kAXSelectedTextAttribute` + 模拟 ⌘C（CGEvent） | ✅ 代码完成，待真机验收 |
 | 鼠标微移 / 位置 / 滚轮 | SendInput | CGEvent / `CGWarpMouseCursorPosition` | ✅ 代码完成，待真机验收 |
 | 长截图自动滚动 | 发滚轮消息 | CGEvent 滚轮直接投给目标进程（辅助功能权限） | ✅ 代码完成，待真机验收 |
 | 录屏 | 逐帧截 + Media Foundation + WASAPI | SCStream（视频 + 系统声音）+ AVAssetWriter | ❌ MAC-3.1 |
@@ -64,6 +64,7 @@
   - ✅ 第一步：顶层窗口快照（CGWindowListCopyWindowInfo，无需权限），悬停框出整个窗口。
   - ✅ 第二步：AX 控件吸附链 + 权限页「辅助功能」一行；终端里真机测过。待用户给 SnapMind 授权后在 Safari / Chrome / 访达 里悬停验收。
 - [ ] **MAC-2.2** 划词：先用 AX 取选中文字，取不到再模拟 ⌘C（存剪贴板 → 发 ⌘C → 等 `changeCount` 变 → 读 → 还原）。验收：Safari、Chrome、备忘录、VS Code 里划词翻译可用。
+  - ✅ 代码完成：AX `AXSelectedText` → 模拟 ⌘C；剪贴板 NSPasteboard 快照 / 还原真机测过。待用户给 SnapMind 辅助功能授权后在 Safari、Chrome、备忘录、VS Code 里验收。
 - [ ] **MAC-2.3** 鼠标与滚轮：`cursor.rs` 的 nudge / position / 左键状态 / 发滚轮用 CGEvent 实现；长截图自动滚动可用。
   - ✅ 代码完成并真机测过指针移动和滚轮投递；待用户在时用长截图核对滚动量与横向方向，并在系统设置里给 SnapMind 辅助功能授权。
 

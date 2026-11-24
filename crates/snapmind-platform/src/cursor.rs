@@ -81,6 +81,7 @@ mod imp {
 #[cfg(target_os = "macos")]
 mod imp {
     use crate::capture::{pixel_to_point, scale_at_point};
+
     use objc2_core_foundation::CGPoint;
     use objc2_core_graphics::{
         CGEvent, CGEventField, CGEventSource, CGEventSourceStateID, CGEventTapLocation, CGEventType, CGMouseButton,
@@ -104,10 +105,15 @@ mod imp {
         CGEventSource::button_state(CGEventSourceStateID::CombinedSessionState, CGMouseButton::Left)
     }
 
+    /// 指针只能停在整数点上（Retina 上 1 点 = 2 像素），所以每次至少挪 1 点，不然 1 像素的微移会被吞掉。
+    pub(super) fn whole_points(d: i32, scale: f64) -> f64 {
+        if d == 0 { 0.0 } else { (d as f64 / scale).abs().round().max(1.0).copysign(d as f64) }
+    }
+
     pub fn nudge(dx: i32, dy: i32) {
-        let Some((x, y)) = position() else { return };
-        let (px, py) = pixel_to_point(x + dx, y + dy);
-        let to = CGPoint::new(px, py);
+        let Some(p) = location() else { return };
+        let s = scale_at_point(p.x, p.y);
+        let to = CGPoint::new(p.x.round() + whole_points(dx, s), p.y.round() + whole_points(dy, s));
         if trusted() {
             // 发一个真实的移动（按着左键时是拖动）事件：指针跟着动，正在进行的拖动也会精确跟上
             let kind = if left_button_down() { CGEventType::LeftMouseDragged } else { CGEventType::MouseMoved };
@@ -162,6 +168,16 @@ mod imp {
 
 #[cfg(all(test, target_os = "macos"))]
 mod mac_tests {
+    #[test]
+    fn nudge_moves_at_least_one_point() {
+        let w = super::imp::whole_points;
+        assert_eq!(w(1, 2.0), 1.0); // Retina 上 1 像素也挪 1 点
+        assert_eq!(w(-1, 2.0), -1.0);
+        assert_eq!(w(3, 2.0), 2.0);
+        assert_eq!(w(4, 1.0), 4.0);
+        assert_eq!(w(0, 2.0), 0.0);
+    }
+
     /// 真机：读位置、左右各挪 3 像素、往一个真实窗口投递 0 距离滚轮（不会真的滚动别人的内容）。
     /// 需要运行测试的终端有辅助功能授权；屏幕锁定时位置读得到，但挪动可能不生效。
     #[test]
@@ -173,7 +189,7 @@ mod mac_tests {
         let after = super::position().unwrap();
         super::nudge(-3, 0);
         eprintln!("指针 ({x}, {y}) → {after:?}，左键按着：{}", super::left_button_down());
-        assert_eq!(after, (x + 3, y));
+        assert!(after.0 > x && after.1 == y, "向右挪了：{after:?}");
         let ws = crate::snap::top_level_windows(std::process::id());
         let w = ws.first().expect("没有窗口");
         assert!(crate::snap::window_owner_pid(w.handle).is_some());
