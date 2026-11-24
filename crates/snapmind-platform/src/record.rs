@@ -331,8 +331,7 @@ mod imp {
 }
 
 /// macOS：MP4 用 AVAssetWriter（系统自带的 H.264 / AAC 编码器，有硬件编码时自动用上）。
-/// 系统声音（`Loopback`）要靠 ScreenCaptureKit 的音频流，还没做（MAC-3.1 第三步），先报不支持——
-/// 上层会退回只录画面。
+/// 系统声音（`Loopback`）用 ScreenCaptureKit 的音频流（不含 SnapMind 自己的声音）。
 #[cfg(target_os = "macos")]
 mod imp {
     use super::*;
@@ -696,19 +695,213 @@ mod imp {
         }
     }
 
-    pub struct Loopback;
+    // ---- 系统声音：ScreenCaptureKit 的音频流 ----
+
+    use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
+    use objc2::{define_class, msg_send, DefinedClass};
+    use objc2_screen_capture_kit::{SCStream, SCStreamConfiguration, SCStreamOutput, SCStreamOutputType};
+    use std::sync::{Arc, Mutex};
+
+    const RATE: u32 = 48_000;
+    const CHANNELS: usize = 2;
+    /// 最多攒这么多采样（约 10 秒）：读的一方卡住时不至于无限占内存
+    const MAX_PENDING: usize = RATE as usize * CHANNELS * 10;
+
+    #[repr(C)]
+    struct AudioBuffer {
+        channels: u32,
+        bytes: u32,
+        data: *mut c_void,
+    }
+    /// AudioBufferList，最多两个缓冲（立体声分声道存放时一个声道一个）
+    #[repr(C)]
+    struct AudioBufferList2 {
+        count: u32,
+        buffers: [AudioBuffer; 2],
+    }
+
+    #[link(name = "CoreMedia", kind = "framework")]
+    unsafe extern "C" {
+        fn CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sample: &CMSampleBuffer,
+            size_needed: *mut usize,
+            list: *mut AudioBufferList2,
+            list_size: usize,
+            struct_alloc: *const c_void,
+            block_alloc: *const c_void,
+            flags: u32,
+            block_out: *mut *mut c_void,
+        ) -> i32;
+        fn CMSampleBufferGetFormatDescription(sample: &CMSampleBuffer) -> *const c_void;
+        fn CMAudioFormatDescriptionGetStreamBasicDescription(desc: *const c_void) -> *const Asbd;
+    }
+
+    /// kAudioFormatFlagIsFloat / kAudioFormatFlagIsNonInterleaved
+    const FLAG_FLOAT: u32 = 1;
+    const FLAG_NON_INTERLEAVED: u32 = 1 << 5;
+
+    /// 把一段声音样本转成交错的立体声浮点，追加到 `out`。不是 32 位浮点的格式（系统默认就是浮点）补静音。
+    unsafe fn append_interleaved(sample: &CMSampleBuffer, out: &mut Vec<f32>) {
+        unsafe {
+            let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(CMSampleBufferGetFormatDescription(sample));
+            if asbd.is_null() {
+                return;
+            }
+            let asbd = &*asbd;
+            let mut list = AudioBufferList2 {
+                count: 0,
+                buffers: [
+                    AudioBuffer { channels: 0, bytes: 0, data: std::ptr::null_mut() },
+                    AudioBuffer { channels: 0, bytes: 0, data: std::ptr::null_mut() },
+                ],
+            };
+            let mut block: *mut c_void = std::ptr::null_mut();
+            let st = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+                sample,
+                std::ptr::null_mut(),
+                &mut list,
+                std::mem::size_of::<AudioBufferList2>(),
+                std::ptr::null(),
+                std::ptr::null(),
+                1, // kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment
+                &mut block,
+            );
+            if st != 0 {
+                return;
+            }
+            let float32 = asbd.format_flags & FLAG_FLOAT != 0 && asbd.bits_per_channel == 32;
+            let n = list.count.min(2) as usize;
+            if !float32 || n == 0 {
+                // 不认识的格式：按时长补静音
+                let frames = list.buffers[0].bytes as usize / (asbd.bytes_per_frame.max(1) as usize);
+                out.extend(std::iter::repeat_n(0.0, frames * CHANNELS));
+            } else if asbd.format_flags & FLAG_NON_INTERLEAVED != 0 {
+                // 每个声道一个缓冲：交错成 L R L R …（单声道复制一份）
+                let ch = |i: usize| {
+                    let b = &list.buffers[i.min(n - 1)];
+                    std::slice::from_raw_parts(b.data as *const f32, b.bytes as usize / 4)
+                };
+                let (l, r) = (ch(0), ch(1));
+                for i in 0..l.len().min(r.len()) {
+                    out.push(l[i]);
+                    out.push(r[i]);
+                }
+            } else {
+                let b = &list.buffers[0];
+                let ch = b.channels.max(1) as usize;
+                let s = std::slice::from_raw_parts(b.data as *const f32, b.bytes as usize / 4);
+                for f in s.chunks_exact(ch) {
+                    out.push(f[0]);
+                    out.push(f[ch.min(2) - 1]);
+                }
+            }
+            if !block.is_null() {
+                CFRelease(block);
+            }
+        }
+    }
+
+    pub struct AudioIvars {
+        pending: Arc<Mutex<Vec<f32>>>,
+    }
+
+    define_class!(
+        // SAFETY: NSObject 没有子类化要求；AudioOutput 不实现 Drop。
+        #[unsafe(super(NSObject))]
+        #[name = "SnapMindAudioOutput"]
+        #[ivars = AudioIvars]
+        pub struct AudioOutput;
+
+        unsafe impl NSObjectProtocol for AudioOutput {}
+
+        unsafe impl SCStreamOutput for AudioOutput {
+            #[unsafe(method(stream:didOutputSampleBuffer:ofType:))]
+            fn did_output(&self, _stream: &SCStream, sample: &CMSampleBuffer, kind: SCStreamOutputType) {
+                if kind != SCStreamOutputType::Audio {
+                    return;
+                }
+                let mut p = self.ivars().pending.lock().expect("系统声音锁");
+                if p.len() < MAX_PENDING {
+                    unsafe { append_interleaved(sample, &mut p) };
+                }
+            }
+        }
+    );
+
+    /// 系统正在播放的声音（不含 SnapMind 自己的声音），48 kHz 立体声浮点。
+    pub struct Loopback {
+        stream: Retained<SCStream>,
+        pending: Arc<Mutex<Vec<f32>>>,
+        scratch: Vec<f32>,
+        _output: Retained<AudioOutput>,
+    }
+    // SAFETY: SCStream 可以在任意线程启停；采样通过 Mutex 交接。
+    unsafe impl Send for Loopback {}
+
     impl Loopback {
         pub fn open() -> Result<Self, RecordError> {
-            Err(RecordError::Unsupported)
+            let filter = crate::capture::main_display_filter().map_err(os)?;
+            let config = unsafe { SCStreamConfiguration::new() };
+            unsafe {
+                config.setCapturesAudio(true);
+                config.setSampleRate(RATE as isize);
+                config.setChannelCount(CHANNELS as isize);
+                config.setExcludesCurrentProcessAudio(true);
+                // 只要声音：画面压到最小、最慢，几乎不占资源
+                config.setWidth(2);
+                config.setHeight(2);
+                config.setMinimumFrameInterval(CMTime { value: 1, timescale: 1, flags: CMTimeFlags::Valid, epoch: 0 });
+            }
+            let pending = Arc::new(Mutex::new(Vec::new()));
+            let output = {
+                let this = AudioOutput::alloc().set_ivars(AudioIvars { pending: pending.clone() });
+                let o: Retained<AudioOutput> = unsafe { msg_send![super(this), init] };
+                o
+            };
+            let stream = unsafe { SCStream::initWithFilter_configuration_delegate(SCStream::alloc(), &filter, &config, None) };
+            let queue = dispatch2::DispatchQueue::new("snapmind.record.audio", None);
+            unsafe {
+                stream.addStreamOutput_type_sampleHandlerQueue_error(
+                    ProtocolObject::from_ref(&*output),
+                    SCStreamOutputType::Audio,
+                    Some(&queue),
+                )
+            }
+            .map_err(|e| os(e.localizedDescription()))?;
+            let (tx, rx) = std::sync::mpsc::channel();
+            let block = block2::RcBlock::new(move |err: *mut objc2_foundation::NSError| {
+                let _ = tx.send(unsafe { err.as_ref() }.map(|e| e.localizedDescription().to_string()));
+            });
+            unsafe { stream.startCaptureWithCompletionHandler(Some(&block)) };
+            match rx.recv_timeout(Duration::from_secs(3)) {
+                Ok(None) => {}
+                Ok(Some(e)) => return Err(os(e)),
+                Err(_) => return Err(os("启动系统声音录制超时")),
+            }
+            Ok(Self { stream, pending, scratch: Vec::new(), _output: output })
         }
         pub fn rate(&self) -> u32 {
-            48_000
+            RATE
         }
         pub fn channels(&self) -> usize {
-            2
+            CHANNELS
         }
+        /// 上次读之后到现在的声音（交错浮点；没有声音在放时可能是空的）。
         pub fn read(&mut self) -> Result<&[f32], RecordError> {
-            Err(RecordError::Unsupported)
+            self.scratch.clear();
+            std::mem::swap(&mut self.scratch, &mut *self.pending.lock().expect("系统声音锁"));
+            Ok(&self.scratch)
+        }
+    }
+
+    impl Drop for Loopback {
+        fn drop(&mut self) {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let block = block2::RcBlock::new(move |_err: *mut objc2_foundation::NSError| {
+                let _ = tx.send(());
+            });
+            unsafe { self.stream.stopCaptureWithCompletionHandler(Some(&block)) };
+            let _ = rx.recv_timeout(Duration::from_secs(3));
         }
     }
 }

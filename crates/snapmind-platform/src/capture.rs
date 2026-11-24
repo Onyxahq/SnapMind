@@ -81,7 +81,7 @@ pub fn request_permission(open_settings: bool) {
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) use imp::{pixel_to_point, scale_at_point};
+pub(crate) use imp::{main_display_filter, pixel_to_point, scale_at_point};
 
 /// 并行抓取多块矩形（每个显示器一块），结果顺序与输入一致。
 pub fn capture_all(rects: &[Rect]) -> Vec<Result<Frame, CaptureError>> {
@@ -311,6 +311,7 @@ mod imp {
     define_class!(
         // SAFETY: NSObject 没有子类化要求；StreamOutput 不实现 Drop。
         #[unsafe(super(NSObject))]
+        #[name = "SnapMindVideoOutput"]
         #[ivars = OutputIvars]
         pub struct StreamOutput;
 
@@ -374,6 +375,14 @@ mod imp {
             CVPixelBufferUnlockBaseAddress(buf, READ_ONLY);
             (!base.is_null()).then(|| Frame::from_bgra(w, h, &bgra))
         }
+    }
+
+    /// 整块主显示器的内容过滤器（录系统声音用：声音不分显示器，随便挂一块屏就行）。
+    pub(crate) fn main_display_filter() -> Result<Retained<SCContentFilter>, CaptureError> {
+        let content = shareable_content()?;
+        let displays = unsafe { content.displays() };
+        let display = displays.iter().next().ok_or_else(|| CaptureError::Os("没有显示器".into()))?;
+        Ok(unsafe { SCContentFilter::initWithDisplay_excludingWindows(SCContentFilter::alloc(), &display, &NSArray::new()) })
     }
 
     /// 矩形所在的显示器，以及矩形在那块显示器里的位置（点）。
