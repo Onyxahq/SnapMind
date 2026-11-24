@@ -20,7 +20,7 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use ort::session::builder::GraphOptimizationLevel;
+use ort::session::builder::{AutoDevicePolicy, GraphOptimizationLevel};
 use ort::session::Session;
 
 pub use det::{DetOptions, TextBox};
@@ -101,7 +101,11 @@ pub(crate) fn session(env: &ort::environment::Environment, path: &Path, threads:
     if !path.exists() {
         return Err(OcrError::MissingModel(path.display().to_string()));
     }
+    // 只用 CPU：ort 新建会话时默认按「最省电」自动选设备，在 macOS 上一定会挂上 CoreML，
+    // 而 CoreML 用低精度算，PP-OCRv5 的识别模型会输出乱码、检测框也会断开（MAC-1.4 查出）。
     Ok(Session::builder(env)?
+        .with_auto_device(AutoDevicePolicy::PreferCPU)
+        .map_err(|e| OcrError::Ort(e.to_string()))?
         .with_optimization_level(GraphOptimizationLevel::Level3)
         .map_err(|e| OcrError::Ort(e.to_string()))?
         .with_intra_threads(threads)
