@@ -11,12 +11,16 @@
 //
 // 自动更新（M11.3）：找到更新签名私钥时（环境变量 TAURI_SIGNING_PRIVATE_KEY，或
 // ~/.tauri/snapmind-updater.key），顺带生成签名（.sig）和 latest.json，供 `pnpm publish-release` 上传。
+//
+// macOS（MAC-3.2）：调用 scripts/mac-build.sh 打 .app + dmg 并装到 /Applications（--no-install 时不装）；
+// 有私钥时另出更新包 SnapMind_<版本>_aarch64.app.tar.gz 和签名，latest.json 里是 darwin-aarch64 一项。
+// Windows 和 Mac 在不同机器上打包，各自的 latest.json 只有本平台一项，发布时由 publish.mjs 合并。
 // 私钥只放在本机、不进仓库；公钥写在 src-tauri/tauri.conf.json 的 plugins.updater.pubkey。
 //
 // 版本号规则见 docs/进度.md「决策记录 · M0.5」。
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -66,20 +70,39 @@ export function writeVersion(toml, pkgText, version) {
 // ---------------------------------------------------------------- 更新清单
 
 export const setupName = (version) => `SnapMind_${version}_x64-setup.exe`;
+/** macOS 的安装包和更新包（Tauri 原名是 SnapMind.app.tar.gz，发布时带上版本号免得各版本重名）。 */
+export const dmgName = (version) => `SnapMind_${version}_aarch64.dmg`;
+export const macUpdateName = (version) => `SnapMind_${version}_aarch64.app.tar.gz`;
 
-/** 更新源 latest.json 的内容（tauri-plugin-updater 的静态清单格式）。 */
-export function updaterManifest({ version, signature, notes = '', date, repo = RELEASE_REPO }) {
+/** 本平台在 latest.json 里的键和更新包文件名。 */
+export function platformEntry(platform, version) {
+  switch (platform) {
+    case 'win32': return { key: 'windows-x86_64', file: setupName(version) };
+    case 'darwin': return { key: 'darwin-aarch64', file: macUpdateName(version) };
+    default: throw new Error(`还不支持在 ${platform} 上发布更新`);
+  }
+}
+
+/** 更新源 latest.json 的内容（tauri-plugin-updater 的静态清单格式），只含本平台一项。 */
+export function updaterManifest({ version, signature, notes = '', date, repo = RELEASE_REPO, platform = 'win32' }) {
+  const { key, file } = platformEntry(platform, version);
   return {
     version,
     notes,
     pub_date: date.toISOString(),
     platforms: {
-      'windows-x86_64': {
+      [key]: {
         signature: signature.trim(),
-        url: `https://github.com/${repo}/releases/download/v${version}/${setupName(version)}`,
+        url: `https://github.com/${repo}/releases/download/v${version}/${file}`,
       },
     },
   };
+}
+
+/** 发布时合并两台机器各自的 latest.json：同一版本才合并（平台项取并集，后来的覆盖同名项），版本不同以新的为准。 */
+export function mergeManifests(existing, mine) {
+  if (!existing || existing.version !== mine.version) return mine;
+  return { ...mine, platforms: { ...existing.platforms, ...mine.platforms } };
 }
 
 /** 更新签名私钥：环境变量优先，其次本机的密钥文件。没有时返回 null（只打普通安装包）。 */
@@ -176,6 +199,7 @@ function main(argv) {
   const key = signingKey();
   const pubkey = JSON.parse(readFileSync(TAURI_CONF, 'utf8')).plugins?.updater?.pubkey ?? '';
   if (key && !pubkey.trim()) throw new Error('有更新签名私钥，但 tauri.conf.json 里的 plugins.updater.pubkey 是空的');
+  if (process.platform === 'darwin') return releaseMac(version, key, flags);
   if (key) {
     console.log('找到更新签名私钥：生成签名和 latest.json');
     const env = {
@@ -209,6 +233,39 @@ function main(argv) {
   if (flags.has('--no-install')) return;
   install(setup, version);
   if (flags.has('--launch')) launchFromStartMenu();
+  console.log('\n完成。');
+}
+
+/** macOS：mac-build.sh 负责构建、签名（本机证书）、安装；这里只补更新包和 latest.json。 */
+function releaseMac(version, key, flags) {
+  const args = ['scripts/mac-build.sh'];
+  if (flags.has('--no-install')) args.push('--no-install');
+  let env = process.env;
+  if (key) {
+    console.log('找到更新签名私钥：生成更新包、签名和 latest.json');
+    env = { ...process.env, TAURI_SIGNING_PRIVATE_KEY: key, TAURI_SIGNING_PRIVATE_KEY_PASSWORD: process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? '' };
+    const extra = join(ROOT, 'target', 'updater.conf.json');
+    writeFileSync(extra, JSON.stringify({ bundle: { createUpdaterArtifacts: true } }));
+    args.push('--config', extra);
+  }
+  run('sh', args, { env });
+
+  const bundle = join(ROOT, 'target', 'release', 'bundle');
+  const dmg = join(bundle, 'dmg', dmgName(version));
+  if (!existsSync(dmg)) throw new Error(`找不到安装包 ${dmg}`);
+  if (key) {
+    const macos = join(bundle, 'macos');
+    const gz = join(macos, 'SnapMind.app.tar.gz');
+    if (!existsSync(gz) || !existsSync(`${gz}.sig`)) throw new Error(`找不到更新包 ${gz}（.sig）`);
+    copyFileSync(gz, join(macos, macUpdateName(version)));
+    copyFileSync(`${gz}.sig`, join(macos, `${macUpdateName(version)}.sig`));
+    const manifest = updaterManifest({ version, signature: readFileSync(`${gz}.sig`, 'utf8'), date: new Date(), platform: 'darwin' });
+    writeFileSync(join(macos, 'latest.json'), JSON.stringify(manifest, null, 2) + '\n');
+    console.log(`  更新清单：${join(macos, 'latest.json')}`);
+  }
+  const mb = statSync(dmg).size / 1024 / 1024;
+  console.log(`\n安装包：${dmg}（${mb.toFixed(2)} MB）`);
+  if (mb > SIZE_BUDGET_MB) console.warn(`⚠ 超出 ${SIZE_BUDGET_MB} MB 预算`);
   console.log('\n完成。');
 }
 

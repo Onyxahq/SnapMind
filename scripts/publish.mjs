@@ -4,14 +4,17 @@
 // 先 `pnpm release …` 打出带签名的安装包（需要本机有更新签名私钥），提交并推送，再运行：
 //   pnpm publish-release [--notes "这次的改动"] [--allow-private]
 //
-// 上传：安装包、安装包签名（.sig）、latest.json（写入说明）。标签 v<版本> 打在当前提交上。
+// 上传：安装包、更新包签名（.sig）、latest.json（写入说明）。标签 v<版本> 打在当前提交上。
+// Windows 和 macOS 在各自的机器上打包、各发一次：第二次发现这个版本已经发布过，就把本平台的文件
+// 传到同一个 Release，并把本平台那一项合并进它的 latest.json（不覆盖另一个平台）。
 // 说明默认取当前提交标题（去掉 feat(M11.3): 这样的前缀）。仓库是私有的时候用户拿不到更新，默认拒绝发布。
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RELEASE_REPO, readVersion, setupName } from './release.mjs';
+import { RELEASE_REPO, dmgName, macUpdateName, mergeManifests, readVersion, setupName } from './release.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -27,11 +30,20 @@ function sh(cmd, args) {
 function main(argv) {
   const at = argv.indexOf('--notes');
   const version = readVersion(readFileSync(join(ROOT, 'Cargo.toml'), 'utf8'));
-  const nsis = join(ROOT, 'target', 'release', 'bundle', 'nsis');
-  const setup = join(nsis, setupName(version));
-  const sig = `${setup}.sig`;
-  const manifest = join(nsis, 'latest.json');
-  for (const f of [setup, sig, manifest]) {
+  const bundle = join(ROOT, 'target', 'release', 'bundle');
+  let files, manifest;
+  if (process.platform === 'darwin') {
+    const macos = join(bundle, 'macos');
+    const gz = join(macos, macUpdateName(version));
+    manifest = join(macos, 'latest.json');
+    files = [join(bundle, 'dmg', dmgName(version)), gz, `${gz}.sig`];
+  } else {
+    const nsis = join(bundle, 'nsis');
+    const setup = join(nsis, setupName(version));
+    manifest = join(nsis, 'latest.json');
+    files = [setup, `${setup}.sig`];
+  }
+  for (const f of [...files, manifest]) {
     if (!existsSync(f)) throw new Error(`找不到 ${f}：先用带更新签名私钥的 pnpm release 打包`);
   }
 
@@ -41,18 +53,41 @@ function main(argv) {
   if (sh('git', ['status', '--porcelain'])) throw new Error('工作区有未提交的改动：先提交并推送');
 
   const notes = at >= 0 ? argv[at + 1] : notesFromSubject(sh('git', ['log', '-1', '--format=%s']));
-  const m = JSON.parse(readFileSync(manifest, 'utf8'));
+  let m = JSON.parse(readFileSync(manifest, 'utf8'));
   if (m.version !== version) throw new Error(`latest.json 是 ${m.version}，当前版本 ${version}：重新打包`);
   m.notes = notes;
-  writeFileSync(manifest, JSON.stringify(m, null, 2) + '\n');
 
-  const target = sh('git', ['rev-parse', 'HEAD']);
-  console.log(`发布 v${version}（${target.slice(0, 7)}）到 ${RELEASE_REPO}：${notes}`);
-  execFileSync(
-    'gh',
-    ['release', 'create', `v${version}`, setup, sig, manifest, '--repo', RELEASE_REPO, '--target', target, '--title', `SnapMind ${version}`, '--notes', notes],
-    { cwd: ROOT, stdio: 'inherit' },
-  );
+  const tag = `v${version}`;
+  const exists = (() => {
+    try {
+      sh('gh', ['release', 'view', tag, '--repo', RELEASE_REPO, '--json', 'tagName']);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  if (exists) {
+    // 另一个平台已经发过这个版本：合并它的 latest.json，再把本平台的文件传上去
+    const dir = mkdtempSync(join(tmpdir(), 'snapmind-release-'));
+    try {
+      sh('gh', ['release', 'download', tag, '--repo', RELEASE_REPO, '--pattern', 'latest.json', '--dir', dir]);
+      m = mergeManifests(JSON.parse(readFileSync(join(dir, 'latest.json'), 'utf8')), m);
+    } catch {
+      // 那边没有 latest.json（没签名的发布）：只放本平台
+    }
+    writeFileSync(manifest, JSON.stringify(m, null, 2) + '\n');
+    console.log(`${tag} 已存在：补充 ${Object.keys(m.platforms).join(' + ')} 的更新信息`);
+    execFileSync('gh', ['release', 'upload', tag, ...files, manifest, '--repo', RELEASE_REPO, '--clobber'], { cwd: ROOT, stdio: 'inherit' });
+  } else {
+    writeFileSync(manifest, JSON.stringify(m, null, 2) + '\n');
+    const target = sh('git', ['rev-parse', 'HEAD']);
+    console.log(`发布 ${tag}（${target.slice(0, 7)}）到 ${RELEASE_REPO}：${notes}`);
+    execFileSync(
+      'gh',
+      ['release', 'create', tag, ...files, manifest, '--repo', RELEASE_REPO, '--target', target, '--title', `SnapMind ${version}`, '--notes', notes],
+      { cwd: ROOT, stdio: 'inherit' },
+    );
+  }
   console.log('完成。');
 }
 

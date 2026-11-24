@@ -36,7 +36,7 @@
 | 长截图自动滚动 | 发滚轮消息 | CGEvent 滚轮直接投给目标进程（辅助功能权限） | ✅ 代码完成，待真机验收 |
 | 录屏 | 逐帧截 + Media Foundation + WASAPI | SCStream（视频 + 系统声音）+ AVAssetWriter | 编码、取帧 ✅；系统声音待真机验证 |
 | 开机自启 | 注册表（autostart 插件） | LaunchAgent（同一插件） | 未验证 MAC-1.4 |
-| 安装包 / 更新 | NSIS + updater（windows-x86_64） | dmg + updater（darwin-aarch64） | ❌ MAC-3.2 |
+| 安装包 / 更新 | NSIS + updater（windows-x86_64） | dmg + updater（darwin-aarch64） | 脚本 ✅；密钥 / Developer ID 待用户 |
 | 签名 | 无 | 本机自签名「SnapMind Local Signing」；对外发布需 Developer ID + 公证 | 本机 ✅ / 发布待用户 |
 
 ## 3. 分期任务
@@ -75,6 +75,8 @@
   - ✅ 第二步：SCStream 持续取帧（带指针）；应用内自测开流 130 ms、取帧不再花时间。
   - 第三步：SCStream 音频做 `Loopback`（系统声音）——代码完成，待屏幕亮着时跑全流程自测（`.git/mac31-rec-bench.patch`）并在截图界面完整录一段。
 - [ ] **MAC-3.2** 发布：`scripts/release.mjs` 加 Mac 分支（dmg、`latest.json` 的 `darwin-aarch64`），更新器在 Mac 上能装新版。**需要用户决定**：是否购买 Apple Developer 账号做 Developer ID 签名和公证——不做的话，别人下载后要右键打开或在「隐私与安全性」里放行，且每台机器都要重新授权屏幕录制。
+  - ✅ 脚本：`pnpm release` / `pnpm publish-release` 支持 Mac（dmg、darwin-aarch64 更新包、两平台 latest.json 合并）。
+  - 待用户：① 生成更新签名密钥对（私钥放 `~/.tauri/snapmind-updater.key`，公钥填 `plugins.updater.pubkey`）——目前 Windows 的自动更新也因此没上线；② 是否购买 Apple Developer 账号做 Developer ID 签名 + 公证。
 
 ## 4. 在 Mac 上开发与验证
 
